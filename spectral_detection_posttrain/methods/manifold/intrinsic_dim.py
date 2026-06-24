@@ -69,9 +69,9 @@ class IntrinsicDimEstimator(nn.Module):
         if n <= self.twonn_k:
             return torch.tensor(0.0, device=features.device, dtype=features.dtype)
 
-        # Pairwise Euclidean distances.
-        diff = features.unsqueeze(1) - features.unsqueeze(0)  # (n, n, d)
-        dist = torch.linalg.norm(diff, dim=-1)  # (n, n)
+        # Pairwise Euclidean distances via torch.cdist to avoid materializing
+        # the (n, n, d) difference tensor, which causes OOM for large n.
+        dist = torch.cdist(features, features)  # (n, n)
         dist.fill_diagonal_(float("inf"))
 
         # Distances to the first and second nearest neighbors.

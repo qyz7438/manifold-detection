@@ -97,6 +97,8 @@ def parse_args() -> argparse.Namespace:
                         help="Compute geometry metrics every N steps (0 to disable).")
     parser.add_argument("--geometry-buffer-size", type=int, default=4096,
                         help="Max foreground features to accumulate for epoch-end geometry metrics.")
+    parser.add_argument("--id-method", default="twonn", choices=["pca", "twonn"],
+                        help="Intrinsic-dimension estimator for geometry logging (default: twonn).")
     parser.add_argument("--eval-every", type=int, default=1,
                         help="Run validation AP50 every N epochs.")
     parser.add_argument("--early-stopping-patience", type=int, default=3,
@@ -1478,7 +1480,7 @@ def main() -> None:
         transport_head = TransportHead(
             feature_dim=feature_dim, num_prototypes=args.num_prototypes, tau=args.tau
         ).to(device)
-    id_estimator = IntrinsicDimEstimator(method="pca").to(device)
+    id_estimator = IntrinsicDimEstimator(method=args.id_method).to(device)
 
     normalize_features = args.normalize_features and not args.no_normalize_features
     active_transport_head = None
@@ -2008,7 +2010,7 @@ def main() -> None:
                     all_labels,
                     num_classes,
                     corrected_features=all_corr,
-                    method="pca",
+                    method=args.id_method,
                     normalize=normalize_features,
                 )
                 row.update(scalar_geometry_report(geometry))
