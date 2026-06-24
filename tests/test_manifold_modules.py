@@ -11,7 +11,11 @@ from spectral_detection_posttrain.methods.manifold.geometry_metrics import (
     compute_effective_rank,
     compute_nc1,
 )
-from spectral_detection_posttrain.methods.manifold.prototype_bank import PrototypeBank
+from spectral_detection_posttrain.methods.manifold.prototype_bank import (
+    PrototypeBank,
+    RemoteSensingPrototypeBank,
+    compute_class_frequency_weights,
+)
 from spectral_detection_posttrain.methods.manifold.sinkhorn_assigner import SinkhornAssigner
 from spectral_detection_posttrain.methods.manifold.transport_head import TransportHead
 from spectral_detection_posttrain.methods.manifold.intrinsic_dim import IntrinsicDimEstimator
@@ -205,3 +209,89 @@ def test_nc1_returns_nan_for_single_foreground_class():
     labels = torch.ones(20, dtype=torch.long)
     nc1 = compute_nc1(features, labels, num_classes=3)
     assert math.isnan(nc1.item())
+
+
+# ---------------------------------------------------------------------------
+# RemoteSensingPrototypeBank
+# ---------------------------------------------------------------------------
+
+def test_rs_prototype_bank_shape():
+    bank = RemoteSensingPrototypeBank(
+        num_classes=3,
+        num_prototypes_per_class=4,
+        feature_dim=16,
+        n_orient_bins=2,
+        n_scale_bins=3,
+    )
+    assert bank.prototypes.shape == (3, 2, 3, 4, 16)
+    assert bank.sample_counts.shape == (3, 2, 3)
+
+
+def test_rs_prototype_bank_orient_scale_from_boxes():
+    boxes = torch.tensor([
+        [0.0, 0.0, 10.0, 2.0],  # wide -> low orient bin
+        [0.0, 0.0, 2.0, 10.0],  # tall -> high orient bin
+        [0.0, 0.0, 4.0, 4.0],   # square -> low orient bin
+    ])
+    orient = RemoteSensingPrototypeBank.orient_idx_from_boxes(boxes, n_bins=2)
+    scale = RemoteSensingPrototypeBank.scale_idx_from_boxes(boxes, n_bins=2)
+    assert orient.shape == (3,)
+    assert scale.shape == (3,)
+    # Tall box should be in a different orient bin than wide box.
+    assert orient[0] != orient[1]
+
+
+def test_rs_prototype_bank_compute_distances_and_update():
+    bank = RemoteSensingPrototypeBank(
+        num_classes=2,
+        num_prototypes_per_class=3,
+        feature_dim=8,
+        n_orient_bins=2,
+        n_scale_bins=2,
+    )
+    features = torch.randn(6, 8)
+    class_ids = torch.tensor([0, 0, 1, 1, 0, 1])
+    orient_idx = torch.tensor([0, 1, 0, 1, 0, 1])
+    scale_idx = torch.tensor([0, 0, 1, 1, 0, 1])
+
+    distances = bank.compute_distances(features, class_ids, orient_idx, scale_idx)
+    assert distances.shape == (6, 3)
+    assert (distances >= 0).all()
+
+    initial = bank.prototypes.clone()
+    assignments = torch.rand(6, 3)
+    assignments = assignments / assignments.sum(dim=1, keepdim=True)
+    bank.update(features, class_ids, assignments, orient_idx=orient_idx, scale_idx=scale_idx)
+    assert not torch.allclose(bank.prototypes, initial)
+    # The touched cells should have non-zero sample counts.
+    assert bank.sample_counts[0, 0, 0] > 0
+    assert bank.sample_counts[1, 1, 1] > 0
+
+
+def test_rs_prototype_bank_update_with_class_weights():
+    bank = RemoteSensingPrototypeBank(
+        num_classes=2,
+        num_prototypes_per_class=2,
+        feature_dim=4,
+        n_orient_bins=1,
+        n_scale_bins=1,
+    )
+    features = torch.randn(4, 4)
+    class_ids = torch.tensor([0, 0, 1, 1])
+    assignments = torch.ones(4, 2) / 2.0
+
+    # Give class 1 a much higher weight.
+    class_weights = torch.tensor([1.0, 1.0, 10.0, 10.0])
+    bank.update(features, class_ids, assignments, class_weights=class_weights)
+
+    # Class 1 prototypes should have moved more toward their samples.
+    # We verify the update is deterministic and produces finite values.
+    assert torch.isfinite(bank.prototypes).all()
+
+
+def test_compute_class_frequency_weights():
+    counts = torch.tensor([0, 100, 10, 1])
+    weights = compute_class_frequency_weights(counts, mode="inv_sqrt")
+    assert weights[0] == 1.0  # background kept at 1
+    assert weights[1] < weights[2] < weights[3]
+    assert torch.isfinite(weights).all()

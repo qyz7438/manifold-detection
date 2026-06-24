@@ -10,9 +10,12 @@ from spectral_detection_posttrain.methods.manifold.geometry_metrics import (
     compute_intra_class_compactness,
     compute_manifold_geometry,
     compute_nc1,
+    compute_nc1_per_class,
+    compute_nc2,
     compute_spectral_decay,
     scalar_geometry_report,
 )
+from spectral_detection_posttrain.core.models.etf_predictor import build_etf_weight
 
 
 def test_compute_class_centroids_counts_empty_classes() -> None:
@@ -186,3 +189,60 @@ def test_corrected_geometry_adds_delta_metrics() -> None:
     assert "separability_corrected" in geometry
     assert "effective_rank_corrected_overall" in report
     assert "nc1_corrected" in report
+
+
+def test_per_class_nc1_reports_all_classes() -> None:
+    torch.manual_seed(0)
+    features = torch.randn(40, 4)
+    labels = torch.cat([
+        torch.ones(15, dtype=torch.long),
+        torch.full((15,), 2, dtype=torch.long),
+        torch.full((10,), 3, dtype=torch.long),
+    ])
+    per_class_nc1 = compute_nc1_per_class(features, labels, num_classes=4)
+    assert set(per_class_nc1.keys()) == {"1", "2", "3"}
+    assert all(isinstance(v, float) for v in per_class_nc1.values())
+
+
+def test_nc2_high_for_aligned_centroids() -> None:
+    torch.manual_seed(0)
+    num_classes = 3
+    feature_dim = 4
+    etf_weight = build_etf_weight(num_classes, feature_dim)
+    # Generate features whose centroids exactly match the ETF rows.
+    features = []
+    labels = []
+    for c in range(1, num_classes):
+        features.append(etf_weight[c].unsqueeze(0).expand(5, -1) + torch.randn(5, feature_dim) * 0.01)
+        labels.append(torch.full((5,), c, dtype=torch.long))
+    features = torch.cat(features, dim=0)
+    labels = torch.cat(labels, dim=0)
+    nc2 = compute_nc2(features, labels, num_classes, etf_weight)
+    assert nc2.item() > 0.95
+
+
+def test_compute_manifold_geometry_with_etf_and_weights() -> None:
+    torch.manual_seed(0)
+    features = torch.randn(50, 8)
+    labels = torch.cat([
+        torch.zeros(15, dtype=torch.long),
+        torch.ones(20, dtype=torch.long),
+        torch.full((15,), 2, dtype=torch.long),
+    ])
+    etf_weight = build_etf_weight(num_classes=3, feature_dim=8)
+    class_weights = torch.tensor([1.0, 0.5, 2.0])
+
+    geometry = compute_manifold_geometry(
+        features,
+        labels,
+        num_classes=3,
+        etf_weight=etf_weight,
+        class_frequency_weights=class_weights,
+    )
+    assert "nc2_overall" in geometry
+    assert "per_class_nc1" in geometry
+    assert "per_class_effective_rank" in geometry
+    assert "class_frequency_weights" in geometry
+
+    report = scalar_geometry_report(geometry)
+    assert "nc2_overall" in report

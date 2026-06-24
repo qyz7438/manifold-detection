@@ -337,6 +337,111 @@ def compute_nc1(
     return sigma_w / sigma_b
 
 
+def compute_nc1_per_class(
+    features: torch.Tensor, labels: torch.Tensor, num_classes: int
+) -> dict[str, float]:
+    """Compute NC1 per foreground class.
+
+    For each class ``c`` compute ``Tr(Sigma_W,c) / Tr(Sigma_B,c)`` where
+    ``Sigma_W,c`` is the within-class scatter and ``Sigma_B,c`` is the
+    between-class scatter relative to the global foreground mean.
+
+    Returns:
+        Dict mapping class index string to NC1 value (NaN for empty classes).
+    """
+    fg_mask = labels >= 1
+    result: dict[str, float] = {}
+    if not fg_mask.any():
+        return result
+
+    fg_features = features[fg_mask]
+    fg_labels = labels[fg_mask]
+    global_mean = fg_features.mean(dim=0)
+
+    for c in range(1, num_classes):
+        class_mask = fg_labels == c
+        n_c = int(class_mask.sum().item())
+        if n_c < 2:
+            result[str(c)] = float("nan")
+            continue
+        class_feats = fg_features[class_mask]
+        class_mean = class_feats.mean(dim=0)
+        sigma_w = ((class_feats - class_mean) ** 2).sum() / n_c
+        sigma_b = ((class_mean - global_mean) ** 2).sum()
+        if sigma_b <= 0:
+            result[str(c)] = float("nan")
+        else:
+            result[str(c)] = float((sigma_w / sigma_b).item())
+    return result
+
+
+def compute_nc2(
+    features: torch.Tensor,
+    labels: torch.Tensor,
+    num_classes: int,
+    etf_weight: torch.Tensor,
+) -> torch.Tensor:
+    """Compute NC2: mean cosine similarity between class centroids and ETF template.
+
+    The ETF template rows are already unit norm.  We L2-normalize the class
+    centroids and compute the average cosine similarity to the corresponding
+    ETF row.  Higher values mean the learned centroids are better aligned with
+    the ETF geometry.
+
+    Args:
+        features: ``(N, D)``.
+        labels: ``(N,)`` class indices (0 = background).
+        num_classes: total number of classes including background.
+        etf_weight: ``(num_classes, D)`` ETF weight matrix.
+
+    Returns:
+        Scalar tensor with mean cosine similarity.  Returns NaN when no valid
+        foreground classes exist.
+    """
+    fg_mask = labels >= 1
+    if not fg_mask.any():
+        return torch.tensor(float("nan"), device=features.device, dtype=features.dtype)
+
+    centroids, counts = compute_class_centroids(features, labels, num_classes)
+    valid_classes = (counts[1:] > 0).nonzero(as_tuple=False).squeeze(-1) + 1
+    if valid_classes.numel() == 0:
+        return torch.tensor(float("nan"), device=features.device, dtype=features.dtype)
+
+    centroids_norm = F.normalize(centroids[valid_classes], dim=-1)
+    etf_norm = F.normalize(etf_weight[valid_classes].to(features.device, features.dtype), dim=-1)
+    cos_sims = (centroids_norm * etf_norm).sum(dim=-1)
+    return cos_sims.mean()
+
+
+def compute_per_class_effective_rank(
+    features: torch.Tensor, labels: torch.Tensor, num_classes: int
+) -> dict[str, float]:
+    """Compute effective rank per foreground class."""
+    result: dict[str, float] = {}
+    for c in range(1, num_classes):
+        mask = labels == c
+        if int(mask.sum().item()) < 2:
+            result[str(c)] = float("nan")
+        else:
+            result[str(c)] = float(compute_effective_rank(features[mask]).item())
+    return result
+
+
+def compute_per_class_spectral_decay(
+    features: torch.Tensor, labels: torch.Tensor, num_classes: int, topk: tuple[int, ...] = (5,)
+) -> dict[str, dict[str, float]]:
+    """Compute spectral top-k energy ratio per foreground class."""
+    result: dict[str, dict[str, float]] = {}
+    for c in range(1, num_classes):
+        mask = labels == c
+        if int(mask.sum().item()) < 1:
+            result[str(c)] = {f"spectral_top{k}_ratio": float("nan") for k in topk}
+        else:
+            decay = compute_spectral_decay(features[mask], topk=topk)
+            result[str(c)] = {k: float(v.item()) for k, v in decay.items()}
+    return result
+
+
 def compute_separability_auc(
     features: torch.Tensor,
     labels: torch.Tensor,
@@ -418,6 +523,8 @@ def compute_manifold_geometry(
     corrected_features: torch.Tensor | None = None,
     method: str = "pca",
     normalize: bool = True,
+    etf_weight: torch.Tensor | None = None,
+    class_frequency_weights: torch.Tensor | None = None,
 ) -> dict[str, Any]:
     """Compute a full geometry report for a batch of box features.
 
@@ -430,6 +537,8 @@ def compute_manifold_geometry(
             before/after ID and compactness comparisons.
         method: intrinsic-dimension estimator (``"pca"`` or ``"twonn"``).
         normalize: normalize features for compactness/separation computation.
+        etf_weight: optional ``(num_classes, D)`` ETF weight matrix for NC2.
+        class_frequency_weights: optional ``(num_classes,)`` per-class weights.
 
     Returns:
         Nested dict of scalar tensors suitable for JSON logging after ``float()``
@@ -440,8 +549,11 @@ def compute_manifold_geometry(
     * ``effective_rank_overall`` / ``effective_rank_foreground``.
     * ``spectral_top1_ratio``, ``spectral_top5_ratio``, ``spectral_top10_ratio``
       (overall and foreground).
-    * ``nc1_overall`` (foreground only).
+    * ``nc1_overall`` (foreground only) and ``per_class_nc1``.
+    * ``nc2_overall`` (when ``etf_weight`` is provided).
+    * ``per_class_effective_rank`` and ``per_class_spectral_top5_ratio``.
     * ``separability_overall`` and ``per_class_separability``.
+    * ``class_frequency_weights`` (when provided).
 
     When ``corrected_features`` is provided, corrected variants of the above are
     included (e.g. ``effective_rank_corrected_overall``,
@@ -487,6 +599,25 @@ def compute_manifold_geometry(
 
     # NC1 (foreground only).
     result["nc1_overall"] = compute_nc1(features, labels, num_classes)
+    result["per_class_nc1"] = compute_nc1_per_class(features, labels, num_classes)
+
+    # NC2: alignment between class centroids and ETF template.
+    if etf_weight is not None:
+        result["nc2_overall"] = compute_nc2(features, labels, num_classes, etf_weight)
+
+    # Per-class effective rank and spectral decay.
+    result["per_class_effective_rank"] = compute_per_class_effective_rank(
+        features, labels, num_classes
+    )
+    result["per_class_spectral_top5_ratio"] = compute_per_class_spectral_decay(
+        features, labels, num_classes, topk=(5,)
+    )
+
+    # Class frequency weights (for logging context).
+    if class_frequency_weights is not None:
+        result["class_frequency_weights"] = {
+            str(c): float(class_frequency_weights[c].item()) for c in range(num_classes)
+        }
 
     # Centroids and compactness for raw features.
     centroids, counts = compute_class_centroids(features, labels, num_classes)

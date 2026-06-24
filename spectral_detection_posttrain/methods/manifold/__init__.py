@@ -16,6 +16,8 @@ from spectral_detection_posttrain.methods.manifold.sinkhorn_ot import (
 )
 from spectral_detection_posttrain.methods.manifold.prototype_bank import (
     PrototypeBank,
+    RemoteSensingPrototypeBank,
+    compute_class_frequency_weights,
 )
 from spectral_detection_posttrain.methods.manifold.sinkhorn_assigner import (
     SinkhornAssigner,
@@ -38,6 +40,8 @@ __all__ = [
     "ChordTransport",
     "SinkhornOT",
     "PrototypeBank",
+    "RemoteSensingPrototypeBank",
+    "compute_class_frequency_weights",
     "SinkhornAssigner",
     "TransportHead",
     "ManifoldCorrectionPredictor",

@@ -41,6 +41,10 @@ from spectral_detection_posttrain.core.models.box_heads import (
     get_box_head_type,
     replace_box_head,
 )
+from spectral_detection_posttrain.core.models.etf_predictor import (
+    ETFClassifier,
+    replace_cls_score_with_etf,
+)
 from spectral_detection_posttrain.datasets import build_detection_loaders
 from spectral_detection_posttrain.eval.detection_metrics import evaluate_detection_predictions
 from spectral_detection_posttrain.experiments.canonical_runner import (
@@ -52,8 +56,10 @@ from spectral_detection_posttrain.methods.manifold import (
     IntrinsicDimEstimator,
     ManifoldCorrectionPredictor,
     PrototypeBank,
+    RemoteSensingPrototypeBank,
     SinkhornAssigner,
     TransportHead,
+    compute_class_frequency_weights,
 )
 from spectral_detection_posttrain.methods.manifold.geometry_metrics import (
     compute_manifold_geometry,
@@ -139,6 +145,17 @@ def parse_args() -> argparse.Namespace:
                         help="Rank for bottleneck (low-rank skip) head.")
     parser.add_argument("--box-head-attention-channels", type=int, default=64,
                         help="Intermediate channels for attention_pool head.")
+    parser.add_argument("--rs-orient-bins", type=int, default=1,
+                        help="Number of orientation bins for RemoteSensingPrototypeBank (1=disabled).")
+    parser.add_argument("--rs-scale-bins", type=int, default=1,
+                        help="Number of scale bins for RemoteSensingPrototypeBank (1=disabled).")
+    parser.add_argument("--class-reweight", default="none",
+                        choices=("none", "inv_sqrt", "effective_num"),
+                        help="Class reweighting scheme for prototype updates and manifold losses.")
+    parser.add_argument("--class-reweight-beta", type=float, default=0.999,
+                        help="Beta for effective_num class reweighting.")
+    parser.add_argument("--use-etf-classifier", action="store_true",
+                        help="Replace the box_predictor cls_score with a fixed ETF classifier.")
     parser.add_argument("--lambda-fc1-rank", type=float, default=0.0,
                         help="Weight for the fc1 spectral tail loss. Default keeps the loss disabled.")
     parser.add_argument("--lambda-fc1-compact", type=float, default=0.0,
@@ -307,8 +324,8 @@ def warmup_class_centers(
     max_batches: int,
     normalize: bool,
     use_gt_boxes: bool,
-) -> torch.Tensor:
-    """Collect box features over a few batches and compute per-class means."""
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Collect box features over a few batches and compute per-class means/counts."""
     sums = [torch.zeros(1, device=device) for _ in range(num_classes)]
     counts = [0 for _ in range(num_classes)]
     dims = None
@@ -348,7 +365,8 @@ def warmup_class_centers(
         (sums[c] / max(1, counts[c])) if counts[c] > 0 else torch.zeros(dims or 1, device=device)
         for c in range(num_classes)
     ])
-    return centers
+    counts_tensor = torch.tensor(counts, dtype=torch.long, device=device)
+    return centers, counts_tensor
 
 
 def initialize_prototypes_from_centers_with_seed(
@@ -443,6 +461,8 @@ def prototype_projection_targets(
     prototype_bank: PrototypeBank,
     sinkhorn: SinkhornAssigner,
     normalize: bool,
+    orient_idx: torch.Tensor | None = None,
+    scale_idx: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     """Project each feature onto its class-conditioned prototype manifold."""
     if features.ndim != 2:
@@ -468,12 +488,19 @@ def prototype_projection_targets(
             ),
         }
 
-    distances = prototype_bank.compute_distances(assignment_features, labels)
-    assignments = sinkhorn(distances)
-    class_prototypes = prototype_bank.prototypes[labels].to(
-        device=features.device,
-        dtype=features.dtype,
+    distances = prototype_bank.compute_distances(
+        assignment_features, labels, orient_idx=orient_idx, scale_idx=scale_idx
     )
+    assignments = sinkhorn(distances)
+    if isinstance(prototype_bank, RemoteSensingPrototypeBank):
+        class_prototypes = prototype_bank.prototypes[
+            labels, orient_idx, scale_idx
+        ].to(device=features.device, dtype=features.dtype)
+    else:
+        class_prototypes = prototype_bank.prototypes[labels].to(
+            device=features.device,
+            dtype=features.dtype,
+        )
     target_features = torch.einsum("bk,bkd->bd", assignments, class_prototypes)
     return {
         "assignment_features": assignment_features,
@@ -538,6 +565,7 @@ def _inter_class_projection_margin_loss(
     prototype_bank: PrototypeBank,
     *,
     margin: float,
+    class_weights: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if endpoints.shape[0] == 0 or prototype_bank.num_classes <= 2:
         return endpoints.sum() * 0.0
@@ -560,7 +588,11 @@ def _inter_class_projection_margin_loss(
     valid = torch.isfinite(wrong_nearest)
     if not valid.any():
         return endpoints.sum() * 0.0
-    return F.relu(float(margin) + true_nearest[valid] - wrong_nearest[valid]).mean()
+    margins = F.relu(float(margin) + true_nearest[valid] - wrong_nearest[valid])
+    if class_weights is not None:
+        w = class_weights[valid]
+        return (margins * w).sum() / w.sum().clamp_min(1e-12)
+    return margins.mean()
 
 
 def projection_geometry_losses(
@@ -574,6 +606,7 @@ def projection_geometry_losses(
     lambda_inter: float,
     inter_margin: float = 0.5,
     proto_div_temperature: float = 0.1,
+    class_weights: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     """Regularize endpoints on the class-conditioned prototype manifold."""
     labels = labels.long()
@@ -588,6 +621,7 @@ def projection_geometry_losses(
         labels,
         prototype_bank,
         margin=inter_margin,
+        class_weights=class_weights,
     )
 
     total = (
@@ -979,6 +1013,9 @@ def manifold_losses(
     lambda_tr: float,
     lambda_en: float,
     normalize: bool,
+    orient_idx: torch.Tensor | None = None,
+    scale_idx: torch.Tensor | None = None,
+    class_weights: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     projection = prototype_projection_targets(
         box_features,
@@ -986,16 +1023,25 @@ def manifold_losses(
         prototype_bank,
         sinkhorn,
         normalize,
+        orient_idx=orient_idx,
+        scale_idx=scale_idx,
     )
     box_features = projection["assignment_features"]
     distances = projection["distances"]
     transport = transport_head(box_features, distances)
 
     transported = box_features + transport
-    loss_transport = (transported - projection["target_features"]).square().sum(dim=-1).mean()
+    per_sample_loss = (transported - projection["target_features"]).square().sum(dim=-1)
+    if class_weights is not None:
+        loss_transport = (per_sample_loss * class_weights).sum() / class_weights.sum().clamp_min(1e-12)
+    else:
+        loss_transport = per_sample_loss.mean()
 
-    energy = (transport ** 2).sum(dim=-1).mean()
-    loss_energy = energy
+    energy = (transport ** 2).sum(dim=-1)
+    if class_weights is not None:
+        loss_energy = (energy * class_weights).sum() / class_weights.sum().clamp_min(1e-12)
+    else:
+        loss_energy = energy.mean()
 
     total = lambda_tr * loss_transport + lambda_en * loss_energy
     return {
@@ -1014,6 +1060,9 @@ def active_manifold_losses(
     lambda_tr: float,
     lambda_en: float,
     normalize: bool,
+    orient_idx: torch.Tensor | None = None,
+    scale_idx: torch.Tensor | None = None,
+    class_weights: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     if not isinstance(correction_predictor, ManifoldCorrectionPredictor):
         raise TypeError("correction_predictor must be a ManifoldCorrectionPredictor")
@@ -1032,25 +1081,35 @@ def active_manifold_losses(
         prototype_bank,
         sinkhorn,
         normalize,
+        orient_idx=orient_idx,
+        scale_idx=scale_idx,
     )
 
-    class_weights = F.one_hot(labels, num_classes=prototype_bank.num_classes).to(
+    class_weights_onehot = F.one_hot(labels, num_classes=prototype_bank.num_classes).to(
         device=box_features.device,
         dtype=box_features.dtype,
     )
     transport = correction_predictor.correction_field_from_class_weights(
         box_features,
-        class_weights,
+        class_weights_onehot,
     )
 
     corrected_features = box_features + correction_predictor.gamma * transport
     aligned_features = F.normalize(corrected_features, dim=-1) if normalize else corrected_features
-    loss_transport = (aligned_features - projection["target_features"]).square().sum(dim=-1).mean()
+    per_sample_transport = (aligned_features - projection["target_features"]).square().sum(dim=-1)
+    if class_weights is not None:
+        loss_transport = (per_sample_transport * class_weights).sum() / class_weights.sum().clamp_min(1e-12)
+    else:
+        loss_transport = per_sample_transport.mean()
 
     # Penalize the actual displacement, not the unit residual, so that larger
     # gamma automatically pays a higher energy price.
     actual_displacement = correction_predictor.gamma * transport
-    loss_energy = (actual_displacement ** 2).sum(dim=-1).mean()
+    per_sample_energy = (actual_displacement ** 2).sum(dim=-1)
+    if class_weights is not None:
+        loss_energy = (per_sample_energy * class_weights).sum() / class_weights.sum().clamp_min(1e-12)
+    else:
+        loss_energy = per_sample_energy.mean()
     total = lambda_tr * loss_transport + lambda_en * loss_energy
     return {
         "loss_manifold_total": total,
@@ -1066,16 +1125,65 @@ def maybe_update_prototypes(
     sinkhorn: SinkhornAssigner,
     normalize: bool,
     freeze: bool,
+    orient_idx: torch.Tensor | None = None,
+    scale_idx: torch.Tensor | None = None,
+    class_weights: torch.Tensor | None = None,
 ) -> bool:
     """EMA-update prototype endpoints unless the run keeps warmup endpoints fixed."""
     if freeze or features.shape[0] == 0:
         return False
     with torch.no_grad():
         feat_for_update = F.normalize(features, dim=-1) if normalize else features
-        distances = prototype_bank.compute_distances(feat_for_update, labels)
+        distances = prototype_bank.compute_distances(
+            feat_for_update, labels, orient_idx=orient_idx, scale_idx=scale_idx
+        )
         assignments = sinkhorn(distances)
-        prototype_bank.update(feat_for_update, labels, assignments)
+        prototype_bank.update(
+            feat_for_update,
+            labels,
+            assignments,
+            orient_idx=orient_idx,
+            scale_idx=scale_idx,
+            class_weights=class_weights,
+        )
     return True
+
+
+def compute_orient_scale_indices(
+    boxes: list[torch.Tensor],
+    prototype_bank: PrototypeBank,
+) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+    """Return (orient_idx, scale_idx) tensors if using a remote-sensing bank.
+
+    Args:
+        boxes: list of ``(B_i, 4)`` tensors in the same order as labels.
+        prototype_bank: the prototype bank (plain or remote-sensing).
+
+    Returns:
+        Tuple of ``(N,)`` long tensors or ``(None, None)`` for plain banks.
+    """
+    if not isinstance(prototype_bank, RemoteSensingPrototypeBank):
+        return None, None
+    if not boxes:
+        return None, None
+    cat_boxes = torch.cat(boxes, dim=0)
+    orient_idx = RemoteSensingPrototypeBank.orient_idx_from_boxes(
+        cat_boxes, prototype_bank.n_orient_bins
+    )
+    scale_idx = RemoteSensingPrototypeBank.scale_idx_from_boxes(
+        cat_boxes, prototype_bank.n_scale_bins
+    )
+    return orient_idx, scale_idx
+
+
+def per_sample_class_weights(
+    labels: torch.Tensor,
+    class_weight_per_class: torch.Tensor | None,
+) -> torch.Tensor | None:
+    """Map per-class weights to a per-sample weight vector."""
+    if class_weight_per_class is None:
+        return None
+    return class_weight_per_class[labels.long()]
 
 
 def update_best_metric(
@@ -1468,12 +1576,32 @@ def main() -> None:
     feature_dim = infer_box_feature_dim(model, device, config)
 
     num_classes = int(config["model"]["num_classes"])
-    prototype_bank = PrototypeBank(
-        num_classes=num_classes,
-        num_prototypes_per_class=args.num_prototypes,
-        feature_dim=feature_dim,
-        ema_decay=args.ema_decay,
-    ).to(device)
+
+    # Optionally replace the learnable cls_score with a fixed ETF classifier.
+    if args.use_etf_classifier:
+        replace_cls_score_with_etf(model.roi_heads.box_predictor, num_classes=num_classes)
+        print("Replaced box_predictor.cls_score with ETF classifier")
+    use_rs_prototypes = args.rs_orient_bins > 1 or args.rs_scale_bins > 1
+    if use_rs_prototypes:
+        prototype_bank = RemoteSensingPrototypeBank(
+            num_classes=num_classes,
+            num_prototypes_per_class=args.num_prototypes,
+            feature_dim=feature_dim,
+            n_orient_bins=args.rs_orient_bins,
+            n_scale_bins=args.rs_scale_bins,
+            ema_decay=args.ema_decay,
+        ).to(device)
+        print(
+            f"Using RemoteSensingPrototypeBank: orient_bins={args.rs_orient_bins}, "
+            f"scale_bins={args.rs_scale_bins}"
+        )
+    else:
+        prototype_bank = PrototypeBank(
+            num_classes=num_classes,
+            num_prototypes_per_class=args.num_prototypes,
+            feature_dim=feature_dim,
+            ema_decay=args.ema_decay,
+        ).to(device)
     sinkhorn = SinkhornAssigner(eps=args.sinkhorn_eps, max_iter=args.sinkhorn_iter).to(device)
     transport_head = None
     if not args.active_manifold_correction:
@@ -1499,9 +1627,10 @@ def main() -> None:
     extractor = extract_gt_box_features if args.use_gt_boxes else extract_proposal_box_features
 
     # Warm-start prototypes from class centers to avoid random-init instability.
+    class_counts = torch.zeros(num_classes, dtype=torch.long, device=device)
     if args.warmup_batches > 0:
         print(f"Warming up prototypes from {args.warmup_batches} batches...")
-        centers = warmup_class_centers(
+        centers, class_counts = warmup_class_centers(
             model, train_loader, device, num_classes, args.warmup_batches, normalize_features, args.use_gt_boxes
         )
         initialize_prototypes_from_centers_with_seed(
@@ -1510,6 +1639,13 @@ def main() -> None:
             noise_scale=0.05,
             seed=int(config.get("seed", 42)),
         )
+
+    class_weight_per_class = None
+    if args.class_reweight != "none":
+        class_weight_per_class = compute_class_frequency_weights(
+            class_counts, mode=args.class_reweight, beta=args.class_reweight_beta
+        )
+        print(f"Class reweighting: {args.class_reweight}; weights={class_weight_per_class.cpu().tolist()}")
 
     # Build parameter groups: detector parts get the low LR, manifold modules
     # can afford a higher LR because they are small and randomly initialized.
@@ -1667,12 +1803,13 @@ def main() -> None:
 
             # Manifold losses on proposals (or GT boxes if legacy mode requested).
             layer_features: dict[str, torch.Tensor] = {}
+            scaled_boxes: list[torch.Tensor] = []
             if need_layer_features:
-                box_features, labels, _, layer_features = extractor(
+                box_features, labels, scaled_boxes, layer_features = extractor(
                     model, images, targets, return_layers=True
                 )
             else:
-                box_features, labels, _ = extractor(model, images, targets)
+                box_features, labels, scaled_boxes = extractor(model, images, targets)
             fc1_loss_dict = {
                 "loss_fc1_geometry_total": torch.tensor(0.0, device=device),
                 "loss_fc1_rank": torch.tensor(0.0, device=device),
@@ -1731,9 +1868,17 @@ def main() -> None:
 
                 # Foreground proposals carry class labels 1..C; background is 0.
                 fg_mask = labels >= 1
+                orient_idx_all, scale_idx_all = compute_orient_scale_indices(
+                    scaled_boxes, prototype_bank
+                )
+                orient_idx_fg = orient_idx_all[fg_mask] if orient_idx_all is not None else None
+                scale_idx_fg = scale_idx_all[fg_mask] if scale_idx_all is not None else None
                 if fg_mask.any():
                     feat_fg = box_features[fg_mask]
                     labels_fg = labels[fg_mask]
+                    class_weights_fg = per_sample_class_weights(
+                        labels_fg, class_weight_per_class
+                    )
                     corrected_features_for_losses = None
                     if args.active_manifold_correction:
                         manifold_loss_dict = active_manifold_losses(
@@ -1745,6 +1890,9 @@ def main() -> None:
                             args.lambda_tr if manifold_active else 0.0,
                             args.lambda_en if manifold_active else 0.0,
                             normalize_features,
+                            orient_idx=orient_idx_fg,
+                            scale_idx=scale_idx_fg,
+                            class_weights=class_weights_fg,
                         )
                     else:
                         if transport_head is None:
@@ -1758,6 +1906,9 @@ def main() -> None:
                             args.lambda_tr if manifold_active else 0.0,
                             args.lambda_en if manifold_active else 0.0,
                             normalize_features,
+                            orient_idx=orient_idx_fg,
+                            scale_idx=scale_idx_fg,
+                            class_weights=class_weights_fg,
                         )
                     if use_fc1_geometry and "fc1" in layer_features:
                         fc1_loss_dict = fc1_geometry_losses(
@@ -1775,6 +1926,8 @@ def main() -> None:
                             prototype_bank,
                             sinkhorn,
                             normalize_features,
+                            orient_idx=orient_idx_fg,
+                            scale_idx=scale_idx_fg,
                         )
                         projection_loss_dict = projection_geometry_losses(
                             projection["target_features"],
@@ -1786,6 +1939,7 @@ def main() -> None:
                             lambda_inter=args.lambda_proj_inter if manifold_active else 0.0,
                             inter_margin=args.projection_inter_margin,
                             proto_div_temperature=args.proto_div_temperature,
+                            class_weights=class_weights_fg,
                         )
                     if (
                         use_corrected_geometry
@@ -1861,6 +2015,9 @@ def main() -> None:
                         sinkhorn,
                         normalize_features,
                         args.freeze_prototypes_after_warmup,
+                        orient_idx=orient_idx_fg,
+                        scale_idx=scale_idx_fg,
+                        class_weights=class_weights_fg,
                     )
 
                     # Accumulate features for epoch-end geometry diagnostics.
@@ -2005,6 +2162,14 @@ def main() -> None:
                     all_labels = all_labels[perm]
                     all_corr = all_corr[perm]
 
+                etf_weight = None
+                predictor = model.roi_heads.box_predictor
+                if isinstance(predictor, ManifoldCorrectionPredictor):
+                    predictor = predictor.base_predictor
+                cls_score = getattr(predictor, "cls_score", None)
+                if isinstance(cls_score, ETFClassifier):
+                    etf_weight = cls_score.weight
+
                 geometry = compute_manifold_geometry(
                     all_feats,
                     all_labels,
@@ -2012,6 +2177,8 @@ def main() -> None:
                     corrected_features=all_corr,
                     method=args.id_method,
                     normalize=normalize_features,
+                    etf_weight=etf_weight,
+                    class_frequency_weights=class_weight_per_class,
                 )
                 row.update(scalar_geometry_report(geometry))
 
