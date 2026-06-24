@@ -2189,6 +2189,9 @@ def main() -> None:
                 all_ids = []
                 for c in range(num_classes):
                     protos = prototype_bank.prototypes[c]
+                    # Remote-sensing banks have shape (O, S, K, D); flatten to 2D.
+                    if protos.ndim > 2:
+                        protos = protos.reshape(-1, protos.shape[-1])
                     id_est = id_estimator.estimate_id(protos)
                     all_ids.append(float(id_est.item()))
                 row["prototype_id_per_class"] = all_ids
