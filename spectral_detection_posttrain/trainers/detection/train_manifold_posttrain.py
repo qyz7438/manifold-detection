@@ -76,6 +76,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--baseline", required=True, help="Path to pretrained detector checkpoint.")
     parser.add_argument("--run-name", required=True)
     parser.add_argument("--epochs", type=int, default=None)
+    parser.add_argument("--batch-size", type=int, default=None,
+                        help="Override posttrain batch_size from the config.")
     parser.add_argument("--limit-train", type=int, default=None)
     parser.add_argument("--limit-val", type=int, default=None)
     parser.add_argument("--num-prototypes", type=int, default=4)
@@ -1507,6 +1509,8 @@ def initial_checkpoint_extra_metadata(
 def main() -> None:
     args = parse_args()
     config = load_config(args.config)
+    if args.batch_size is not None:
+        config["posttrain"]["batch_size"] = args.batch_size
     set_seed(int(config.get("seed", 42)))
     context = prepare_experiment_from_config(
         config, args.config, args.run_name, phase="manifold_posttrain", checkpoint_path=args.baseline

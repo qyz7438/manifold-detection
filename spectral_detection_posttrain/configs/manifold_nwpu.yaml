@@ -21,7 +21,7 @@ train:
   momentum: 0.9
   weight_decay: 0.0005
 posttrain:
-  batch_size: 8
+  batch_size: 1
   epochs: 5
   lr: 0.00001
   freeze_backbone: true
