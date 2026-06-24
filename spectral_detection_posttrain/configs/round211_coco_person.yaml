@@ -1,0 +1,46 @@
+seed: 42
+device: auto
+
+data:
+  dataset: coco_person
+  root: ./data/coco
+  download: false
+  train_images: train2017
+  val_images: val2017
+  train_annotations: annotations/instances_train2017.json
+  val_annotations: annotations/instances_val2017.json
+  categories: [person]
+  max_size: 480
+  num_workers: 0
+
+model:
+  name: fasterrcnn_mobilenet_v3_large_320_fpn
+  pretrained: true
+  num_classes: 2
+  min_size: 320
+  max_size: 480
+
+train:
+  batch_size: 2
+  epochs: 1
+  lr: 0.003
+  momentum: 0.9
+  weight_decay: 0.0005
+
+posttrain:
+  epochs: 1
+  lr: 0.001
+  freeze_backbone: true
+  freeze_rpn: true
+  spatial_weight: 0.1
+  spectral_gate_threshold: 0.65
+  kl_weight: 1.0
+
+eval:
+  score_threshold: 0.05
+  high_conf_threshold: 0.7
+  fixed_recall: 0.85
+
+patch:
+  patch_size: 64
+  patch_type: checkerboard

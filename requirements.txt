@@ -1,0 +1,11 @@
+torch==2.1.0
+torchvision==0.16.0
+timm
+pyyaml
+pytest
+matplotlib
+tqdm
+pandas
+numpy<2
+nni==3.0
+setuptools==69.5.1

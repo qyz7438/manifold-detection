@@ -1,0 +1,199 @@
+RLVR Round 2：修复 reward + 验证频谱因果性
+
+ 背景
+
+ Round 1（8 trial GridSearch）证明：ramp >> qspec, box unfreeze >> cls only, ECE 降 71%, 但 AP50 降 23%（0.86→0.67）。判断主因是 reward 过于严厉：max(0, ...) + hard positive-only
+ advantage + alpha=0.5/beta=0.3 太重。
+
+ Round 2 目标：证明在 AP50 损失可控 的前提下，R_amp 能改善 checkerboard 高频干扰下的 AP75。
+
+ Step 0：修复两个 bug（本轮实验前必须完成）
+
+ Bug 1：miss_rate 跨 rollout 独立计算
+
+ 当前 posttrain_rlvr.py 对每个 rollout 组的每张图独立调用 compute_group_reward()，然后直接 rewards.append()。batch_size=2 时 rewards 有 6 个值（不是 3 个），导致 advantage 跨图混合。
+
+ 修复：每 rollout 组内先算各图的 image_reward，取平均作为该 rollout 的 group_reward。已在未提交代码中实现。
+
+ Bug 2：hard selection 改 softmax weighting
+
+ 当前 if advantage <= 0: continue 丢弃了负 advantage 的 rollout 梯度。这导致一半以上信号丢失，低 reward rollout 的差异被无视。
+
+ 修复：weights = softmax(advantages / temperature)，所有 rollout 按权重参与训练。已在未提交代码中实现。
+
+ 新增日志字段
+
+ 每个 epoch 记录：
+ - reward_std_per_batch：组内 reward 标准差
+ - mean_advantage：advantage 均值
+ - rollout_rewards：各组 reward 原始值
+ - weights：softmax 权重
+
+ ---
+ Step 1：Round 1 — Penn-Fudan reward 保守化（6 trials）
+
+ 固定参数
+
+ signal = ramp
+ unfreeze = box
+ optimizer = adamw
+ alpha (FP) = 0.1
+ beta (FN) = 0.05
+
+ 搜索空间
+
+ temperature: [0.5, 1.0]        ← softmax temperature
+ reward_lambda: [0.05, 0.1, 0.2] ← R_amp 在 reward 中的权重
+
+ 共 2×3 = 6 trials，GridSearch。
+
+ 判断标准
+
+ hard constraint：
+ - AP50_clean_drop <= 10%（即 AP50 >= 0.78）
+ - AP50_cb_drop <= 12%
+ - Recall_drop <= 10%
+
+ 满足约束的 trial 中，最大化 ECE 改善 + AP75_cb。
+
+ NNI objective
+
+ ap50_clean = metrics["clean"]["ap50"]
+ ap50_cb = metrics["checkerboard"]["ap50"]
+ ap75_cb = metrics["checkerboard"]["ap75"]
+ ece_clean = metrics["clean"]["ece"]
+ ece_cb = metrics["checkerboard"]["ece"]
+ recall_clean = metrics["clean"]["recall"]
+
+ # hard constraints
+ if ap50_clean < baseline_ap50_clean - 0.10:
+     return {"default": -1.0}  # 不合格
+ if ap50_cb < baseline_ap50_cb - 0.12:
+     return {"default": -1.0}
+ if recall_clean < baseline_recall_clean - 0.10:
+     return {"default": -1.0}
+
+ objective = (
+     ap50_clean + ap50_cb
+     + 0.5 * ap75_cb
+     - 0.2 * ece_clean
+     - 0.2 * ece_cb
+ )
+
+ ---
+ Step 2：Round 2 — checkerboard AP75 频谱验证
+
+ 前提
+
+ Step 1 至少有一个 trial 满足 AP 约束。
+
+ 固定参数
+
+ 使用 Step 1 最稳配置（AP50 drop 最小 + ECE 改善最好的 trial 参数）。
+
+ 对照组（4 组）
+
+ ┌─────┬─────────────┬───────────────┬─────────────────────────────┐
+ │ 组  │ signal_type │ signal_weight │            说明             │
+ ├─────┼─────────────┼───────────────┼─────────────────────────────┤
+ │ C0  │ none        │ 0.0           │ IoU-only RLVR（无频谱信号） │
+ ├─────┼─────────────┼───────────────┼─────────────────────────────┤
+ │ C1  │ ramp        │ 0.05          │ R_amp 低权重                │
+ ├─────┼─────────────┼───────────────┼─────────────────────────────┤
+ │ C2  │ ramp        │ 0.1           │ R_amp 中权重                │
+ ├─────┼─────────────┼───────────────┼─────────────────────────────┤
+ │ C3  │ ramp        │ 0.2           │ R_amp 高权重                │
+ └─────┴─────────────┴───────────────┴─────────────────────────────┘
+
+ 不做 random signal control——Round 1 已结论 ramp 有效，Round 2 验证的是"ramp 多大权重能缩小 checkerboard AP75 gap"，不是"ramp 比随机好"。
+
+ 核心指标
+
+ - AP75_clean, AP75_checkerboard, AP75_gap
+ - matched TP IoU mean/median（clean vs checkerboard）
+ - IoU histogram shift
+ - IoU >= 0.75 的 TP 比例
+ - score-IoU correlation
+
+ 判断标准
+
+ - 如果 ramp weight↑ → IoU 分布右移 + AP75_gap 缩小 → 频谱信号真实改善定位
+ - 如果 ramp weight↑ → AP75_gap 缩小但 IoU 分布不变 → 频谱信号仅做分数重排，不是定位改善
+
+ ---
+ Step 3：Round 3 — COCO person mini 外推
+
+ 前提
+
+ Step 1-2 在 Penn-Fudan 上验证通过。
+
+ 新 data loader
+
+ spectral_detection_posttrain/datasets/coco_person.py：从 COCO 2017 train 中采样 2K 张含 person 的图，person 作为唯一类别（class_id=1）。annotations 转为 [x1, y1, x2, y2]
+ 格式。同时复用已有 Penn-Fudan 评估逻辑。
+
+ 实验（7 组）
+
+ ┌─────┬──────────┬───────────────┐
+ │ 组  │  signal  │ reward_lambda │
+ ├─────┼──────────┼───────────────┤
+ │ C0  │ —        │ — (baseline)  │
+ ├─────┼──────────┼───────────────┤
+ │ A1  │ IoU-only │ 0.0           │
+ ├─────┼──────────┼───────────────┤
+ │ A2  │ IoU-only │ 0.05          │
+ ├─────┼──────────┼───────────────┤
+ │ A3  │ IoU-only │ 0.1           │
+ ├─────┼──────────┼───────────────┤
+ │ B1  │ IoU+ramp │ 0.05          │
+ ├─────┼──────────┼───────────────┤
+ │ B2  │ IoU+ramp │ 0.1           │
+ ├─────┼──────────┼───────────────┤
+ │ B3  │ IoU+ramp │ 0.2           │
+ └─────┴──────────┴───────────────┘
+
+ 额外统计
+
+ - reward_std per image（验证 advantage SNR 是否高于 Penn-Fudan）
+ - advantage_std
+ - rollout box count variance
+ - mean GT per image
+
+ ---
+ 实现步骤
+
+ Commit 1: fix: per-rollout group_reward and softmax advantage weighting
+
+ - posttrain_rlvr.py：aggegate image rewards per rollout + softmax weights + 新增日志
+ - rlvr_reward.py：无改动（compute_group_reward already per-image, correct）
+
+ Commit 2: feat: add Round 1 NNI config with AP constraint objective
+
+ - nni_configs/rlvr_round1_search_space.json：temperature + reward_lambda
+ - nni_configs/rlvr_round1_config.yml：6 trials GridSearch
+ - nni_rlvr_trial.py：更新 objective 函数 + baseline 对比 + handle temperature param
+
+ Commit 3: feat: add per-box IoU and AP75 diagnostic logging
+
+ - eval_detector.py：输出 matched TP IoU distribution, IoU>=0.75 ratio
+ - detection_metrics.py：compute IoU hist + score-IoU correlation
+
+ Commit 4: feat: add Round 2 R_amp weight ablation
+
+ - 4 组对照 + IoU/AP75 诊断
+
+ Commit 5: feat: add COCO person mini data loader
+
+ - datasets/coco_person.py：COCO → person 子集 + xywh→xyxy 转换
+
+ Commit 6: feat: add Round 3 NNI config
+
+ - COCO-mini 上 7 组 baseline+RLVR 对照
+
+ ---
+ 验证
+
+ 1. Step 0：pytest tests/test_rlvr.py -v 全部通过
+ 2. Step 1：至少有 1 个 trial AP50_clean >= 0.78
+ 3. Step 2：C1-C3 至少一组 AP75_gap 小于 C0
+ 4. Step 3：COCO-mini reward_std > Penn-Fudan reward_std（advantage SNR 改善验证）

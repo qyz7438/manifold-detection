@@ -1,0 +1,13 @@
+{
+  "preset": {
+    "_type": "choice",
+    "_value": [
+      {"name": "iou_cls_005",    "signal": "none",           "reward_lambda": 0.0,  "policy_loss_weight": 0.005, "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2},
+      {"name": "iou_cls_01",     "signal": "none",           "reward_lambda": 0.0,  "policy_loss_weight": 0.01,  "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2},
+      {"name": "ramp_cls_005",   "signal": "ramp",           "reward_lambda": 0.1,  "policy_loss_weight": 0.005, "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2},
+      {"name": "ramp_cls_01",    "signal": "ramp",           "reward_lambda": 0.1,  "policy_loss_weight": 0.01,  "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2},
+      {"name": "shuffled_cls_01", "signal": "shuffled_ramp", "reward_lambda": 0.1,  "policy_loss_weight": 0.01,  "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2},
+      {"name": "ramp_cls_03",    "signal": "ramp",           "reward_lambda": 0.1,  "policy_loss_weight": 0.03,  "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2}
+    ]
+  }
+}

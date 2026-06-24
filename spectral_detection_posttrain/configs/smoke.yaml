@@ -1,0 +1,36 @@
+seed: 42
+device: cuda
+data:
+  root: ./data
+  download: true
+  train_fraction: 0.8
+  max_size: 320
+  num_workers: 0
+model:
+  name: fasterrcnn_mobilenet_v3_large_320_fpn
+  pretrained: true
+  allow_random_init_fallback: true
+  num_classes: 2
+  min_size: 320
+  max_size: 320
+train:
+  batch_size: 2
+  epochs: 1
+  lr: 0.005
+  momentum: 0.9
+  weight_decay: 0.0005
+posttrain:
+  batch_size: 1
+  epochs: 1
+  lr: 0.0005
+  reward_lambda: 1.0
+  freeze_backbone: true
+matching:
+  iou_threshold: 0.5
+  score_threshold: 0.05
+eval:
+  batch_size: 2
+  high_conf_threshold: 0.7
+patch:
+  patch_type: random
+  patch_size: 48

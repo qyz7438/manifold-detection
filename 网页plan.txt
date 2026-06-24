@@ -1,0 +1,586 @@
+下面给你一个重新校正后的科研项目 Plan。这个版本不再围绕“分类模型 + FFT 增强”，而是聚焦你现在更清晰的想法：
+
+面向目标检测模型的区域频域证据可验证奖励后训练
+
+核心思想是：
+
+先正常微调一个目标检测模型；然后利用人工标注框作为 verifier 的空间参照，对模型预测框和人工标注框内的局部图像区域做二维傅里叶分析；比较二者的频域证据是否一致，并把这种一致性转化为后训练奖励，用于校正模型对局部噪声、背景纹理和错误区域的依赖。
+
+1. 项目定位
+
+这个项目不再是普通数据增强，而是一个目标检测后训练 verifier 设计问题。
+
+普通目标检测训练主要优化：
+
+类别是否正确
+预测框是否接近人工框
+IoU 是否足够高
+
+例如 DETR 将目标检测建模为集合预测问题，并通过 bipartite matching 将预测目标和真实目标进行匹配。 COCO 检测评估也主要围绕 AP、AP50、AP75、不同 IoU 阈值下的定位质量展开。
+
+但你的研究希望进一步问：
+
+预测框不仅位置要对，它框住的视觉证据是否真的像人工标注目标区域？
+如果模型框到了背景、局部乱码、错误纹理区域，它能不能被 verifier 惩罚？
+如果模型框内的区域频域特征更接近人工标注区域，能不能给更高奖励？
+
+所以项目核心不是“提升 mAP 的一个 loss”，而是：
+
+用人工标注区域 + 二维傅里叶谱构建检测结果的区域证据奖励。
+2. 最小可行实验目标
+
+第一版不要直接做复杂 RL。先做一个可运行、可验证的版本：
+
+在一个小型目标检测数据集上，训练 baseline 检测模型；然后构造“区域频域证据奖励”，用于后训练或重打分，观察是否能提升模型在局部 patch 干扰、背景扰动和高置信误检场景下的表现。
+
+第一版建议任务：
+
+数据集：Penn-Fudan Pedestrian 或 Pascal VOC 子集
+模型：Faster R-CNN / Mask R-CNN / DETR 中选一个
+目标：检测 person / animal / vehicle 等单类或少类目标
+
+为了快速测试，优先选择 TorchVision Faster R-CNN / Mask R-CNN。TorchVision 官方教程就使用预训练 Mask R-CNN 在 Penn-Fudan 行人检测数据集上做微调，数据集规模只有 170 张图、345 个行人实例，很适合快速验证检测管线。
+
+如果后续想做更学术化，可以迁移到 Pascal VOC 或 COCO 子集。COCO 是大规模检测、分割和 captioning 数据集，包含 object segmentation、recognition in context 等任务属性。
+
+3. 总体技术路线
+阶段 0：准备检测数据集
+阶段 1：训练普通目标检测 baseline
+阶段 2：生成模型预测框
+阶段 3：预测框与人工框匹配
+阶段 4：裁剪预测 ROI 和 GT ROI
+阶段 5：对 ROI 做二维傅里叶变换
+阶段 6：提取幅度谱/结构谱特征
+阶段 7：计算区域频域证据奖励
+阶段 8：用奖励做后训练或重打分
+阶段 9：评估 mAP、Patch Robustness、High-confidence False Positive
+
+这里的关键是：FFT 不在所有地方乱出现，只出现在 ROI 证据验证阶段。
+
+PyTorch 中 torch.fft.fft2 可以直接计算二维离散傅里叶变换，默认作用于最后两个维度，适合处理 [C, H, W] 或 [B, C, H, W] 图像区域。
+
+4. 核心概念定义
+4.1 输入
+
+一张图像：
+
+I
+
+人工标注：
+
+G = {g_j = (box_j, class_j)}
+
+检测模型预测：
+
+P = {p_i = (box_i, class_i, score_i)}
+4.2 预测—标注匹配
+
+对每个预测框 p_i，找到最匹配的人工框 g_j。
+
+第一版可以用简单规则：
+
+class_i == class_j
+IoU(box_i, box_j) 最大
+IoU > threshold
+
+例如：
+
+IoU > 0.5 认为匹配成功
+IoU < 0.5 认为误检或弱匹配
+
+后续如果用 DETR，可以直接利用 Hungarian matching 的思想。DETR 原论文中检测被看作 set prediction，并使用 bipartite matching 进行唯一匹配。
+
+4.3 ROI 裁剪
+
+对匹配成功的一对预测框和人工框，分别裁剪图像区域：
+
+ROI_pred = crop(I, box_pred)
+ROI_gt   = crop(I, box_gt)
+
+然后统一 resize：
+
+ROI_pred → 128 × 128
+ROI_gt   → 128 × 128
+
+必须 resize 到同一大小，否则傅里叶谱不可直接比较。
+
+建议加一个 window function，例如 Hann window，减少裁剪边界造成的频谱伪影。
+
+5. 区域频域证据特征
+
+对 ROI 做二维傅里叶变换：
+
+F_pred = FFT2(ROI_pred)
+F_gt   = FFT2(ROI_gt)
+
+得到：
+
+A_pred = |F_pred|          幅度谱
+A_gt   = |F_gt|
+
+P_pred = angle(F_pred)     相位谱
+P_gt   = angle(F_gt)
+
+但第一版不建议直接比较完整相位谱，因为相位对平移、裁剪、框偏移极敏感。第一版建议这样做：
+
+5.1 幅度谱特征：主特征
+
+从 A_pred 和 A_gt 中提取稳定统计：
+
+low_freq_energy
+mid_freq_energy
+high_freq_energy
+radial_amplitude_profile
+low/high energy ratio
+
+最推荐的是：
+
+径向平均幅度谱 radial amplitude profile
+
+做法：
+
+对幅度谱做 fftshift；
+以频谱中心为圆心；
+按半径分 bin；
+每个半径 bin 求平均幅度；
+得到一个一维向量。
+r_pred = radial_profile(A_pred)
+r_gt   = radial_profile(A_gt)
+
+然后计算距离：
+
+D_amp = cosine_distance(r_pred, r_gt)
+
+奖励：
+
+R_amp = exp(-D_amp)
+
+这个比直接比较二维谱图更稳定。
+
+5.2 相位谱特征：第二版再加入
+
+如果一定要用相位，不建议直接：
+
+L2(P_pred, P_gt)
+
+第一版可以先不用相位，或者只做一个简单结构替代：
+
+edge_pred = Sobel(ROI_pred)
+edge_gt   = Sobel(ROI_gt)
+R_struct = exp(-distance(edge_pred, edge_gt))
+
+第二版再做：
+
+low-frequency phase consistency
+phase-derived edge structure
+phase congruency feature
+
+你原本说“两个谱”是对的，但代码测试第一版建议先只把幅度谱作为核心奖励。相位谱可以保留为扩展模块，避免一开始不稳定。
+
+6. 奖励函数设计
+
+建议第一版奖励不要太复杂。
+
+对一个匹配预测框 p_i 和 GT 框 g_j，定义：
+
+R = α R_cls + β R_iou + γ R_amp - η R_conf_error
+
+其中：
+
+6.1 类别奖励
+R_cls = 1 if class_pred == class_gt else 0
+6.2 定位奖励
+R_iou = IoU(box_pred, box_gt)
+6.3 区域频域证据奖励
+R_amp = exp(-cosine_distance(radial_amp_pred, radial_amp_gt))
+
+含义：
+
+如果预测框内部的频域能量结构接近人工标注区域，说明预测框捕获了相似的目标证据。
+
+6.4 高置信错误惩罚
+
+如果预测置信度高，但匹配失败或类别错误：
+
+R_conf_error = score_pred if unmatched or class_wrong else 0
+
+最终：
+
+R = α R_cls + β R_iou + γ R_amp - η R_conf_error
+
+初始权重建议：
+
+α = 1.0
+β = 1.0
+γ = 0.5
+η = 0.5
+
+注意：R_amp 不能替代 R_iou，只能作为补充。否则它可能奖励到纹理相似但位置错误的区域。
+
+7. 后训练方式：先做两个版本
+版本 A：Reward-guided Rescoring，最容易实现
+
+第一版最建议先做这个。
+
+冻结检测模型，不更新 backbone。对检测模型输出的候选框，计算上述 reward，然后重新调整 score：
+
+score_new = score_pred × (1 + λ R_amp)
+
+或者：
+
+score_new = w1 score_pred + w2 R_iou_proxy + w3 R_amp
+
+由于测试时没有 GT，所以这个 rescoring 主要用于训练/验证分析，或者训练一个小的 reward head：
+
+ROI feature + spectral feature → quality score
+
+这个小 head 学习预测 R，部署时用它重打分候选框。
+
+这一步可以快速验证：
+
+区域频域证据是否真的能区分好框和坏框？
+
+如果它连好框/坏框都区分不了，就没必要进入后训练。
+
+版本 B：Reward-weighted Fine-tuning，正式后训练第一版
+
+加载 baseline 检测模型，进行短程后训练。
+
+思想：
+
+高 reward 的匹配框说明检测合理，低 reward 或高置信错误说明检测依据不可靠，后训练时加大对低 reward 样本的校正。
+
+一个简单做法：
+
+L_post = L_det + λ L_reward
+
+其中 L_det 是原检测损失：
+
+classification loss
+box regression loss
+objectness loss
+RPN loss
+
+L_reward 可以写成：
+
+L_reward = mean((1 - R) × detection_loss_for_matched_object)
+
+如果当前框和 GT 的区域频谱差异大，就让这个样本对训练产生更大惩罚。
+
+如果使用 torchvision Faster R-CNN，第一版可以简化成图像级 reward weighting：
+
+image_reward = mean(R for matched detections)
+image_weight = 1 + λ (1 - image_reward)
+L_post = image_weight × L_det
+
+这不够精细，但容易实现。
+
+更精细的版本再改成 ROI-level loss weighting。
+
+8. 数据构造：必须加入 Patch 干扰测试
+
+为了让频域奖励有意义，你需要构造一个“模型容易被非目标纹理欺骗”的场景。
+
+对训练/测试图像加入局部 patch：
+
+random noise patch
+checkerboard patch
+QR-like patch
+high-frequency texture patch
+
+Patch 位置分三类：
+
+目标框内
+目标框边缘
+背景区域
+
+这三类很关键：
+
+如果 patch 在背景，模型不应该误检；
+如果 patch 在目标框内，模型不应该漏检；
+如果 patch 在边缘，模型框不应该被 patch 拉偏。
+
+测试集可以命名为：
+
+Dataset-Patch
+Dataset-FourierPatch
+9. 实验对照组
+
+至少做五组：
+
+组别	方法	目的
+A	Baseline detector	普通微调检测模型
+B	Baseline + Patch Aug	排除只是 patch 增强
+C	Baseline + Fourier Aug	排除只是 FFT 增强
+D	Baseline + Reward-weighted Post-training	你的方法
+E	Baseline + Random Reward	排除 reward 本身只是噪声正则
+
+如果 D 只比 A 好，但不比 B/C 好，说明创新弱。
+如果 D 比 B/C 在未见 patch、未见扰动、高置信误检上更好，才有价值。
+
+10. 评价指标
+
+不要只看 mAP。
+
+10.1 标准检测指标
+mAP
+AP50
+AP75
+Precision
+Recall
+False Positive Rate
+
+COCO 标准检测评估会在多个 IoU 阈值上衡量 AP，因此 AP50 和 AP75 能分别反映宽松定位和严格定位。
+
+10.2 Patch 鲁棒性指标
+mAP_patch
+AP50_patch
+Recall_patch
+False Positive_patch
+Miss Rate_patch
+
+重点看：
+
+patch 后 baseline 漏检是否增加
+post-training 后漏检是否减少
+10.3 高置信错误指标
+High-confidence FP rate
+High-confidence FN rate
+Mean confidence of wrong detections
+10.4 区域频域证据指标
+Mean R_amp for TP
+Mean R_amp for FP
+Mean R_amp for FN-near-box
+AUC: using R_amp to distinguish TP vs FP
+
+这个非常重要。
+
+你要先证明：
+
+真阳性框的区域频域证据奖励显著高于假阳性框。
+
+如果这个不成立，后训练奖励就没有根据。
+
+11. 代码模块拆分
+
+建议代码结构：
+
+spectral_detection_posttrain/
+├── configs/
+│   ├── baseline.yaml
+│   ├── posttrain.yaml
+│   └── eval_patch.yaml
+├── datasets/
+│   ├── penn_fudan.py
+│   ├── voc_subset.py
+│   └── patch_transform.py
+├── models/
+│   ├── build_detector.py
+│   └── reward_head.py
+├── spectral/
+│   ├── roi_crop.py
+│   ├── fft_features.py
+│   ├── radial_profile.py
+│   └── spectral_reward.py
+├── matching/
+│   ├── box_iou.py
+│   └── pred_gt_matcher.py
+├── train/
+│   ├── train_baseline.py
+│   ├── posttrain_reward_weighted.py
+│   └── train_reward_head.py
+├── eval/
+│   ├── eval_detector.py
+│   ├── eval_patch.py
+│   └── eval_spectral_reward.py
+└── visualization/
+    ├── visualize_boxes.py
+    ├── visualize_roi_fft.py
+    └── compare_predictions.py
+12. 关键函数设计
+12.1 crop_and_resize_roi
+
+输入：
+
+image, box, size=128
+
+输出：
+
+roi_tensor
+
+注意：
+
+box 坐标要 clamp 到图像范围
+roi resize 到统一尺寸
+12.2 compute_fft_amplitude
+
+输入：
+
+roi_tensor: [C, H, W]
+
+处理：
+
+灰度化或对 RGB 三通道分别 FFT 后平均
+torch.fft.fft2
+torch.fft.fftshift
+abs 得到 amplitude
+log1p 稳定数值
+normalize
+
+输出：
+
+amplitude_spectrum
+12.3 radial_profile
+
+输入：
+
+amplitude_spectrum
+
+输出：
+
+radial_vector: [num_bins]
+12.4 spectral_reward
+
+输入：
+
+roi_pred, roi_gt
+
+输出：
+
+R_amp
+
+计算：
+
+a_pred = radial_profile(abs(fft2(roi_pred)))
+a_gt   = radial_profile(abs(fft2(roi_gt)))
+D = cosine_distance(a_pred, a_gt)
+R_amp = exp(-D)
+12.5 match_predictions_to_gt
+
+输入：
+
+pred_boxes, pred_labels, pred_scores
+gt_boxes, gt_labels
+
+输出：
+
+matched_pairs
+unmatched_predictions
+unmatched_gt
+
+规则：
+
+same class
+max IoU
+IoU > 0.5
+13. 第一阶段实验：先验证 reward 是否有判别力
+
+在进入后训练前，先做一个诊断实验：
+
+训练 baseline detector
+在验证集上生成 predictions
+匹配 TP / FP
+对每个预测框计算 R_amp
+比较 TP 和 FP 的 R_amp 分布
+
+如果结果是：
+
+TP 的 R_amp 明显高于 FP
+
+说明 reward 有意义。
+
+如果结果是：
+
+TP 和 FP 的 R_amp 无明显差异
+
+说明频域奖励没有区分能力，需要换特征或任务。
+
+这个诊断非常关键。它决定项目能不能继续。
+
+14. 第二阶段实验：Reward-weighted 后训练
+
+流程：
+
+加载 baseline
+训练 3–10 epoch
+每个 batch 正常计算检测 loss
+同时用当前模型预测候选框
+匹配 GT
+计算 image-level 或 ROI-level spectral reward
+用 reward 调整 loss 权重
+保存 checkpoint
+
+第一版可以：
+
+post-training epoch = 5
+learning rate = baseline lr 的 1/10
+只更新 detection head / box head
+backbone 冻结
+15. 第三阶段实验：Patch 鲁棒性测试
+
+构造三种测试集：
+
+clean test
+background patch test
+object patch test
+edge patch test
+
+分别评估：
+
+mAP
+AP50
+Recall
+High-confidence FP
+High-confidence FN
+
+目标结果：
+
+Clean mAP 基本不下降
+Patch test 上 Recall 提升
+High-confidence FP/FN 下降
+TP 的 R_amp 保持高，FP 的 R_amp 保持低
+16. 最小可行版本
+
+如果你要马上让代码跑起来，第一版只做这个：
+
+数据集：Penn-Fudan
+模型：torchvision Faster R-CNN / Mask R-CNN
+任务：person detection
+训练：普通 baseline
+诊断：预测框 vs GT 框，计算 ROI 幅度谱 radial profile 相似度
+验证：TP 的 R_amp 是否高于 FP
+后训练：image-level reward-weighted fine-tuning 5 epoch
+测试：clean + random patch + checkerboard patch
+指标：AP50、Recall、High-confidence FP、R_amp 分布
+
+这个版本最小、清晰、能快速证明思路是否有价值。
+
+17. 这个项目的核心创新表述
+
+你可以这样定义项目：
+
+本项目提出一种面向目标检测模型后训练的区域频域证据可验证奖励。与传统检测损失只关注类别和边界框几何对齐不同，该奖励进一步比较预测框与人工标注框内部的局部频域证据结构，判断模型是否真正捕获目标区域的稳定视觉证据。基于该奖励，本项目对已微调检测模型进行短程后训练，旨在降低模型对局部噪声、背景纹理和高频 patch 的错误依赖，提升其在局部干扰场景下的检测鲁棒性与可靠性。
+
+18. 你现在最应该先验证的一个问题
+
+不要先问“能不能提升 mAP”。
+
+先问：
+
+R_amp 能不能区分 TP 和 FP？
+
+这是项目成败的第一道门。
+
+如果 R_amp(TP) > R_amp(FP) 明显成立，这个方向有希望。
+如果不成立，说明“预测框 ROI 与 GT ROI 的幅度谱相似度”不是一个好 verifier，需要改成 mask、边缘结构谱、特征空间谱，或者加入 attention 证据。
+
+所以第一版代码先做：
+
+baseline detector
+→ predictions
+→ match TP / FP
+→ crop ROI
+→ FFT amplitude radial profile
+→ plot R_amp distribution
+
+这一步跑通之后，再做后训练。

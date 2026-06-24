@@ -1,0 +1,78 @@
+{
+  "version_id": "det.dpo.smoke.001",
+  "alias_run_name": "round2219_pre_nms_dpo_rescue_w003_5ep",
+  "description": "Best 5-epoch clean NWPU DPO short-run recipe: pre-NMS DPO weight 0.03 plus round2211 rescue configuration.",
+  "status": "smoke_best",
+  "task": "det",
+  "method": "dpo",
+  "dataset": "NWPU VHR-10",
+  "baseline_run": "runs/round2100_nwpu_baseline/checkpoint_best.pth",
+  "source_config": "runs/round2219_pre_nms_dpo_rescue_w003_5ep/round_config.json",
+  "metrics": {
+    "baseline_ap75": 0.2939084504400764,
+    "best_ap75": 0.2988960233235885,
+    "delta_best_ap75": 0.0049875728835120925,
+    "best_epoch": 5,
+    "final_ap50": 0.6536546130207715,
+    "final_predictions": 1407,
+    "final_false_positive_rate": 0.47334754797441364,
+    "final_ece": 0.08775500109683221,
+    "verifier_positive_lchi_prob_delta_mean": 0.009477330105645316
+  },
+  "runner": {
+    "script": "scripts/round2129_nwpu_posttrain_smoke.py",
+    "supervisor": "scripts/run_round2218_short_dpo_sweep.py"
+  },
+  "config": {
+    "epochs": 5,
+    "batch_size": 2,
+    "limit_train": 100000,
+    "limit_val": 100000,
+    "trainable_mode": "predictor",
+    "lr": 0.0001,
+    "adapter_lr": 0.0001,
+    "predictor_lr": 0.00003,
+    "cls_score_lr": 0.000015,
+    "det_loss_weight": 0.5,
+    "policy_loss_weight": 0.001,
+    "kl_weight": 1.0,
+    "rescue_mode": true,
+    "rescue_loss_weight": 0.05,
+    "bbox_rescue_loss_weight": 0.1,
+    "score_budget_loss_weight": 0.02,
+    "rescue_target_mode": "increment",
+    "rescue_increment_delta": 0.2,
+    "rescue_increment_cap": 0.8,
+    "rescue_verifier_mode": "raw_ifft_hd_fusion",
+    "rescue_verifier_gate": 0.0,
+    "rescue_raw_ifft_features": [
+      "fft_edge_truncation@64",
+      "phase_edge@64",
+      "phase_abs_high@11"
+    ],
+    "rescue_raw_ifft_target_precision": 0.8,
+    "rescue_hd_fusion_pca_components": 96,
+    "rescue_hd_fusion_hd_scorer": "logistic",
+    "rescue_hd_fusion_method": "train_effect",
+    "pre_nms_topk_per_gt": 2,
+    "pre_nms_dpo_loss_weight": 0.03,
+    "pre_nms_dpo_beta": 1.0,
+    "pre_nms_dpo_min_iou_gap": 0.05,
+    "pre_nms_dpo_max_pairs_per_gt": 2,
+    "pre_nms_dpo_require_rejected_score_ge_chosen": true,
+    "score_threshold": 0.05,
+    "rollout_score_threshold": 0.001,
+    "eval_detections_per_img": 100,
+    "rollout_detections_per_img": 300
+  },
+  "interpretation": [
+    "This configuration is the best 5-epoch DPO short-run observed in the round2218/2219/2220 sweep.",
+    "It improves AP75 by about +0.005 over the clean baseline but does not exceed the longer round2211/round2214 runs.",
+    "It shows verifier-positive LC-HI score lift, but total LC-HI mean score shift remains negative, so coverage remains the bottleneck."
+  ],
+  "next_steps": [
+    "Use as the default short-run DPO smoke recipe.",
+    "Do not promote to validated until it beats the same-epoch round2211 curve or a clean repeated seed.",
+    "Next short variations should adjust one variable at a time: DPO weight around 0.02-0.05, topk per GT, or verifier gate."
+  ]
+}

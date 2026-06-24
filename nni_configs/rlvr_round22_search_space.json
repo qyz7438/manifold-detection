@@ -1,0 +1,15 @@
+{
+  "preset": {
+    "_type": "choice",
+    "_value": [
+      {"name": "null_no_update",          "signal": "none",           "reward_lambda": 0.0, "policy_loss_weight": 0.0,   "det_loss_weight": 0.0, "baseline_kl_weight": 0.0, "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2, "rollout_source": "baseline", "policy_objective": "signed"},
+      {"name": "det_only_cls",            "signal": "none",           "reward_lambda": 0.0, "policy_loss_weight": 0.0,   "det_loss_weight": 1.0, "baseline_kl_weight": 0.0, "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2, "rollout_source": "baseline", "policy_objective": "signed"},
+      {"name": "signed_iou_001_kl1",      "signal": "none",           "reward_lambda": 0.0, "policy_loss_weight": 0.001, "det_loss_weight": 0.0, "baseline_kl_weight": 1.0, "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2, "rollout_source": "baseline", "policy_objective": "signed"},
+      {"name": "signed_ramp_001_kl1",     "signal": "ramp",           "reward_lambda": 0.1, "policy_loss_weight": 0.001, "det_loss_weight": 0.0, "baseline_kl_weight": 1.0, "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2, "rollout_source": "baseline", "policy_objective": "signed"},
+      {"name": "signed_shuffled_001_kl1", "signal": "shuffled_ramp", "reward_lambda": 0.1, "policy_loss_weight": 0.001, "det_loss_weight": 0.0, "baseline_kl_weight": 1.0, "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2, "rollout_source": "baseline", "policy_objective": "signed"},
+      {"name": "signed_ramp_003_kl1",     "signal": "ramp",           "reward_lambda": 0.1, "policy_loss_weight": 0.003, "det_loss_weight": 0.0, "baseline_kl_weight": 1.0, "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2, "rollout_source": "baseline", "policy_objective": "signed"},
+      {"name": "signed_ramp_001_kl05",    "signal": "ramp",           "reward_lambda": 0.1, "policy_loss_weight": 0.001, "det_loss_weight": 0.0, "baseline_kl_weight": 0.5, "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2, "rollout_source": "baseline", "policy_objective": "signed"},
+      {"name": "weighted_ce_iou_001_kl1", "signal": "none",           "reward_lambda": 0.0, "policy_loss_weight": 0.001, "det_loss_weight": 0.0, "baseline_kl_weight": 1.0, "box_loss_weight": 0.0, "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0, "max_candidates": 40, "reward_score_threshold": 0.2, "rollout_source": "baseline", "policy_objective": "weighted_ce"}
+    ]
+  }
+}

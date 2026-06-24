@@ -1,0 +1,5 @@
+{
+  "signal": {"_type": "choice", "_value": ["ramp", "qspec"]},
+  "unfreeze": {"_type": "choice", "_value": ["cls", "box"]},
+  "optimizer": {"_type": "choice", "_value": ["adamw", "sgd"]}
+}

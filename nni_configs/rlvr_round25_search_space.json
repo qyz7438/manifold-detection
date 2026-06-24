@@ -1,0 +1,79 @@
+{
+  "preset": {
+    "_type": "choice",
+    "_value": [
+      {
+        "name": "null_no_update",
+        "signal": "none", "reward_lambda": 0.0, "struct_weight": 0.0,
+        "policy_loss_weight": 0.0, "det_loss_weight": 0.0,
+        "baseline_kl_weight": 0.0, "box_loss_weight": 0.0,
+        "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0,
+        "max_candidates": 40, "reward_score_threshold": 0.2,
+        "rollout_source": "baseline", "policy_objective": "signed"
+      },
+      {
+        "name": "signed_iou_0003_kl10",
+        "signal": "none", "reward_lambda": 0.0, "struct_weight": 0.0,
+        "policy_loss_weight": 0.0003, "det_loss_weight": 0.0,
+        "baseline_kl_weight": 10.0, "box_loss_weight": 0.0,
+        "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0,
+        "max_candidates": 40, "reward_score_threshold": 0.2,
+        "rollout_source": "baseline", "policy_objective": "signed"
+      },
+      {
+        "name": "signed_amp_0003_kl10",
+        "signal": "ramp", "reward_lambda": 0.1, "struct_weight": 0.0,
+        "policy_loss_weight": 0.0003, "det_loss_weight": 0.0,
+        "baseline_kl_weight": 10.0, "box_loss_weight": 0.0,
+        "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0,
+        "max_candidates": 40, "reward_score_threshold": 0.2,
+        "rollout_source": "baseline", "policy_objective": "signed"
+      },
+      {
+        "name": "signed_structure_0003_kl10",
+        "signal": "structure", "reward_lambda": 0.0, "struct_weight": 0.2,
+        "policy_loss_weight": 0.0003, "det_loss_weight": 0.0,
+        "baseline_kl_weight": 10.0, "box_loss_weight": 0.0,
+        "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0,
+        "max_candidates": 40, "reward_score_threshold": 0.2,
+        "rollout_source": "baseline", "policy_objective": "signed"
+      },
+      {
+        "name": "signed_amp_struct_005_02_0003_kl10",
+        "signal": "amp_structure", "reward_lambda": 0.05, "struct_weight": 0.2,
+        "policy_loss_weight": 0.0003, "det_loss_weight": 0.0,
+        "baseline_kl_weight": 10.0, "box_loss_weight": 0.0,
+        "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0,
+        "max_candidates": 40, "reward_score_threshold": 0.2,
+        "rollout_source": "baseline", "policy_objective": "signed"
+      },
+      {
+        "name": "signed_amp_struct_010_03_0003_kl10",
+        "signal": "amp_structure", "reward_lambda": 0.1, "struct_weight": 0.3,
+        "policy_loss_weight": 0.0003, "det_loss_weight": 0.0,
+        "baseline_kl_weight": 10.0, "box_loss_weight": 0.0,
+        "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0,
+        "max_candidates": 40, "reward_score_threshold": 0.2,
+        "rollout_source": "baseline", "policy_objective": "signed"
+      },
+      {
+        "name": "signed_shuffled_structure_0003_kl10",
+        "signal": "shuffled_structure", "reward_lambda": 0.0, "struct_weight": 0.2,
+        "policy_loss_weight": 0.0003, "det_loss_weight": 0.0,
+        "baseline_kl_weight": 10.0, "box_loss_weight": 0.0,
+        "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0,
+        "max_candidates": 40, "reward_score_threshold": 0.2,
+        "rollout_source": "baseline", "policy_objective": "signed"
+      },
+      {
+        "name": "signed_shuffled_amp_struct_010_03_0003_kl10",
+        "signal": "shuffled_amp_structure", "reward_lambda": 0.1, "struct_weight": 0.3,
+        "policy_loss_weight": 0.0003, "det_loss_weight": 0.0,
+        "baseline_kl_weight": 10.0, "box_loss_weight": 0.0,
+        "unfreeze": "cls", "optimizer": "adamw", "temperature": 1.0,
+        "max_candidates": 40, "reward_score_threshold": 0.2,
+        "rollout_source": "baseline", "policy_objective": "signed"
+      }
+    ]
+  }
+}

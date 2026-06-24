@@ -1,0 +1,118 @@
+{
+  "task": "pixel_classification",
+  "scope": [
+    "semantic_segmentation",
+    "binary_mask_segmentation",
+    "dense_pixel_classification"
+  ],
+  "signals": [
+    {
+      "id": "pix.boundary.phase_coherence",
+      "name": "Boundary Phase Coherence",
+      "description": "Mask boundaries should align with phase-only reconstruction edges or phase-gradient discontinuities.",
+      "interpretable_rule": "Mean phase-edge response on predicted contour should be higher than response inside smooth foreground/background interiors.",
+      "uses_fft": true,
+      "requires_gt_for_training": false,
+      "recommended_use": ["boundary_reward", "sample_weight"]
+    },
+    {
+      "id": "pix.boundary.edge_alignment",
+      "name": "Edge Alignment",
+      "description": "Predicted contours should overlap strong image gradients.",
+      "interpretable_rule": "Contour pixels with high Sobel/Canny response indicate visually plausible boundaries.",
+      "uses_fft": false,
+      "requires_gt_for_training": false,
+      "recommended_use": ["boundary_reward", "false_boundary_penalty"]
+    },
+    {
+      "id": "pix.region.interior_exterior_contrast",
+      "name": "Interior-Exterior Texture Contrast",
+      "description": "Foreground texture should differ from the immediate exterior ring.",
+      "interpretable_rule": "A plausible object mask separates regions with different edge or high-frequency statistics.",
+      "uses_fft": true,
+      "requires_gt_for_training": false,
+      "recommended_use": ["objectness_reward", "soft_verifier"]
+    },
+    {
+      "id": "pix.region.frequency_compactness",
+      "name": "Frequency Compactness",
+      "description": "Foreground mask and masked image patch should have plausible frequency distribution.",
+      "interpretable_rule": "Over-fragmented or noisy masks produce excessive high-frequency mask energy.",
+      "uses_fft": true,
+      "requires_gt_for_training": false,
+      "recommended_use": ["fragmentation_penalty", "mask_quality_prior"]
+    },
+    {
+      "id": "pix.region.spectral_residual_saliency",
+      "name": "Spectral Residual Saliency",
+      "description": "Predicted foreground should overlap regions that are salient under spectral residual analysis.",
+      "interpretable_rule": "Objects often produce local spectral residual peaks relative to surrounding background.",
+      "uses_fft": true,
+      "requires_gt_for_training": false,
+      "recommended_use": ["weak_objectness_verifier"]
+    },
+    {
+      "id": "pix.calibration.confidence_boundary_consistency",
+      "name": "Confidence-Boundary Consistency",
+      "description": "Pixel confidence should be high in stable interiors and lower near boundaries.",
+      "interpretable_rule": "High entropy is visually expected near boundaries, not in uniform interiors.",
+      "uses_fft": false,
+      "requires_gt_for_training": false,
+      "recommended_use": ["calibration_regularizer"]
+    },
+    {
+      "id": "pix.consistency.multiscale_mask_stability",
+      "name": "Multi-Scale Mask Stability",
+      "description": "Predicted masks should remain stable under image resizing.",
+      "interpretable_rule": "Real object regions should survive scale changes better than texture artifacts.",
+      "uses_fft": false,
+      "requires_gt_for_training": false,
+      "recommended_use": ["consistency_reward", "pseudo_label_filter"]
+    },
+    {
+      "id": "pix.consistency.tta_agreement",
+      "name": "TTA Agreement",
+      "description": "Predictions should agree under reversible transforms.",
+      "interpretable_rule": "Flip/crop/color-jitter consistency is directly human-verifiable for dense labels.",
+      "uses_fft": false,
+      "requires_gt_for_training": false,
+      "recommended_use": ["self_consistency_reward"]
+    },
+    {
+      "id": "pix.geometry.connected_component_plausibility",
+      "name": "Connected Component Plausibility",
+      "description": "Foreground components should have plausible area, aspect ratio, and compactness.",
+      "interpretable_rule": "Tiny islands, excessive fragments, or implausible component shapes often indicate FP regions.",
+      "uses_fft": false,
+      "requires_gt_for_training": true,
+      "recommended_use": ["false_positive_penalty", "classwise_prior"]
+    },
+    {
+      "id": "pix.geometry.shape_prior",
+      "name": "Shape Prior",
+      "description": "Class-specific masks should match known shape statistics.",
+      "interpretable_rule": "A calibrated class prior over area, eccentricity, compactness, and holes can suppress visually implausible masks.",
+      "uses_fft": false,
+      "requires_gt_for_training": true,
+      "recommended_use": ["classwise_soft_prior"]
+    },
+    {
+      "id": "pix.topology.hole_boundary_penalty",
+      "name": "Hole/Boundary Topology Penalty",
+      "description": "Penalizes implausible holes, broken boundaries, and fragmented topology.",
+      "interpretable_rule": "Many segmentation classes have simple topology; excessive holes/fragments are usually artifacts.",
+      "uses_fft": false,
+      "requires_gt_for_training": true,
+      "recommended_use": ["topology_regularizer"]
+    },
+    {
+      "id": "pix.uncertainty.entropy_edge_coupling",
+      "name": "Entropy-Edge Coupling",
+      "description": "Prediction entropy should correlate with actual image edges.",
+      "interpretable_rule": "Uncertainty is acceptable at visual boundaries; interior uncertainty signals poor segmentation.",
+      "uses_fft": false,
+      "requires_gt_for_training": false,
+      "recommended_use": ["calibration_reward", "uncertainty_filter"]
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Experiment data and generated artifacts
+data/
+runs/
+nni_experiments/
+nni_home/
+checkpoints/
+outputs/
+output/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.npz
+
+# Logs
+*.log
+logs/
+
+# Local agent/runtime state and generated research scratchpads
+.agent_reports/
+.agents/
+.claude/
+.codegraph/
+.codex/
+.omc/
+.pi/
+.repochan/
+CLIprojectRLimage/
+pipeline_state/
+tmp/
+tmp_*
+
+# Tool caches that may appear when Windows profile paths are misdetected
+Microsoft/
+pip/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,28 @@
+{
+  "preset": {
+    "name": "smoke_C2",
+    "feature_set": "three",
+    "trainable_mode": "predictor",
+    "bbox_rescue_loss_weight": 0.2,
+    "rescue_loss_weight": 0.02,
+    "rescue_increment_delta": 0.10,
+    "rescue_increment_cap": 0.70,
+    "confidence_crossing_loss_weight": 0.05,
+    "confidence_crossing_margin": 0.02,
+    "kl_weight": 1.0,
+    "kl_cls_weight": 0.2,
+    "kl_box_weight": 1.0,
+    "det_loss_weight": 0.1,
+    "policy_loss_weight": 0.001,
+    "target_precision": 0.8,
+    "margin_std_frac": 0.0,
+    "bbox_temperature": 0.2,
+    "score_budget": true,
+    "score_budget_loss_weight": 0.02,
+    "score_budget_delta": 0.05,
+    "lr": 0.00003,
+    "adapter_lr": 0.00003,
+    "predictor_lr": 0.00001,
+    "cls_score_lr": 0.000005
+  }
+}

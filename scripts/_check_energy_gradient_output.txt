@@ -1,0 +1,28 @@
+=== 1. Temporal-like: Energy vs spatial shift around GT ===
+ Shift    en_mean   en_std   iou_mean    Δen/Δpx
+   -20     0.4987   0.0965     0.3458
+   -10     0.4969   0.0956     0.5436  -0.000177
+    -5     0.4953   0.0945     0.7031  -0.000321
+    -2     0.4945   0.0956     0.8393  -0.000254
+     0     0.4935   0.0936     0.9686  -0.000513
+     2     0.4943   0.0958     0.8387  +0.000399
+     5     0.4938   0.0953     0.7025  -0.000170
+    10     0.4912   0.0870     0.5426  -0.000527
+    20     0.4794   0.1067     0.3453  -0.001173
+
+=== 2. Finite difference dEnergy/dBox ===
+  Total GT boxes analyzed: 91
+  sign(-dE) == sign(dIou):    5 (5.5%)
+  sign(-dE) != sign(dIou):    0 (0.0%)
+  dIou == 0 (at boundary):    86
+  dE_dcx mean: 0.002493  dIou_dcx mean: 0.000000
+
+        Area     n       |dE|     |dIou|   align%
+        <500     6   0.009840   0.000000     0.0%
+      500-2k     9   0.005017   0.000000    11.1%
+         >2k    76   0.001614   0.000000     5.3%
+
+=== 3. -gradE as PG direction vs random delta ===
+  Total comparisons: 91
+  -∇E direction better: 27 (29.7%)
+  Random direction better: 64 (70.3%)

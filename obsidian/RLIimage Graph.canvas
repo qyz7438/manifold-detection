@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    {"id": "map", "type": "file", "file": "RLIimage Map.md", "x": 0, "y": 0, "width": 260, "height": 120},
+    {"id": "arch", "type": "file", "file": "Architecture.md", "x": -360, "y": -220, "width": 260, "height": 120},
+    {"id": "dir", "type": "file", "file": "Directory Refactor.md", "x": -720, "y": -220, "width": 260, "height": 120},
+    {"id": "versioning", "type": "file", "file": "Versioning.md", "x": -360, "y": 0, "width": 260, "height": 120},
+    {"id": "registry", "type": "file", "file": "Experiment Registry.md", "x": -360, "y": 220, "width": 260, "height": 120},
+    {"id": "afm", "type": "file", "file": "AFM.md", "x": 360, "y": -240, "width": 260, "height": 120},
+    {"id": "rlvr", "type": "file", "file": "RLVR.md", "x": 360, "y": -80, "width": 260, "height": 120},
+    {"id": "dpo", "type": "file", "file": "DPO.md", "x": 360, "y": 80, "width": 260, "height": 120},
+    {"id": "seg", "type": "file", "file": "Segmentation.md", "x": 360, "y": 240, "width": 260, "height": 120},
+    {"id": "signals", "type": "file", "file": "Signals.md", "x": 720, "y": 0, "width": 260, "height": 120},
+    {"id": "dpo2218", "type": "file", "file": "DPO Short Sweep 2218.md", "x": 720, "y": 180, "width": 260, "height": 120}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "map", "fromSide": "left", "toNode": "arch", "toSide": "right"},
+    {"id": "e2", "fromNode": "map", "fromSide": "left", "toNode": "versioning", "toSide": "right"},
+    {"id": "e3", "fromNode": "map", "fromSide": "left", "toNode": "registry", "toSide": "right"},
+    {"id": "e4", "fromNode": "map", "fromSide": "right", "toNode": "afm", "toSide": "left"},
+    {"id": "e5", "fromNode": "map", "fromSide": "right", "toNode": "rlvr", "toSide": "left"},
+    {"id": "e6", "fromNode": "map", "fromSide": "right", "toNode": "dpo", "toSide": "left"},
+    {"id": "e7", "fromNode": "map", "fromSide": "right", "toNode": "seg", "toSide": "left"},
+    {"id": "e8", "fromNode": "afm", "fromSide": "right", "toNode": "signals", "toSide": "left"},
+    {"id": "e9", "fromNode": "rlvr", "fromSide": "right", "toNode": "signals", "toSide": "left"},
+    {"id": "e10", "fromNode": "dpo", "fromSide": "right", "toNode": "signals", "toSide": "left"},
+    {"id": "e11", "fromNode": "dpo", "fromSide": "right", "toNode": "dpo2218", "toSide": "left"},
+    {"id": "e12", "fromNode": "arch", "fromSide": "left", "toNode": "dir", "toSide": "right"}
+  ]
+}

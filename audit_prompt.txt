@@ -1,0 +1,14 @@
+RLIimage 项目研究者提出一个观点，请评估其正确性：
+
+**"当前的流形几何验证存在设计缺陷——聚类在已经完美分类的 TP/FP 样本上做。IoU+confidence 已经 AUC=1.0 了，几何加什么都冗余。但如果我们把 IoU 判断区间调大——比如从 0.5 降到 0.3，甚至 0.1——然后重新选框，让更多 borderline proposal 进来，这些 proposal 的分类器 confidence 是不可靠的。在这个放宽后的集合里，FFT 频谱的几何结构是否能够发现被严格 IoU threshold 遗漏的 pattern？"**
+
+具体来说：
+- 当前 TP=IoU>0.5, FP=IoU<0.3，AUC=1.0
+- 如果 TP=IoU>0.3, FP=IoU<0.1，AUC 会降低（因为很多 borderline proposal 混进来了）
+- 在这个放宽的集合里，FFT 几何特征能否提供 IoU 和 confidence 之外的区分力？
+- 如果能——"几何信号在分类器不确定的区域有价值"的观点成立
+- 如果不能——"FFT 外部 verifier 在任何条件下都无效"的结论成立
+
+请分析这个观点的逻辑正确性、可验证性、以及实现路径。
+
+用中文。

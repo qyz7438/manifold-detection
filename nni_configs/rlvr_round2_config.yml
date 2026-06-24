@@ -1,0 +1,12 @@
+experimentName: rlvr_round21_stability_first
+experimentWorkingDirectory: E:/CLIproject/RLimage/nni_experiments
+trialCommand: E:/anaconda/01/envs/RLimage/python.exe -m spectral_detection_posttrain.nni_rlvr_trial --config spectral_detection_posttrain/configs/mvp.yaml --run-prefix nni_rlvr_round21 --rlvr-epochs 5
+trialCodeDirectory: E:/CLIproject/RLimage
+searchSpaceFile: rlvr_round21_search_space.json
+trialConcurrency: 1
+maxTrialNumber: 8
+maxExperimentDuration: 48h
+tuner:
+  name: GridSearch
+trainingService:
+  platform: local

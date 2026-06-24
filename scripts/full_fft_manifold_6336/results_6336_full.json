@@ -1,0 +1,145 @@
+{
+  "pair_results": {
+    "fake_euclidean": {
+      "pair_consistency": 0.473,
+      "n_pairs": 8000,
+      "borderline_consistency": 0.474943904263276,
+      "n_borderline": 2674,
+      "uncertain_consistency": 0.4538152610441767,
+      "n_uncertain": 1743,
+      "standard_consistency": 0.4972170686456401,
+      "n_standard": 539,
+      "relaxed_consistency": 0.39655172413793105,
+      "n_relaxed": 1276,
+      "mixed_consistency": 0.486661277283751,
+      "n_mixed": 6185
+    },
+    "gmm": {
+      "pair_consistency": 0.44,
+      "n_pairs": 8000,
+      "borderline_consistency": 0.4012715033657442,
+      "n_borderline": 2674,
+      "uncertain_consistency": 0.4239816408491107,
+      "n_uncertain": 1743,
+      "standard_consistency": 0.4712430426716141,
+      "n_standard": 539,
+      "relaxed_consistency": 0.45219435736677116,
+      "n_relaxed": 1276,
+      "mixed_consistency": 0.4347615198059822,
+      "n_mixed": 6185
+    },
+    "kde": {
+      "pair_consistency": 0.579,
+      "n_pairs": 8000,
+      "borderline_consistency": 0.5430067314884068,
+      "n_borderline": 2674,
+      "uncertain_consistency": 0.5932300631095812,
+      "n_uncertain": 1743,
+      "standard_consistency": 0.5380333951762524,
+      "n_standard": 539,
+      "relaxed_consistency": 0.7774294670846394,
+      "n_relaxed": 1276,
+      "mixed_consistency": 0.5416329830234439,
+      "n_mixed": 6185
+    },
+    "isomap_n15": {
+      "pair_consistency": 0.481875,
+      "n_pairs": 8000,
+      "borderline_consistency": 0.48803290949887806,
+      "n_borderline": 2674,
+      "uncertain_consistency": 0.4853700516351119,
+      "n_uncertain": 1743,
+      "standard_consistency": 0.5324675324675324,
+      "n_standard": 539,
+      "relaxed_consistency": 0.5462382445141066,
+      "n_relaxed": 1276,
+      "mixed_consistency": 0.46418755052546484,
+      "n_mixed": 6185
+    },
+    "isomap_n20": {
+      "pair_consistency": 0.513875,
+      "n_pairs": 8000,
+      "borderline_consistency": 0.5108451757666418,
+      "n_borderline": 2674,
+      "uncertain_consistency": 0.5100401606425703,
+      "n_uncertain": 1743,
+      "standard_consistency": 0.5250463821892394,
+      "n_standard": 539,
+      "relaxed_consistency": 0.542319749216301,
+      "n_relaxed": 1276,
+      "mixed_consistency": 0.5070331447049313,
+      "n_mixed": 6185
+    },
+    "isomap_n30": {
+      "pair_consistency": 0.533875,
+      "n_pairs": 8000,
+      "borderline_consistency": 0.5415108451757666,
+      "n_borderline": 2674,
+      "uncertain_consistency": 0.5266781411359724,
+      "n_uncertain": 1743,
+      "standard_consistency": 0.5454545454545454,
+      "n_standard": 539,
+      "relaxed_consistency": 0.5462382445141066,
+      "n_relaxed": 1276,
+      "mixed_consistency": 0.5303152789005658,
+      "n_mixed": 6185
+    }
+  },
+  "cv_results": [
+    {
+      "name": "6336_Euclidean_CV",
+      "recall": 0.509090909090909,
+      "precision": 0.6885245901639344,
+      "f1": 0.5853658536585364,
+      "true_positives": 84,
+      "false_positives": 38,
+      "false_negatives": 81,
+      "true_negatives": 38
+    },
+    {
+      "name": "6336_Isomap_n15_CV",
+      "recall": 0.5878787878787879,
+      "precision": 0.7348484848484849,
+      "f1": 0.6531986531986532,
+      "true_positives": 97,
+      "false_positives": 35,
+      "false_negatives": 68,
+      "true_negatives": 41
+    },
+    {
+      "name": "6336_Isomap_n20_CV",
+      "recall": 0.5878787878787879,
+      "precision": 0.7348484848484849,
+      "f1": 0.6531986531986532,
+      "true_positives": 97,
+      "false_positives": 35,
+      "false_negatives": 68,
+      "true_negatives": 41
+    },
+    {
+      "name": "6336_KDE_CV",
+      "recall": 0.2909090909090909,
+      "precision": 0.7619047619047619,
+      "f1": 0.4210526315789473,
+      "true_positives": 48,
+      "false_positives": 15,
+      "false_negatives": 117,
+      "true_negatives": 61
+    },
+    {
+      "name": "6336_GMM_CV",
+      "recall": 0.41818181818181815,
+      "precision": 0.6272727272727273,
+      "f1": 0.5018181818181818,
+      "true_positives": 69,
+      "false_positives": 41,
+      "false_negatives": 96,
+      "true_negatives": 35
+    }
+  ],
+  "n_images": 34,
+  "n_pairs": 8000,
+  "n_proposals": 3224,
+  "feature_dim": 6336,
+  "whitened_dim": 50
+}

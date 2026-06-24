@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RLimage 可验证奖励视觉后训练</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-deep: #0a0f1a;
+  --bg-navy: #111b2e;
+  --bg-slate: #1a2a42;
+  --accent-gold: #d4a853;
+  --gold-light: #e8c87a;
+  --accent-teal: #2dd4bf;
+  --text-main: #f0ece4;
+  --text-sub: #9fb3c8;
+  --text-weak: #5a7088;
+  --border-gold: rgba(212,168,83,0.15);
+}
+
+body {
+  font-family: 'SimSun', 'Noto Serif SC', serif;
+  background: var(--bg-deep);
+  color: var(--text-main);
+  overflow: hidden;
+}
+
+.slide-container {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+.slide {
+  width: 1280px;
+  height: 720px;
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 80px;
+  border: 1px solid var(--border-gold);
+}
+
+.slide.active { display: flex; }
+
+/* Slide 1: Cover */
+.slide-1 {
+  background: var(--bg-deep);
+}
+.slide-1 .decor-ring {
+  position: absolute;
+  top: 40px; right: 60px;
+  width: 120px; height: 120px;
+  border: 2px solid rgba(212,168,83,0.15);
+  border-radius: 50%;
+}
+.slide-1 .decor-ring::after {
+  content: '';
+  position: absolute;
+  top: 15px; left: 15px;
+  width: 90px; height: 90px;
+  border: 1px solid rgba(212,168,83,0.10);
+  border-radius: 50%;
+}
+.slide-1 .tag {
+  color: var(--accent-gold);
+  font-size: 14px;
+  letter-spacing: 0.35em;
+  font-family: Georgia, serif;
+  margin-bottom: 50px;
+}
+.slide-1 h1 {
+  font-size: 42px;
+  font-weight: bold;
+  font-family: 'SimHei', 'Noto Serif SC', sans-serif;
+  text-align: center;
+  color: #ffffff;
+  line-height: 1.4;
+  max-width: 900px;
+}
+.slide-1 .divider {
+  width: 180px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+  margin: 30px 0;
+}
+.slide-1 .subtitle {
+  font-size: 18px;
+  color: var(--text-sub);
+  margin-bottom: 60px;
+}
+.slide-1 .info-row {
+  display: flex;
+  gap: 80px;
+  font-size: 16px;
+  color: var(--text-sub);
+}
+.slide-1 .info-item { text-align: center; }
+.slide-1 .info-item span { display: block; margin-bottom: 4px; font-size: 12px; color: var(--text-weak); }
+
+/* Slide 2: Background + Methods (Split) */
+.slide-2 {
+  background: var(--bg-navy);
+  flex-direction: row;
+  gap: 50px;
+  padding: 50px 60px;
+  align-items: stretch;
+}
+.slide-2 .panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.slide-2 .panel-num {
+  font-size: 64px;
+  color: var(--accent-gold);
+  opacity: 0.25;
+  font-family: Georgia, serif;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+.slide-2 .panel h2 {
+  font-size: 28px;
+  font-family: 'SimHei', sans-serif;
+  margin-bottom: 20px;
+  color: #fff;
+}
+.slide-2 .panel .card {
+  background: var(--bg-slate);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 16px;
+  border-left: 3px solid var(--accent-teal);
+  font-size: 15px;
+  color: var(--text-sub);
+  line-height: 1.7;
+}
+.slide-2 .panel .card.gold-left { border-left-color: var(--accent-gold); }
+.slide-2 .panel .card h4 {
+  font-size: 16px;
+  color: var(--accent-teal);
+  margin-bottom: 8px;
+  font-family: 'SimHei', sans-serif;
+}
+
+/* Slide 3: Innovations (Grid Cards) */
+.slide-3 {
+  background: var(--bg-deep);
+  padding: 50px 80px;
+}
+.slide-3 .section-header {
+  text-align: center;
+  margin-bottom: 45px;
+}
+.slide-3 .section-header h2 {
+  font-size: 32px;
+  font-family: 'SimHei', sans-serif;
+  color: #fff;
+}
+.slide-3 .section-header .en-tag {
+  font-size: 13px;
+  color: var(--text-weak);
+  letter-spacing: 0.2em;
+  font-family: Georgia, serif;
+  margin-top: 6px;
+}
+.slide-3 .cards-grid {
+  display: flex;
+  gap: 30px;
+  width: 100%;
+}
+.slide-3 .card {
+  flex: 1;
+  background: var(--bg-slate);
+  border-radius: 8px;
+  padding: 28px 24px;
+  border-top: 3px solid var(--accent-gold);
+  text-align: center;
+}
+.slide-3 .card.teal-top { border-top-color: var(--accent-teal); }
+.slide-3 .card .icon {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: rgba(45,212,191,0.1);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  font-size: 22px;
+  color: var(--accent-teal);
+}
+.slide-3 .card .icon.gold { background: rgba(212,168,83,0.12); color: var(--accent-gold); }
+.slide-3 .card h4 {
+  font-size: 18px;
+  color: #fff;
+  margin-bottom: 12px;
+  font-family: 'SimHei', sans-serif;
+}
+.slide-3 .card p {
+  font-size: 14px;
+  color: var(--text-sub);
+  line-height: 1.7;
+}
+
+/* Slide 4: Results (Data Viz) */
+.slide-4 {
+  background: var(--bg-navy);
+  flex-direction: row;
+  gap: 40px;
+  padding: 50px 60px;
+  align-items: center;
+}
+.slide-4 .left-panel {
+  flex: 1;
+}
+.slide-4 .left-panel h2 {
+  font-size: 30px;
+  font-family: 'SimHei', sans-serif;
+  color: #fff;
+  margin-bottom: 16px;
+}
+.slide-4 .left-panel .desc {
+  font-size: 15px;
+  color: var(--text-sub);
+  line-height: 1.7;
+  margin-bottom: 30px;
+}
+.slide-4 .left-panel .metric {
+  margin-bottom: 14px;
+}
+.slide-4 .left-panel .metric .num {
+  font-size: 36px;
+  color: var(--accent-gold);
+  font-family: Georgia, serif;
+  font-weight: bold;
+}
+.slide-4 .left-panel .metric .label {
+  font-size: 14px;
+  color: var(--text-weak);
+  margin-left: 10px;
+}
+.slide-4 .right-panel {
+  flex: 1;
+}
+.slide-4 .chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  height: 280px;
+  padding-bottom: 30px;
+}
+.slide-4 .bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.slide-4 .bar {
+  width: 50px;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  transition: height 0.3s;
+}
+.slide-4 .bar.gold { background: var(--accent-gold); }
+.slide-4 .bar.teal { background: var(--accent-teal); }
+.slide-4 .bar .val {
+  position: absolute;
+  top: -22px;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+.slide-4 .bar-label {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-weak);
+  text-align: center;
+  max-width: 60px;
+}
+
+/* Slide 5: Conclusion + Thanks */
+.slide-5 {
+  background: var(--bg-deep);
+}
+.slide-5 .glow {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(45,212,191,0.06) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.slide-5 .thanks-tag {
+  font-size: 13px;
+  color: var(--accent-gold);
+  letter-spacing: 0.3em;
+  font-family: Georgia, serif;
+  margin-bottom: 20px;
+}
+.slide-5 h2 {
+  font-size: 52px;
+  color: #fff;
+  font-family: 'SimHei', sans-serif;
+  margin-bottom: 16px;
+}
+.slide-5 .sub {
+  font-size: 18px;
+  color: var(--text-sub);
+  font-style: italic;
+  margin-bottom: 35px;
+}
+.slide-5 .divider {
+  width: 120px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+  margin-bottom: 35px;
+}
+.slide-5 .info {
+  font-size: 15px;
+  color: var(--text-weak);
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* Navigation */
+.nav {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 100;
+}
+.nav button {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border-gold);
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.nav button:hover, .nav button.active {
+  background: var(--accent-gold);
+  color: var(--bg-deep);
+  border-color: var(--accent-gold);
+}
+.nav .arrow {
+  font-size: 18px;
+  font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<div class="slide-container">
+
+<!-- Slide 1: Cover -->
+<div class="slide slide-1 active">
+  <div class="decor-ring"></div>
+  <div class="tag">RESEARCH REPORT</div>
+  <h1>面向视觉感知模型的<br>可验证奖励后训练</h1>
+  <div class="divider"></div>
+  <div class="subtitle">RLimage: Verifiable Reward Vision Post-Training</div>
+  <div class="info-row">
+    <div class="info-item"><span>项目</span>RLimage</div>
+    <div class="info-item"><span>日期</span>2026-06-04</div>
+    <div class="info-item"><span>版本</span>v1.0</div>
+  </div>
+</div>
+
+<!-- Slide 2: Background + Tech Route -->
+<div class="slide slide-2">
+  <div class="panel">
+    <div class="panel-num">01</div>
+    <h2>研究背景</h2>
+    <div class="card gold-left">
+      <h4>核心问题</h4>
+      将文本模型领域的 RLVR（可验证奖励强化学习）迁移到视觉目标检测，使 detector 通过频域证据学会"哪些框可信、该看哪里、怎样框得更准"
+    </div>
+    <div class="card">
+      <h4>关键挑战</h4>
+      检测任务输出是候选框集合（类别+坐标+NMS），频域 verifier 需绑定到 ROI action，而非图像级 loss 缩放
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-num">02</div>
+    <h2>技术路线</h2>
+    <div class="card">
+      <h4>五阶段递进</h4>
+      MVP 频域诊断 → Spectral Quality Head → RLVR 后训练 → MPLSeg AFM 网络内 FFT → 语义分割迁移
+    </div>
+    <div class="card gold-left">
+      <h4>基础设施</h4>
+      Penn-Fudan / VOC 数据集 · Faster R-CNN · spectral verifier · signed advantage · KL anchor · shuffled control
+    </div>
+  </div>
+</div>
+
+<!-- Slide 3: Core Work -->
+<div class="slide slide-3">
+  <div class="section-header">
+    <h2>核心工作</h2>
+    <div class="en-tag">CORE CONTRIBUTIONS</div>
+  </div>
+  <div class="cards-grid">
+    <div class="card">
+      <div class="icon gold">🔬</div>
+      <h4>RLVR 稳定 Shell</h4>
+      <p>实现 rollout → verifier → signed advantage → KL anchor 完整 pipeline。KL=10 + policy=0.0003 使 AP50 与 baseline 差距 &lt; 0.01，首次在检测任务中稳定运行 RLVR</p>
+    </div>
+    <div class="card teal-top">
+      <div class="icon">📊</div>
+      <h4>频域因果检验</h4>
+      <p>设计 real vs shuffled spectral + IoU-only + structure 等多组对照。R_amp TP/FP AUC 达 0.93，但 post-training 中 real 与 shuffled 无显著差异（AP50 差距&lt;0.001）</p>
+    </div>
+    <div class="card">
+      <div class="icon gold">⚡</div>
+      <h4>MPLSeg AFM 梯度修复</h4>
+      <p>修复旧 AFM 的梯度死锁：mag_scale 和 phase_scale 始终为 0。MPLSeg 式硬激活门控使 residual_scale=0.972，FFT 路径被真正激活</p>
+    </div>
+  </div>
+</div>
+
+<!-- Slide 4: Results -->
+<div class="slide slide-4">
+  <div class="left-panel">
+    <h2>关键实验结果</h2>
+    <div class="desc">Penn-Fudan + VOC 数据集，14 轮实验迭代，从分类假设到分割迁移的完整证据链</div>
+    <div class="metric"><span class="num">0.885</span><span class="label">RLVR Stable Shell AP50</span></div>
+    <div class="metric"><span class="num">0.956</span><span class="label">QH ROI-only TP/FP AUC</span></div>
+    <div class="metric"><span class="num">0.972</span><span class="label">MPLSeg AFM residual_scale</span></div>
+    <div class="metric"><span class="num">14</span><span class="label">实验轮次完整记录</span></div>
+  </div>
+  <div class="right-panel">
+    <div class="chart">
+      <div class="bar-group">
+        <div class="bar gold" style="height:230px"><div class="val">0.885</div></div>
+        <div class="bar-label">RLVR AP50</div>
+      </div>
+      <div class="bar-group">
+        <div class="bar gold" style="height:240px"><div class="val">0.868</div></div>
+        <div class="bar-label">MPLSeg AP50</div>
+      </div>
+      <div class="bar-group">
+        <div class="bar teal" style="height:200px"><div class="val">0.774</div></div>
+        <div class="bar-label">VOC AP50</div>
+      </div>
+      <div class="bar-group">
+        <div class="bar gold" style="height:170px"><div class="val">0.653</div></div>
+        <div class="bar-label">MPLSeg AP75</div>
+      </div>
+      <div class="bar-group">
+        <div class="bar teal" style="height:100px"><div class="val">0.067</div></div>
+        <div class="bar-label">MPLSeg ECE</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Slide 5: Conclusion -->
+<div class="slide slide-5">
+  <div class="glow"></div>
+  <div class="thanks-tag">CONCLUSION</div>
+  <h2>核心结论</h2>
+  <div class="sub">检测 RLVR shell 已稳定 · 手工频域 verifier 因果信号不足 · 下一站：语义分割</div>
+  <div class="divider"></div>
+  <div class="info">
+    视觉检测 RLVR 后训练框架可以稳定实现<br>
+    手工 ROI 傅里叶 verifier 在 Penn-Fudan/VOC 上没有因果证据<br>
+    MPLSeg-style AFM 修复了梯度死锁，但 box-level frequency reward 仍未成立<br>
+    <br>
+    <span style="color: var(--accent-teal);">→ 迁移至语义分割（dense mask + 幅度/相位解耦原生契合）</span>
+  </div>
+</div>
+
+</div>
+
+<div class="nav">
+  <button class="arrow" onclick="prevSlide()">◀</button>
+  <button class="active" onclick="goSlide(0)">1</button>
+  <button onclick="goSlide(1)">2</button>
+  <button onclick="goSlide(2)">3</button>
+  <button onclick="goSlide(3)">4</button>
+  <button onclick="goSlide(4)">5</button>
+  <button class="arrow" onclick="nextSlide()">▶</button>
+</div>
+
+<script>
+let current = 0;
+const slides = document.querySelectorAll('.slide');
+const buttons = document.querySelectorAll('.nav button:not(.arrow)');
+
+function showSlide(i) {
+  slides[current].classList.remove('active');
+  buttons[current].classList.remove('active');
+  current = i;
+  slides[current].classList.add('active');
+  buttons[current].classList.add('active');
+}
+
+function nextSlide() {
+  showSlide((current + 1) % slides.length);
+}
+function prevSlide() {
+  showSlide((current - 1 + slides.length) % slides.length);
+}
+function goSlide(i) { showSlide(i); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') nextSlide();
+  if (e.key === 'ArrowLeft') prevSlide();
+});
+</script>
+
+</body>
+</html>

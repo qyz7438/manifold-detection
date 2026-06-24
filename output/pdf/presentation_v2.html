@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RLimage 完整实验迭代报告</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-deep: #0a0f1a;
+  --bg-navy: #111b2e;
+  --bg-slate: #1a2a42;
+  --accent-gold: #d4a853;
+  --gold-light: #e8c87a;
+  --accent-teal: #2dd4bf;
+  --accent-red: #e0556a;
+  --accent-green: #4ecb71;
+  --text-main: #f0ece4;
+  --text-sub: #9fb3c8;
+  --text-weak: #5a7088;
+  --border-gold: rgba(212,168,83,0.15);
+}
+
+body {
+  font-family: 'SimSun', 'Noto Serif SC', serif;
+  background: var(--bg-deep);
+  color: var(--text-main);
+  overflow: hidden;
+}
+
+.slide-container {
+  width: 100vw; height: 100vh; position: relative;
+}
+
+.slide {
+  width: 1280px; height: 720px;
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  display: none; flex-direction: column;
+  padding: 50px 70px;
+}
+
+.slide.active { display: flex; }
+
+/* ====== COVER ====== */
+.slide-cov {
+  background: var(--bg-deep);
+  justify-content: center; align-items: center;
+}
+.slide-cov .tag {
+  color: var(--accent-gold); font-size: 13px;
+  letter-spacing: 0.35em; margin-bottom: 40px;
+}
+.slide-cov h1 {
+  font-size: 40px; font-weight: bold; font-family: 'SimHei', sans-serif;
+  color: #fff; text-align: center; line-height: 1.4; max-width: 900px;
+}
+.slide-cov .divider {
+  width: 180px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+  margin: 28px 0;
+}
+.slide-cov .sub { font-size: 17px; color: var(--text-sub); margin-bottom: 50px; }
+.slide-cov .info-row { display: flex; gap: 80px; font-size: 16px; color: var(--text-sub); }
+.slide-cov .info-row div { text-align: center; }
+.slide-cov .info-row span { display: block; font-size: 12px; color: var(--text-weak); margin-bottom: 4px; }
+
+/* ====== PLAN SLIDE (standard) ====== */
+.plan-slide {
+  background: var(--bg-navy);
+  flex-direction: row; gap: 30px; align-items: stretch;
+}
+.plan-slide .left-col {
+  width: 380px; flex-shrink: 0; display: flex; flex-direction: column;
+  justify-content: center;
+}
+.plan-slide .left-col .round-badge {
+  display: inline-block; padding: 4px 14px; border-radius: 20px;
+  font-size: 12px; font-weight: bold; letter-spacing: 0.15em;
+  margin-bottom: 12px; width: fit-content;
+}
+.plan-slide .left-col h2 {
+  font-size: 28px; font-family: 'SimHei', sans-serif; color: #fff;
+  margin-bottom: 16px; line-height: 1.3;
+}
+.plan-slide .left-col .desc {
+  font-size: 15px; color: var(--text-sub); line-height: 1.7;
+}
+.plan-slide .right-col {
+  flex: 1; display: flex; flex-direction: column; gap: 14px;
+  justify-content: center;
+}
+.plan-slide .metric-card {
+  background: var(--bg-slate); border-radius: 8px; padding: 16px 20px;
+  display: flex; align-items: center; gap: 16px;
+}
+.plan-slide .metric-card .num {
+  font-size: 28px; color: var(--accent-gold); font-family: Georgia, serif;
+  font-weight: bold; min-width: 90px; text-align: center;
+}
+.plan-slide .metric-card .num.teal { color: var(--accent-teal); }
+.plan-slide .metric-card .num.red { color: var(--accent-red); }
+.plan-slide .metric-card .num.green { color: var(--accent-green); }
+.plan-slide .metric-card .info { flex: 1; }
+.plan-slide .metric-card .info .metric-label {
+  font-size: 13px; color: var(--text-weak); margin-bottom: 2px;
+}
+.plan-slide .metric-card .info .metric-name {
+  font-size: 15px; color: var(--text-sub);
+}
+.plan-slide .verdict {
+  margin-top: 12px; padding: 12px 18px; border-radius: 6px;
+  font-size: 14px; line-height: 1.6;
+}
+.plan-slide .verdict.pos { background: rgba(78,203,113,0.08); border-left: 3px solid var(--accent-green); color: var(--accent-green); }
+.plan-slide .verdict.neg { background: rgba(224,85,106,0.08); border-left: 3px solid var(--accent-red); color: var(--accent-red); }
+.plan-slide .verdict.mix { background: rgba(212,168,83,0.08); border-left: 3px solid var(--accent-gold); color: var(--accent-gold); }
+.plan-slide .verdict.info { background: rgba(45,212,191,0.08); border-left: 3px solid var(--accent-teal); color: var(--accent-teal); }
+
+/* Special: table slide */
+.table-slide {
+  background: var(--bg-deep); padding-top: 30px;
+}
+.table-slide h2 {
+  font-size: 30px; font-family: 'SimHei', sans-serif; color: #fff;
+  text-align: center; margin-bottom: 20px;
+}
+.table-slide .summary-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.table-slide .summary-table th {
+  text-align: left; padding: 8px 10px; color: var(--accent-gold);
+  border-bottom: 1px solid rgba(212,168,83,0.2);
+  font-size: 13px; font-family: 'SimHei', sans-serif;
+}
+.table-slide .summary-table td {
+  padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--text-sub);
+}
+.table-slide .summary-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+/* Conclusion */
+.slide-end {
+  background: var(--bg-deep);
+  justify-content: center; align-items: center;
+}
+.slide-end .glow {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(45,212,191,0.06) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.slide-end .end-tag {
+  font-size: 13px; color: var(--accent-gold); letter-spacing: 0.3em; margin-bottom: 18px;
+}
+.slide-end h2 { font-size: 48px; color: #fff; font-family: 'SimHei', sans-serif; margin-bottom: 14px; }
+.slide-end .sub { font-size: 17px; color: var(--text-sub); font-style: italic; margin-bottom: 28px; }
+.slide-end .divider {
+  width: 120px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+  margin-bottom: 28px;
+}
+.slide-end .info { font-size: 15px; color: var(--text-weak); text-align: center; line-height: 1.9; }
+
+/* ====== NAV ====== */
+.nav {
+  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 8px; z-index: 100;
+}
+.nav button {
+  min-width: 32px; height: 32px; border-radius: 16px;
+  border: 1px solid var(--border-gold); background: transparent;
+  color: var(--text-sub); cursor: pointer; font-size: 12px; padding: 0 8px;
+  transition: all 0.2s;
+}
+.nav button:hover, .nav button.active {
+  background: var(--accent-gold); color: var(--bg-deep); border-color: var(--accent-gold);
+}
+.nav .arrow { font-size: 16px; font-weight: bold; padding: 0 12px; }
+</style>
+</head>
+<body>
+
+<div class="slide-container">
+
+<!-- ====== 1: COVER ====== -->
+<div class="slide slide-cov active">
+  <div class="tag">RLIMAGE · 完整实验迭代</div>
+  <h1>面向视觉感知模型的<br>可验证奖励后训练</h1>
+  <div class="divider"></div>
+  <div class="sub">Verifiable Reward Vision Post-Training — 14 轮实验完整记录</div>
+  <div class="info-row">
+    <div><span>项目</span>RLimage</div>
+    <div><span>日期</span>2026-06-04</div>
+    <div><span>版本</span>v1.0</div>
+  </div>
+</div>
+
+<!-- ====== 2: MVP ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(45,212,191,0.15);color:var(--accent-teal)">ROUND 1</div>
+    <h2>MVP<br>R_amp 初步证据</h2>
+    <div class="desc">Penn-Fudan person detection baseline + ROI 幅度谱相似度 R_amp 诊断 TP vs FP。image-level reward-weighted fine-tuning 测试。</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num teal">0.930</div>
+      <div class="info"><div class="metric-label">R_amp TP/FP AUC</div><div class="metric-name">频域证据存在统计判别信号</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num red">0.863</div>
+      <div class="info"><div class="metric-label">Baseline AP50</div><div class="metric-name">→ Reward posttrain 崩至 0.435</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num red">0.462</div>
+      <div class="info"><div class="metric-label">Posttrain Recall</div><div class="metric-name">image-level reward 导致极度保守</div></div>
+    </div>
+    <div class="verdict neg">⚠ R_amp 排序 AUC 高，但直接乘 detector loss 导致模型崩盘。诊断信号 ≠ 训练信号。</div>
+  </div>
+</div>
+
+<!-- ====== 3: Quality Head ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(212,168,83,0.15);color:var(--accent-gold)">ROUND 2</div>
+    <h2>Spectral<br>Quality Head</h2>
+    <div class="desc">冻结 detector，训练质量头预测 ROI 质量 q = class_correct × IoU × R_amp。候选框重排序替代 loss 乘法。</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num teal">0.956</div>
+      <div class="info"><div class="metric-label">QH ROI-only TP/FP AUC</div><div class="metric-name">远超 MVP 的手工 R_amp</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num teal">0.874</div>
+      <div class="info"><div class="metric-label">Rerank α=0.9 AP50</div><div class="metric-name">ECE 0.166, high-conf FP 减半</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num red">0.947</div>
+      <div class="info"><div class="metric-label">ROI+Amp+Struct AUC</div><div class="metric-name">频域特征未超过 ROI-only</div></div>
+    </div>
+    <div class="verdict mix">✓ 校准/重排序有效 · ✗ 频域无增量 · ✗ 仍是 reranking 非 RLVR</div>
+  </div>
+</div>
+
+<!-- ====== 4: NNI Matrix ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(212,168,83,0.15);color:var(--accent-gold)">ROUND 3</div>
+    <h2>NNI<br>Quality Matrix</h2>
+    <div class="desc">108 trials 全面消融：detector epochs (1/3/5) × QH type (ROI/Amp/Struct) × QH epochs (8/20) × α (0.7-0.95)</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num teal">108</div>
+      <div class="info"><div class="metric-label">总 Trial 数（全部成功）</div><div class="metric-name">多变量完整矩阵</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num">0.860</div>
+      <div class="info"><div class="metric-label">最佳 AP50</div><div class="metric-name">Det-1ep QH-ROI α=0.70, ECE 0.066</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num">0.876</div>
+      <div class="info"><div class="metric-label">Precision@R=0.85</div><div class="metric-name">α=0.7 激进校准 vs α=0.9 保守</div></div>
+    </div>
+    <div class="verdict mix">关键结论：① α是真 trade-off ② 频域从未超过 ROI-only ③ QH 最大收益是校准非 AP</div>
+  </div>
+</div>
+
+<!-- ====== 5: RLVR R1→2.3 ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(224,85,106,0.15);color:var(--accent-red)">ROUND 4-7</div>
+    <h2>RLVR 后训练<br>从崩塌到稳定</h2>
+    <div class="desc">R1: NNI search (AP50 0.668) → R2.1: 工程修复 → R2.2: signed advantage → R2.3: stable shell 成立</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num red">0.668</div>
+      <div class="info"><div class="metric-label">Round 1 NNI 最佳 AP50</div><div class="metric-name">ECE 降至 0.087 但 AP 代价大</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num red">0.623</div>
+      <div class="info"><div class="metric-label">R2.1 修复后 AP50</div><div class="metric-name">低置信预测爆炸, precision 0.21</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num green">0.873</div>
+      <div class="info"><div class="metric-label">R2.3 Stable Shell AP50</div><div class="metric-name">KL=10, policy=0.0003, frozen baseline</div></div>
+    </div>
+    <div class="verdict pos">✓ RLVR shell 首次在检测任务中稳定: signed IoU + KL anchor + frozen baseline, AP 差距<0.01</div>
+  </div>
+</div>
+
+<!-- ====== 6: Round 2.5 ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(224,85,106,0.15);color:var(--accent-red)">ROUND 8</div>
+    <h2>Round 2.5<br>频谱因果检验</h2>
+    <div class="desc">补齐 real vs shuffled spectral + IoU-only + structure + amp+structure 对照。验证手工频域 verifier 因果性。</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num">0.885</div>
+      <div class="info"><div class="metric-label">signed_amp AP50</div><div class="metric-name">8组全部 0.884-0.886</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num red">0.886</div>
+      <div class="info"><div class="metric-label">shuffled control AP50</div><div class="metric-name">与 real 差距 < 0.001</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num">0.664</div>
+      <div class="info"><div class="metric-label">amp AP75 vs null 0.644</div><div class="metric-name">轻微提升但 structure 也类似</div></div>
+    </div>
+    <div class="verdict neg">⚠ 核心负结论: 手工 box-level 频谱 verifier 在 Penn-Fudan 上没有因果信号</div>
+  </div>
+</div>
+
+<!-- ====== 7: MPLSeg AFM R2.6-2.8 ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(45,212,191,0.15);color:var(--accent-teal)">ROUND 9-11</div>
+    <h2>MPLSeg AFM<br>网络内 FFT</h2>
+    <div class="desc">将幅度/相位解耦操作移入网络内部：MicroAFM 模块。R2.6 普通版 → R2.7 identity 残差 → R2.8 诊断。</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num red">0.853</div>
+      <div class="info"><div class="metric-label">R2.6 AFM Full AP50</div><div class="metric-name">AP75 0.409, precision 0.439</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num">0.876</div>
+      <div class="info"><div class="metric-label">R2.7 Identity AFM AP50</div><div class="metric-name">保住 AP50 但 AP75 仍降</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num red">0.738</div>
+      <div class="info"><div class="metric-label">R2.8 AFM+Box AP75</div><div class="metric-name">mag_scale=0, phase_scale=0: gate 未激活!</div></div>
+    </div>
+    <div class="verdict neg">⚠ FFT gate 从未激活，AP75 提升来自 box_head 适配而非频域门控</div>
+  </div>
+</div>
+
+<!-- ====== 8: R2.9-2.10 ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(212,168,83,0.15);color:var(--accent-gold)">ROUND 12</div>
+    <h2>Round 2.9-2.10<br>后训练补洞</h2>
+    <div class="desc">修复 checkpoint loading 与 edge-mix 评估。保留必要后训练维度，不再重复频谱无效实验。</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num">0.815</div>
+      <div class="info"><div class="metric-label">B2 Posttrain AP50</div><div class="metric-name">AP75 0.525, ECE 0.070</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num teal">0.735</div>
+      <div class="info"><div class="metric-label">Posttrain Precision</div><div class="metric-name">high-conf FP 5→3, precision 提升</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num">0.871</div>
+      <div class="info"><div class="metric-label">RPN Mixed AP50</div><div class="metric-name">ECE 0.045, recall 0.890</div></div>
+    </div>
+    <div class="verdict mix">✓ 后训练稳定运行，precision/ECE 改善 · ✗ AP75 可能降 · ✗ 非频域因果（收益来自 supervised continuation）</div>
+  </div>
+</div>
+
+<!-- ====== 9: Plan 2.11 VOC ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(224,85,106,0.15);color:var(--accent-red)">ROUND 13</div>
+    <h2>Plan 2.11<br>VOC Signal Gate</h2>
+    <div class="desc">"是不是任务太简单？" — 换 VOC 3 类检测子集验证手工频谱 verifier 是否超过 shuffled control。</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num">0.772</div>
+      <div class="info"><div class="metric-label">V4 Spatial+Spectral AP50</div><div class="metric-name">prec 0.305, recall 0.855</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num red">0.774</div>
+      <div class="info"><div class="metric-label">V5 Shuffled Spectral AP50</div><div class="metric-name">shuffled 略优 real!</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num">0.773</div>
+      <div class="info"><div class="metric-label">V2 Detection-only AP50</div><div class="metric-name">无频谱分支的基线</div></div>
+    </div>
+    <div class="verdict neg">⚠ V4 未超 V3/V5: 更难检测子集也没有救回手工频谱 verifier。判定: 不再继续 VOC/COCO 检测后训练。</div>
+  </div>
+</div>
+
+<!-- ====== 10: Plan 2.12 ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(78,203,113,0.15);color:var(--accent-green)">ROUND 14</div>
+    <h2>Plan 2.12<br>MPLSeg AFM<br>梯度修复</h2>
+    <div class="desc">针对 R2.8 暴露的架构根因：mag_scale/phase_scale 严格零梯度。用硬激活门控替代可学习 scale。8 项单元测试。</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num green">0.868</div>
+      <div class="info"><div class="metric-label">MPLSeg AFM AP50</div><div class="metric-name">vs identity AFM 0.863</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num green">0.653</div>
+      <div class="info"><div class="metric-label">MPLSeg AFM AP75</div><div class="metric-name">vs identity 0.438 (Δ+0.215!)</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num teal">0.972</div>
+      <div class="info"><div class="metric-label">residual_scale</div><div class="metric-name">FFT 路径被真正激活!</div></div>
+    </div>
+    <div class="verdict pos">✓ FFT 路径恢复梯度 · ✓ residual_scale 非零 · ✓ 单元测试 8/8 通过 · → 但≠ box-level reward 有效</div>
+  </div>
+</div>
+
+<!-- ====== 11: Plan 3.x Discussion ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(212,168,83,0.15);color:var(--accent-gold)">讨论</div>
+    <h2>Plan 3.x<br>大规模搜索<br>为何不做</h2>
+    <div class="desc">Phase A 68 + Phase B 54 + Phase C 24 = 146 trials。原计划判断 real amp 是否优于 shuffled amp。</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num">146</div>
+      <div class="info"><div class="metric-label">原计划总 Trial 数</div><div class="metric-name">三阶段完整超参搜索</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num red">< 0.001</div>
+      <div class="info"><div class="metric-label">R2.5 8组 AP50 差距</div><div class="metric-name">继续搜参边际收益极低</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num">3</div>
+      <div class="info"><div class="metric-label">替代路线</div><div class="metric-name">换更大数据集 / 学习式 verifier / 写负结果论文</div></div>
+    </div>
+    <div class="verdict mix">决策: 不盲目大搜。先写报告识别缺口，再决定 VOC/COCO 或 segmentation。</div>
+  </div>
+</div>
+
+<!-- ====== 12: Plan 4.x ====== -->
+<div class="slide plan-slide">
+  <div class="left-col">
+    <div class="round-badge" style="background:rgba(45,212,191,0.15);color:var(--accent-teal)">NEXT</div>
+    <h2>Plan 4.x<br>迁移到<br>语义分割</h2>
+    <div class="desc">新包 spectral_segmentation_posttrain。Dense mask 为幅度/相位 verifier 提供像素级可验证目标。7 组对照实验。</div>
+  </div>
+  <div class="right-col">
+    <div class="metric-card">
+      <div class="num teal">7</div>
+      <div class="info"><div class="metric-label">实验组数</div><div class="metric-name">S1-S7: baseline→spatial→amp→structure→full→shuffled</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num">Dice, IoU, BF1</div>
+      <div class="info"><div class="metric-label">Dense Verifier</div><div class="metric-name">Mask-level 可验证奖励</div></div>
+    </div>
+    <div class="metric-card">
+      <div class="num">S6 > S3</div>
+      <div class="info"><div class="metric-label">Promotion Rule</div><div class="metric-name">S6 超 S3 且 S7 ≠ S6 才能声称因果</div></div>
+    </div>
+    <div class="verdict info">→ 下一步主线: Penn-Fudan binary mask RLVR + amplitude/phase/spatial verifier</div>
+  </div>
+</div>
+
+<!-- ====== 13: Summary Table ====== -->
+<div class="slide table-slide">
+  <h2>14 轮迭代全景</h2>
+  <table class="summary-table">
+    <tr><th>#</th><th>阶段</th><th>核心方法</th><th>AP50</th><th>AP75</th><th>关键发现</th></tr>
+    <tr><td>1</td><td>MVP</td><td>R_amp reward posttrain</td><td>0.863→0.435</td><td>—</td><td>直接乘 loss 崩 recall</td></tr>
+    <tr><td>2</td><td>QH</td><td>Spectral Quality Head</td><td>0.874</td><td>—</td><td>AUC 0.956, 校准有效</td></tr>
+    <tr><td>3</td><td>NNI</td><td>108 trials 消融</td><td>0.860</td><td>—</td><td>ROI-only 最优, 频域无增量</td></tr>
+    <tr><td>4-7</td><td>RLVR R1-2.3</td><td>signed advantage + KL</td><td>0.873</td><td>0.658</td><td>Stable shell 成立</td></tr>
+    <tr><td>8</td><td>R2.5 Causality</td><td>real vs shuffled</td><td>0.885</td><td>0.664</td><td>real≈shuffled, 频谱因果不成立</td></tr>
+    <tr><td>9-11</td><td>AFM R2.6-8</td><td>In-network FFT gate</td><td>0.865</td><td>0.738</td><td>Gate 未激活, 收益来自 head</td></tr>
+    <tr><td>12</td><td>R2.10</td><td>Checkpoint修复</td><td>0.815</td><td>0.525</td><td>后训练稳定但非频域因果</td></tr>
+    <tr><td>13</td><td>P2.11 VOC</td><td>3类检测 signal gate</td><td>0.772</td><td>0.375</td><td>shuffled > real, 不再继续</td></tr>
+    <tr><td>14</td><td>P2.12 AFM Fix</td><td>MPLSeg硬激活门控</td><td>0.868</td><td>0.653</td><td>FFT路径恢复, residual=0.97</td></tr>
+    <tr style="border-top:2px solid var(--accent-teal)"><td colspan="2" style="color:var(--accent-teal);font-weight:bold">→ 下一站</td><td style="color:var(--accent-teal)">语义分割 Plan 4.x</td><td colspan="2" style="color:var(--accent-teal)">Dense mask RLVR</td><td style="color:var(--accent-teal)">→</td></tr>
+  </table>
+</div>
+
+<!-- ====== 14: Conclusion ====== -->
+<div class="slide slide-end">
+  <div class="glow"></div>
+  <div class="end-tag">CONCLUSION</div>
+  <h2>核心结论</h2>
+  <div class="sub">检测 RLVR shell 已稳定 · 手工频域 verifier 因果不足 · 下一站: 语义分割</div>
+  <div class="divider"></div>
+  <div class="info">
+    ① RLVR 后训练 shell 在目标检测上首次稳定实现（14轮迭代）<br>
+    ② 手工 ROI 傅里叶 verifier: 统计信号有（AUC 0.93-0.96），因果信号无（real≈shuffled）<br>
+    ③ MPLSeg-style AFM 修复了梯度死锁，但≠ box-level frequency reward 有效<br>
+    ④ 语义分割为幅度/相位解耦提供原生契合的 dense mask 空间<br>
+  </div>
+</div>
+
+</div>
+
+<!-- NAV -->
+<div class="nav" id="navBar"></div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+let current = 0;
+
+const slideLabels = ['封面','MVP','QH','NNI','RLVR','R2.5','AFM','R2.10','VOC','P2.12','P3.x','P4.x','全景','结论'];
+
+const navBar = document.getElementById('navBar');
+navBar.innerHTML = '<button class="arrow" onclick="go(-1)">◀</button>' +
+  slideLabels.map((l, i) => `<button class="${i===0?'active':''}" onclick="go(${i})">${i===0?'1':l}</button>`).join('') +
+  '<button class="arrow" onclick="go(1)">▶</button>';
+
+function go(dir) {
+  let next;
+  if (typeof dir === 'number') {
+    next = dir < 0 ? (current - 1 + slides.length) % slides.length : (current + dir) % slides.length;
+    if (dir === 1) next = (current + 1) % slides.length;
+    else if (dir === -1) next = (current - 1 + slides.length) % slides.length;
+    else next = dir;
+  }
+  slides[current].classList.remove('active');
+  navBar.children[current + 1].classList.remove('active');
+  current = next;
+  slides[current].classList.add('active');
+  navBar.children[current + 1].classList.add('active');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') go(1);
+  if (e.key === 'ArrowLeft') go(-1);
+});
+</script>
+
+</body>
+</html>

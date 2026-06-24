@@ -1,0 +1,15 @@
+{
+  "preset": {
+    "_type": "choice",
+    "_value": [
+      {"name": "iou_only", "signal": "none", "reward_lambda": 0.0, "policy_loss_weight": 0.3, "box_loss_weight": 1.0, "temperature": 1.0},
+      {"name": "ramp_low", "signal": "ramp", "reward_lambda": 0.05, "policy_loss_weight": 0.3, "box_loss_weight": 1.0, "temperature": 1.0},
+      {"name": "ramp_mid", "signal": "ramp", "reward_lambda": 0.1, "policy_loss_weight": 0.3, "box_loss_weight": 1.0, "temperature": 1.0},
+      {"name": "ramp_high", "signal": "ramp", "reward_lambda": 0.2, "policy_loss_weight": 0.3, "box_loss_weight": 1.0, "temperature": 1.0},
+      {"name": "shuffled_ramp_mid", "signal": "shuffled_ramp", "reward_lambda": 0.1, "policy_loss_weight": 0.3, "box_loss_weight": 1.0, "temperature": 1.0},
+      {"name": "ramp_mid_low_policy", "signal": "ramp", "reward_lambda": 0.1, "policy_loss_weight": 0.1, "box_loss_weight": 1.0, "temperature": 1.0},
+      {"name": "ramp_mid_high_policy", "signal": "ramp", "reward_lambda": 0.1, "policy_loss_weight": 0.5, "box_loss_weight": 1.0, "temperature": 1.0},
+      {"name": "ramp_mid_cool_temp", "signal": "ramp", "reward_lambda": 0.1, "policy_loss_weight": 0.3, "box_loss_weight": 1.0, "temperature": 0.5}
+    ]
+  }
+}

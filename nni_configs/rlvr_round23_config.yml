@@ -1,0 +1,12 @@
+experimentName: rlvr_round23_freeze_state_readable
+experimentWorkingDirectory: E:/CLIproject/RLimage/nni_experiments
+trialCommand: E:/anaconda/01/envs/RLimage/python.exe -m spectral_detection_posttrain.nni_rlvr_trial --config spectral_detection_posttrain/configs/mvp.yaml --run-prefix nni_rlvr_round23 --rlvr-epochs 3 --early-stopping-patience 2
+trialCodeDirectory: E:/CLIproject/RLimage
+searchSpaceFile: rlvr_round23_search_space.json
+trialConcurrency: 1
+maxTrialNumber: 6
+maxExperimentDuration: 48h
+tuner:
+  name: GridSearch
+trainingService:
+  platform: local

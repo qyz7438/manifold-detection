@@ -1,0 +1,1 @@
+"""RLVR helpers for detection post-training."""

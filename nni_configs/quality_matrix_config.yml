@@ -1,0 +1,12 @@
+experimentName: rlimage_quality_head_matrix
+experimentWorkingDirectory: E:/CLIproject/RLimage/nni_experiments
+trialCommand: E:/anaconda/01/envs/RLimage/python.exe E:/CLIproject/RLimage/spectral_detection_posttrain/nni_quality_trial.py --config E:/CLIproject/RLimage/spectral_detection_posttrain/configs/mvp.yaml --run-prefix nni_quality_matrix --fixed-recall 0.85
+trialCodeDirectory: .
+searchSpaceFile: quality_matrix_search_space.json
+trialConcurrency: 1
+maxTrialNumber: 108
+maxExperimentDuration: 24h
+tuner:
+  name: GridSearch
+trainingService:
+  platform: local

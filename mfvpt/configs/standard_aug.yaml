@@ -1,0 +1,33 @@
+seed: 42
+device: cuda
+data:
+  root: ./data
+  image_size: 224
+  num_workers: 2
+model:
+  name: deit_tiny_patch16_224
+  pretrained: true
+  num_classes: 100
+train:
+  mode: standard_aug
+  batch_size: 64
+  epochs: 20
+  lr: 0.0003
+  weight_decay: 0.05
+  amp: true
+posttrain:
+  batch_size: 48
+  epochs: 8
+  lr: 0.00001
+  trainable: full
+  lambda_view_consistency: 1.0
+  lambda_confidence: 0.5
+perturb:
+  low_ratio: 0.25
+  high_ratio: 0.25
+  high_strength: 0.10
+  patch_type: random
+  patch_size: 32
+eval:
+  ece_bins: 15
+  hce_threshold: 0.90
