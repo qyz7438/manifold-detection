@@ -111,7 +111,11 @@ class PrototypeBank(nn.Module):
         )
 
     def compute_distances(
-        self, features: torch.Tensor, class_ids: torch.Tensor
+        self,
+        features: torch.Tensor,
+        class_ids: torch.Tensor,
+        orient_idx: torch.Tensor | None = None,
+        scale_idx: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Squared Euclidean distance from each feature to its class prototypes.
 
@@ -119,6 +123,9 @@ class PrototypeBank(nn.Module):
             features: tensor of shape ``(B, D)``.
             class_ids: integer tensor of shape ``(B,)`` with values in
                 ``[0, num_classes)``.
+            orient_idx: ignored by the base bank (used by
+                ``RemoteSensingPrototypeBank``).
+            scale_idx: ignored by the base bank.
 
         Returns:
             Distance matrix of shape ``(B, K)`` where ``K`` is the number of
@@ -141,6 +148,8 @@ class PrototypeBank(nn.Module):
         features: torch.Tensor,
         class_ids: torch.Tensor,
         assignments: torch.Tensor,
+        orient_idx: torch.Tensor | None = None,
+        scale_idx: torch.Tensor | None = None,
         class_weights: torch.Tensor | None = None,
     ) -> None:
         """EMA-update prototypes using soft assignments.
@@ -150,6 +159,9 @@ class PrototypeBank(nn.Module):
             class_ids: integer tensor of shape ``(B,)``.
             assignments: soft weights of shape ``(B, K)``.  Typically row sums
                 are close to 1 (each sample is distributed over prototypes).
+            orient_idx: ignored by the base bank (used by
+                ``RemoteSensingPrototypeBank``).
+            scale_idx: ignored by the base bank.
             class_weights: optional per-sample weights of shape ``(B,)`` used to
                 up-weight rare classes during EMA updates.
         """

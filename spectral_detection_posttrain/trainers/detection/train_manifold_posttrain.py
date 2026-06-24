@@ -1580,6 +1580,7 @@ def main() -> None:
     # Optionally replace the learnable cls_score with a fixed ETF classifier.
     if args.use_etf_classifier:
         replace_cls_score_with_etf(model.roi_heads.box_predictor, num_classes=num_classes)
+        model.roi_heads.box_predictor.to(device)
         print("Replaced box_predictor.cls_score with ETF classifier")
     use_rs_prototypes = args.rs_orient_bins > 1 or args.rs_scale_bins > 1
     if use_rs_prototypes:

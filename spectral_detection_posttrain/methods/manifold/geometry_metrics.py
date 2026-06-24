@@ -42,10 +42,38 @@ def _safe_tensor(x: torch.Tensor | None) -> torch.Tensor:
     return x
 
 
+def _subsample_features(
+    features: torch.Tensor,
+    labels: torch.Tensor | None = None,
+    max_samples: int = 8192,
+) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor | None]:
+    """Randomly subsample a feature cloud (and optional labels) for cheap metrics.
+
+    Args:
+        features: ``(N, D)``.
+        labels: optional ``(N,)`` labels.
+        max_samples: cap on the number of samples retained.
+
+    Returns:
+        Subsampled ``features`` alone, or ``(features, labels)`` if labels were
+        provided.
+    """
+    n = features.shape[0]
+    if n <= max_samples:
+        if labels is None:
+            return features
+        return features, labels
+    perm = torch.randperm(n, device=features.device)[:max_samples]
+    if labels is None:
+        return features[perm]
+    return features[perm], labels[perm]
+
+
 def estimate_intrinsic_dimension(
     features: torch.Tensor,
     method: str = "pca",
     variance_threshold: float = 0.95,
+    max_samples: int = 8192,
 ) -> torch.Tensor:
     """Estimate intrinsic dimension of a feature cloud.
 
@@ -54,10 +82,16 @@ def estimate_intrinsic_dimension(
         method: ``"pca"`` (number of components explaining ``variance_threshold``
             variance) or ``"twonn"``.
         variance_threshold: explained-variance threshold for PCA mode.
+        max_samples: maximum number of samples to use for the estimate.  Large
+            point clouds are randomly subsampled to keep the estimator (especially
+            ``twonn``) memory-safe on the GPU.
 
     Returns:
         Scalar tensor with the estimated intrinsic dimension.
     """
+    if features.shape[0] > max_samples:
+        perm = torch.randperm(features.shape[0], device=features.device)[:max_samples]
+        features = features[perm]
     estimator = IntrinsicDimEstimator(method=method, pca_variance_threshold=variance_threshold)
     return estimator.estimate_id(features)
 
@@ -525,6 +559,7 @@ def compute_manifold_geometry(
     normalize: bool = True,
     etf_weight: torch.Tensor | None = None,
     class_frequency_weights: torch.Tensor | None = None,
+    max_geometry_samples: int = 8192,
 ) -> dict[str, Any]:
     """Compute a full geometry report for a batch of box features.
 
@@ -561,38 +596,57 @@ def compute_manifold_geometry(
     """
     result: dict[str, Any] = {}
 
-    # Overall intrinsic dimension.
-    fg_mask = labels >= 1
-    if fg_mask.any() and features.shape[0] >= 2:
-        result["id_overall"] = estimate_intrinsic_dimension(features, method=method)
-        result["id_foreground"] = estimate_intrinsic_dimension(features[fg_mask], method=method)
+    # Lightweight geometry metrics are computed on a random subsample to avoid
+    # OOM when the number of proposals is very large (e.g. twonn ID, SVD).
+    geom_features, geom_labels = _subsample_features(
+        features, labels, max_samples=max_geometry_samples
+    )
+    fg_mask_geom = geom_labels >= 1
+    if corrected_features is not None and corrected_features.shape[0] == features.shape[0]:
+        corr_geom_features, _ = _subsample_features(
+            corrected_features, labels, max_samples=max_geometry_samples
+        )
     else:
-        result["id_overall"] = features.new_tensor(float("nan"))
-        result["id_foreground"] = features.new_tensor(float("nan"))
+        corr_geom_features = None
 
-    # Per-class intrinsic dimension (foreground only).
+    # Full-sample masks are still needed for centroids / compactness / separability.
+    fg_mask = labels >= 1
+
+    # Overall intrinsic dimension.
+    if geom_features.shape[0] >= 2:
+        result["id_overall"] = estimate_intrinsic_dimension(geom_features, method=method)
+        result["id_foreground"] = estimate_intrinsic_dimension(
+            geom_features[fg_mask_geom], method=method
+        ) if fg_mask_geom.any() else geom_features.new_tensor(float("nan"))
+    else:
+        result["id_overall"] = geom_features.new_tensor(float("nan"))
+        result["id_foreground"] = geom_features.new_tensor(float("nan"))
+
+    # Per-class intrinsic dimension (foreground only, subsampled).
     per_class_id = {}
     for c in range(1, num_classes):
-        mask = labels == c
+        mask = geom_labels == c
         if mask.sum() >= 2:
-            per_class_id[str(c)] = float(estimate_intrinsic_dimension(features[mask], method=method).item())
+            per_class_id[str(c)] = float(
+                estimate_intrinsic_dimension(geom_features[mask], method=method).item()
+            )
         else:
             per_class_id[str(c)] = float("nan")
     result["per_class_id"] = per_class_id
 
     # Effective rank (overall and foreground).
-    if features.shape[0] >= 2:
-        result["effective_rank_overall"] = compute_effective_rank(features)
+    if geom_features.shape[0] >= 2:
+        result["effective_rank_overall"] = compute_effective_rank(geom_features)
     else:
-        result["effective_rank_overall"] = features.new_tensor(float("nan"))
-    if fg_mask.any() and features[fg_mask].shape[0] >= 2:
-        result["effective_rank_foreground"] = compute_effective_rank(features[fg_mask])
+        result["effective_rank_overall"] = geom_features.new_tensor(float("nan"))
+    if fg_mask_geom.any() and geom_features[fg_mask_geom].shape[0] >= 2:
+        result["effective_rank_foreground"] = compute_effective_rank(geom_features[fg_mask_geom])
     else:
-        result["effective_rank_foreground"] = features.new_tensor(float("nan"))
+        result["effective_rank_foreground"] = geom_features.new_tensor(float("nan"))
 
     # Spectral decay (overall and foreground).
-    spectral_overall = compute_spectral_decay(features)
-    spectral_fg = compute_spectral_decay(features[fg_mask]) if fg_mask.any() else {}
+    spectral_overall = compute_spectral_decay(geom_features)
+    spectral_fg = compute_spectral_decay(geom_features[fg_mask_geom]) if fg_mask_geom.any() else {}
     result.update(spectral_overall)
     for key, value in spectral_fg.items():
         result[f"{key}_foreground"] = value
@@ -642,8 +696,12 @@ def compute_manifold_geometry(
         )
         corr_inter = compute_inter_class_separation(corr_centroids, labels=labels, normalize=normalize)
 
-        result["id_corrected_overall"] = estimate_intrinsic_dimension(corrected_features, method=method)
-        result["id_corrected_foreground"] = estimate_intrinsic_dimension(corrected_features[fg_mask], method=method)
+        result["id_corrected_overall"] = estimate_intrinsic_dimension(
+            corr_geom_features, method=method
+        )
+        result["id_corrected_foreground"] = estimate_intrinsic_dimension(
+            corr_geom_features[fg_mask_geom], method=method
+        ) if fg_mask_geom.any() else corr_geom_features.new_tensor(float("nan"))
         result["id_delta_foreground"] = result["id_corrected_foreground"] - result["id_foreground"]
         result["intra_mean_corrected"] = corr_intra["intra_mean"]
         result["intra_delta"] = corr_intra["intra_mean"] - intra["intra_mean"]
@@ -651,18 +709,18 @@ def compute_manifold_geometry(
         result["inter_delta"] = corr_inter["inter_mean"] - inter["inter_mean"]
 
         # Corrected effective rank.
-        result["effective_rank_corrected_overall"] = compute_effective_rank(corrected_features)
-        if fg_mask.any() and corrected_features[fg_mask].shape[0] >= 2:
+        result["effective_rank_corrected_overall"] = compute_effective_rank(corr_geom_features)
+        if fg_mask_geom.any() and corr_geom_features[fg_mask_geom].shape[0] >= 2:
             result["effective_rank_corrected_foreground"] = compute_effective_rank(
-                corrected_features[fg_mask]
+                corr_geom_features[fg_mask_geom]
             )
         else:
-            result["effective_rank_corrected_foreground"] = corrected_features.new_tensor(float("nan"))
+            result["effective_rank_corrected_foreground"] = corr_geom_features.new_tensor(float("nan"))
 
         # Corrected spectral decay.
-        corr_spectral_overall = compute_spectral_decay(corrected_features)
+        corr_spectral_overall = compute_spectral_decay(corr_geom_features)
         corr_spectral_fg = (
-            compute_spectral_decay(corrected_features[fg_mask]) if fg_mask.any() else {}
+            compute_spectral_decay(corr_geom_features[fg_mask_geom]) if fg_mask_geom.any() else {}
         )
         for key, value in corr_spectral_overall.items():
             result[f"{key}_corrected"] = value
