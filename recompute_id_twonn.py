@@ -62,7 +62,7 @@ def load_model_for_run(run_dir: Path, baseline_path: Path, config_path: Path, de
     return model, config, box_head_type
 
 
-def collect_features(model, val_loader, device, config, use_gt_boxes: bool = False):
+def collect_features(model, val_loader, device, config, use_gt_boxes: bool = False, normalize: bool = True):
     """Collect box features and labels from validation set."""
     model.eval()
     all_features = []
@@ -84,8 +84,9 @@ def collect_features(model, val_loader, device, config, use_gt_boxes: bool = Fal
             if box_features.shape[0] == 0:
                 continue
 
-            # L2 normalize to match training setting.
-            box_features = F.normalize(box_features, dim=-1)
+            # L2 normalize to match training setting (unless disabled).
+            if normalize:
+                box_features = F.normalize(box_features, dim=-1)
             all_features.append(box_features.cpu())
             all_labels.append(labels.cpu())
 
@@ -175,6 +176,7 @@ def main():
     parser.add_argument("--checkpoints", nargs="+", default=["checkpoint_initial.pth", "checkpoint_last.pth"])
     parser.add_argument("--output", default="id_recompute.json")
     parser.add_argument("--use-gt-boxes", action="store_true")
+    parser.add_argument("--no-normalize", action="store_true", help="Do not L2-normalize features before ID estimation")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -207,7 +209,7 @@ def main():
             model.eval()
 
             print(f"Collecting features for {run_name} / {ckpt_name} ...")
-            features, labels = collect_features(model, val_loader, device, config, args.use_gt_boxes)
+            features, labels = collect_features(model, val_loader, device, config, args.use_gt_boxes, normalize=not args.no_normalize)
             if features is None:
                 continue
 
