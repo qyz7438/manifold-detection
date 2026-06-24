@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 import torch
 
+from spectral_detection_posttrain.methods.manifold.geometry_metrics import (
+    compute_effective_rank,
+    compute_nc1,
+)
 from spectral_detection_posttrain.methods.manifold.prototype_bank import PrototypeBank
 from spectral_detection_posttrain.methods.manifold.sinkhorn_assigner import SinkhornAssigner
 from spectral_detection_posttrain.methods.manifold.transport_head import TransportHead
@@ -177,3 +183,25 @@ def test_local_geometry_separability_prefers_close_positives():
     ])
     geom = est.local_geometry(features, labels=labels)
     assert geom["separability"].item() > 0.5
+
+
+def test_effective_rank_full_rank_is_near_dimension():
+    torch.manual_seed(0)
+    # Random Gaussian data in 8D is approximately full rank.
+    features = torch.randn(100, 8)
+    eff_rank = compute_effective_rank(features)
+    assert 5.0 <= eff_rank.item() <= 8.5
+
+
+def test_effective_rank_is_nan_for_single_sample():
+    features = torch.randn(1, 4)
+    eff_rank = compute_effective_rank(features)
+    assert math.isnan(eff_rank.item())
+
+
+def test_nc1_returns_nan_for_single_foreground_class():
+    torch.manual_seed(0)
+    features = torch.randn(20, 4)
+    labels = torch.ones(20, dtype=torch.long)
+    nc1 = compute_nc1(features, labels, num_classes=3)
+    assert math.isnan(nc1.item())

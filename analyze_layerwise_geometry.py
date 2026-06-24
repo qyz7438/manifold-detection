@@ -42,9 +42,13 @@ from spectral_detection_posttrain.datasets import build_detection_loaders
 from spectral_detection_posttrain.methods.manifold import ManifoldCorrectionPredictor, PrototypeBank, TransportHead
 from spectral_detection_posttrain.methods.manifold.geometry_metrics import (
     compute_class_centroids,
+    compute_effective_rank,
     compute_intra_class_compactness,
     compute_inter_class_separation,
     compute_manifold_geometry,
+    compute_nc1,
+    compute_separability_auc,
+    compute_spectral_decay,
     estimate_intrinsic_dimension,
 )
 from spectral_detection_posttrain.utils.config import load_config
@@ -408,6 +412,28 @@ def geometry_for_layer(
     result["inter_mean"] = float(inter["inter_mean"].item())
     result["inter_min"] = float(inter["inter_min"].item())
 
+    # Effective rank and spectral decay.
+    if features.shape[0] >= 2:
+        result["effective_rank_overall"] = float(compute_effective_rank(features).item())
+        spectral = compute_spectral_decay(features)
+        for key, value in spectral.items():
+            result[key] = float(value.item())
+    else:
+        result["effective_rank_overall"] = float("nan")
+
+    if fg_mask.any() and features[fg_mask].shape[0] >= 2:
+        result["effective_rank_foreground"] = float(compute_effective_rank(features[fg_mask]).item())
+        spectral_fg = compute_spectral_decay(features[fg_mask])
+        for key, value in spectral_fg.items():
+            result[f"{key}_foreground"] = float(value.item())
+    else:
+        result["effective_rank_foreground"] = float("nan")
+
+    # NC1 and separability (foreground-based).
+    result["nc1_overall"] = float(compute_nc1(features, labels, num_classes).item())
+    sep = compute_separability_auc(features, labels, num_classes, centroids=centroids)
+    result["separability_overall"] = float(sep["separability_overall"].item())
+
     if per_class:
         result["per_class_id"] = {
             str(c): float(estimate_intrinsic_dimension(features[labels == c], method=method).item())
@@ -420,6 +446,11 @@ def geometry_for_layer(
             for c in range(1, num_classes)
         }
         result["per_class_inter_mean"] = _per_class_inter_distance(centroids, labels, normalize)
+        if isinstance(sep["per_class_separability"], dict):
+            result["per_class_separability"] = {
+                str(c): float(sep["per_class_separability"].get(str(c), float("nan")))
+                for c in range(1, num_classes)
+            }
 
     return result
 
