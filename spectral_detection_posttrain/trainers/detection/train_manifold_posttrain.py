@@ -546,7 +546,7 @@ def _same_class_prototype_diversity_loss(
     temperature: float,
 ) -> torch.Tensor:
     prototypes = prototype_bank.prototypes
-    if prototype_bank.num_prototypes_per_class <= 1 or prototype_bank.num_classes <= 1:
+    if prototype_bank.num_classes <= 1:
         return prototypes.sum() * 0.0
 
     losses = []
@@ -579,24 +579,38 @@ def _inter_class_projection_margin_loss(
     *,
     margin: float,
     class_weights: torch.Tensor | None = None,
+    orient_idx: torch.Tensor | None = None,
+    scale_idx: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if endpoints.shape[0] == 0 or prototype_bank.num_classes <= 2:
         return endpoints.sum() * 0.0
 
+    labels = labels.long()
     prototypes = prototype_bank.prototypes.to(device=endpoints.device, dtype=endpoints.dtype)
-    # RemoteSensingPrototypeBank stores (C, orient, scale, K, D); flatten to (C, O*S*K, D).
-    if prototypes.ndim > 3:
-        prototypes = prototypes.reshape(prototypes.shape[0], -1, prototypes.shape[-1])
-    all_distances = (endpoints[:, None, None, :] - prototypes[None, :, :, :]).square().sum(dim=-1)
-    true_distances = all_distances[torch.arange(labels.numel(), device=endpoints.device), labels.long()]
-    true_nearest = true_distances.min(dim=-1).values
+    use_orient_scale = orient_idx is not None and scale_idx is not None
 
+    # True-class anchor: restrict to the same (orient, scale) bin when known.
+    if use_orient_scale:
+        true_prototypes = prototypes[labels, orient_idx.long(), scale_idx.long()]  # (B, K, D)
+        true_distances = (endpoints[:, None, :] - true_prototypes).square().sum(dim=-1)  # (B, K)
+        true_nearest = true_distances.min(dim=-1).values  # (B,)
+    else:
+        # RemoteSensingPrototypeBank stores (C, orient, scale, K, D); flatten to (C, O*S*K, D).
+        if prototypes.ndim > 3:
+            prototypes = prototypes.reshape(prototypes.shape[0], -1, prototypes.shape[-1])
+        all_distances = (endpoints[:, None, None, :] - prototypes[None, :, :, :]).square().sum(dim=-1)
+        true_distances = all_distances[torch.arange(labels.numel(), device=endpoints.device), labels]
+        true_nearest = true_distances.min(dim=-1).values
+
+    # Wrong-class anchors: pool over all wrong classes and all bins.
+    flat_prototypes = prototypes.reshape(prototypes.shape[0], -1, prototypes.shape[-1])
+    all_distances = (endpoints[:, None, None, :] - flat_prototypes[None, :, :, :]).square().sum(dim=-1)
     wrong_mask = torch.ones(
         (labels.numel(), prototype_bank.num_classes),
         dtype=torch.bool,
         device=endpoints.device,
     )
-    wrong_mask[torch.arange(labels.numel(), device=endpoints.device), labels.long()] = False
+    wrong_mask[torch.arange(labels.numel(), device=endpoints.device), labels] = False
     wrong_mask[:, 0] = False
     wrong_distances = all_distances.masked_fill(~wrong_mask[:, :, None], float("inf"))
     wrong_nearest = wrong_distances.flatten(start_dim=1).min(dim=-1).values
@@ -623,6 +637,8 @@ def projection_geometry_losses(
     inter_margin: float = 0.5,
     proto_div_temperature: float = 0.1,
     class_weights: torch.Tensor | None = None,
+    orient_idx: torch.Tensor | None = None,
+    scale_idx: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     """Regularize endpoints on the class-conditioned prototype manifold."""
     labels = labels.long()
@@ -641,6 +657,8 @@ def projection_geometry_losses(
         prototype_bank,
         margin=inter_margin,
         class_weights=class_weights,
+        orient_idx=orient_idx,
+        scale_idx=scale_idx,
     )
 
     total = (
@@ -698,29 +716,50 @@ def _relative_class_prototype_margin_loss(
     *,
     margin: float,
     normalize: bool,
+    orient_idx: torch.Tensor | None = None,
+    scale_idx: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if features.shape[0] == 0 or prototype_bank.num_classes <= 2:
         return features.sum() * 0.0
 
+    labels = labels.long()
     prototypes = prototype_bank.prototypes.to(device=features.device, dtype=features.dtype)
-    # RemoteSensingPrototypeBank stores (C, orient, scale, K, D); flatten to (C, O*S*K, D).
-    if prototypes.ndim > 3:
-        prototypes = prototypes.reshape(prototypes.shape[0], -1, prototypes.shape[-1])
     distance_features = F.normalize(features, dim=-1) if normalize else features
-    distance_prototypes = F.normalize(prototypes, dim=-1) if normalize else prototypes
+    use_orient_scale = orient_idx is not None and scale_idx is not None
+
+    # True-class anchor: restrict to the same (orient, scale) bin when known.
+    if use_orient_scale:
+        true_prototypes = prototypes[labels, orient_idx.long(), scale_idx.long()]  # (B, K, D)
+        distance_true_prototypes = F.normalize(true_prototypes, dim=-1) if normalize else true_prototypes
+        true_distances = (
+            distance_features[:, None, :] - distance_true_prototypes
+        ).square().sum(dim=-1)  # (B, K)
+        true_nearest = true_distances.min(dim=-1).values  # (B,)
+    else:
+        # RemoteSensingPrototypeBank stores (C, orient, scale, K, D); flatten to (C, O*S*K, D).
+        if prototypes.ndim > 3:
+            prototypes = prototypes.reshape(prototypes.shape[0], -1, prototypes.shape[-1])
+        distance_prototypes = F.normalize(prototypes, dim=-1) if normalize else prototypes
+        distances = (
+            distance_features[:, None, None, :] - distance_prototypes[None, :, :, :]
+        ).square().sum(dim=-1)
+        rows = torch.arange(labels.numel(), device=features.device)
+        true_nearest = distances[rows, labels].min(dim=-1).values  # (B,)
+
+    # Wrong-class anchors: pool over all wrong classes and all bins.
+    flat_prototypes = prototypes.reshape(prototypes.shape[0], -1, prototypes.shape[-1])
+    distance_prototypes = F.normalize(flat_prototypes, dim=-1) if normalize else flat_prototypes
     distances = (
         distance_features[:, None, None, :] - distance_prototypes[None, :, :, :]
     ).square().sum(dim=-1)
 
     rows = torch.arange(labels.numel(), device=features.device)
-    true_nearest = distances[rows, labels.long()].min(dim=-1).values
-
     wrong_mask = torch.ones(
         (labels.numel(), prototype_bank.num_classes),
         dtype=torch.bool,
         device=features.device,
     )
-    wrong_mask[rows, labels.long()] = False
+    wrong_mask[rows, labels] = False
     wrong_mask[:, 0] = False
     wrong_distances = distances.masked_fill(~wrong_mask[:, :, None], float("inf"))
     wrong_nearest = wrong_distances.flatten(start_dim=1).min(dim=-1).values
@@ -1979,6 +2018,8 @@ def main() -> None:
                             inter_margin=args.projection_inter_margin,
                             proto_div_temperature=args.proto_div_temperature,
                             class_weights=class_weights_fg,
+                            orient_idx=orient_idx_fg,
+                            scale_idx=scale_idx_fg,
                         )
                     if (
                         use_corrected_geometry
