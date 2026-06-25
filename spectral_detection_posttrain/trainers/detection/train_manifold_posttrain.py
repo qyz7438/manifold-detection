@@ -41,10 +41,16 @@ from spectral_detection_posttrain.core.models.box_heads import (
     get_box_head_type,
     replace_box_head,
 )
+from spectral_detection_posttrain.core.models.adaptive_etf_predictor import (
+    AdaptiveETFClassifier,
+    get_adaptive_etf_module,
+    replace_cls_score_with_adaptive_etf,
+)
 from spectral_detection_posttrain.core.models.etf_predictor import (
     ETFClassifier,
     replace_cls_score_with_etf,
 )
+from spectral_detection_posttrain.core.optim import SAM
 from spectral_detection_posttrain.datasets import build_detection_loaders
 from spectral_detection_posttrain.eval.detection_metrics import evaluate_detection_predictions
 from spectral_detection_posttrain.experiments.canonical_runner import (
@@ -164,6 +170,26 @@ def parse_args() -> argparse.Namespace:
                         help="Rescale ETF rows to match the original cls_score weight norm.")
     parser.add_argument("--etf-background-mode", default="neg_mean", choices=("neg_mean", "original"),
                         help="How to initialize the background class weight row.")
+    parser.add_argument("--use-adaptive-etf-classifier", action="store_true",
+                        help="Replace cls_score with learnable data-driven adaptive ETF prototypes.")
+    parser.add_argument("--adaptive-etf-init-mode", default="etf",
+                        choices=("etf", "centroids"),
+                        help="Initialize adaptive prototypes from ETF or training-data class centroids.")
+    parser.add_argument("--adaptive-etf-target-confusion", default=None,
+                        help="Path to a (C,C) target-confusion tensor produced by diagnose_roi_manifold.py.")
+    parser.add_argument("--adaptive-etf-lambda-geo", type=float, default=0.0,
+                        help="Weight for the adaptive prototype geometry regularizer.")
+    parser.add_argument("--adaptive-etf-geo-margin-delta", type=float, default=0.2,
+                        help="Extra angular margin to enforce for confused class pairs.")
+    parser.add_argument("--adaptive-etf-geo-norm-weight", type=float, default=0.01,
+                        help="Weight of the prototype unit-norm penalty inside the geometry loss.")
+    parser.add_argument("--adaptive-etf-scale-mode", default="none",
+                        choices=("none", "freq", "effective"),
+                        help="Per-class prototype norm scaling mode.")
+    parser.add_argument("--adaptive-etf-use-projector", action="store_true",
+                        help="Add a learnable LayerNorm+Linear projector before the adaptive ETF classifier.")
+    parser.add_argument("--adaptive-etf-projector-dim", type=int, default=None,
+                        help="Hidden dim of the adaptive ETF projector (default = feature_dim).")
     parser.add_argument("--lambda-fc1-rank", type=float, default=0.0,
                         help="Weight for the fc1 spectral tail loss. Default keeps the loss disabled.")
     parser.add_argument("--lambda-fc1-compact", type=float, default=0.0,
@@ -204,6 +230,10 @@ def parse_args() -> argparse.Namespace:
                         help="EMA momentum for the corrected class-centroid memory anchor.")
     parser.add_argument("--corrected-inter-margin", type=float, default=0.5,
                         help="Wrong-class prototype margin for active-corrected features.")
+    parser.add_argument("--use-sam", action="store_true",
+                        help="Use Sharpness-Aware Minimization (SAM) optimizer wrapper.")
+    parser.add_argument("--sam-rho", type=float, default=0.05,
+                        help="Neighborhood radius for SAM adversarial perturbation.")
     return parser.parse_args()
 
 
@@ -1507,6 +1537,14 @@ def _box_predictor_base_parameters(model: nn.Module) -> list[nn.Parameter]:
     return list(predictor.parameters())
 
 
+def _get_cls_score_module(model: nn.Module) -> nn.Module | None:
+    """Return the actual cls_score layer, unwrapping ManifoldCorrectionPredictor."""
+    predictor = model.roi_heads.box_predictor
+    if isinstance(predictor, ManifoldCorrectionPredictor):
+        predictor = predictor.base_predictor
+    return getattr(predictor, "cls_score", None)
+
+
 @torch.no_grad()
 def eval_metrics(model: nn.Module, val_loader: DataLoader, device: torch.device, config: dict, num_classes: int) -> dict:
     model.eval()
@@ -1599,6 +1637,13 @@ def main() -> None:
         freeze_box_head(model)
     if args.freeze_box_predictor:
         freeze_box_predictor(model)
+        # If we installed an adaptive ETF classifier, keep it (and its optional
+        # projector) trainable even though the rest of the predictor is frozen.
+        if args.use_adaptive_etf_classifier:
+            adaptive_etf = get_adaptive_etf_module(model.roi_heads.box_predictor)
+            if adaptive_etf is not None:
+                for parameter in adaptive_etf.parameters():
+                    parameter.requires_grad_(True)
 
     if args.lambda_correction_field_preserve > 0.0 and not args.active_manifold_correction:
         raise ValueError("--lambda-correction-field-preserve requires --active-manifold-correction")
@@ -1718,6 +1763,47 @@ def main() -> None:
             seed=int(config.get("seed", 42)),
         )
 
+    # Optionally replace the learnable cls_score with adaptive data-driven prototypes.
+    if args.use_adaptive_etf_classifier:
+        if args.use_etf_classifier:
+            raise ValueError("--use-adaptive-etf-classifier is mutually exclusive with --use-etf-classifier")
+        if args.warmup_batches <= 0 and args.adaptive_etf_init_mode == "centroids":
+            raise ValueError(
+                "--use-adaptive-etf-classifier with init_mode='centroids' requires --warmup-batches > 0"
+            )
+        target_confusion = None
+        if args.adaptive_etf_target_confusion is not None:
+            target_confusion = torch.load(args.adaptive_etf_target_confusion, map_location="cpu")
+            expected_shape = (num_classes - 1, num_classes - 1)
+            if target_confusion.shape != expected_shape:
+                raise ValueError(
+                    f"target_confusion shape {tuple(target_confusion.shape)} != {expected_shape}"
+                )
+            target_confusion = target_confusion.to(device)
+        replace_cls_score_with_adaptive_etf(
+            model.roi_heads.box_predictor,
+            num_classes=num_classes,
+            background_mode=args.etf_background_mode,
+            preserve_logit_scale=(args.adaptive_etf_init_mode == "etf"),
+            init_mode=args.adaptive_etf_init_mode,
+            foreground_centers=centers[1:] if args.adaptive_etf_init_mode == "centroids" else None,
+            target_confusion=target_confusion,
+            lambda_geo=args.adaptive_etf_lambda_geo,
+            geo_margin_delta=args.adaptive_etf_geo_margin_delta,
+            geo_norm_weight=args.adaptive_etf_geo_norm_weight,
+            scale_mode=args.adaptive_etf_scale_mode,
+            class_counts=class_counts,
+            use_projector=args.adaptive_etf_use_projector,
+            projector_dim=args.adaptive_etf_projector_dim,
+        )
+        model.roi_heads.box_predictor.to(device)
+        print(
+            "Replaced box_predictor.cls_score with AdaptiveETFClassifier "
+            f"(init={args.adaptive_etf_init_mode}, scale={args.adaptive_etf_scale_mode}, "
+            f"lambda_geo={args.adaptive_etf_lambda_geo}, "
+            f"projector={args.adaptive_etf_use_projector})"
+        )
+
     class_weight_per_class = None
     if args.class_reweight != "none":
         class_weight_per_class = compute_class_frequency_weights(
@@ -1733,6 +1819,12 @@ def main() -> None:
         detector_params.extend(model.roi_heads.box_head.parameters())
     if not args.freeze_box_predictor:
         detector_params.extend(_box_predictor_base_parameters(model))
+    elif args.use_adaptive_etf_classifier:
+        # box_predictor is frozen, but adaptive ETF classifier/projector should
+        # still be trainable.
+        adaptive_etf = get_adaptive_etf_module(model.roi_heads.box_predictor)
+        if adaptive_etf is not None:
+            detector_params.extend(adaptive_etf.parameters())
     if detector_params:
         param_groups.append({"params": detector_params, "lr": args.lr})
     manifold_params = []
@@ -1745,7 +1837,12 @@ def main() -> None:
     if manifold_params:
         param_groups.append({"params": manifold_params, "lr": args.lr_manifold})
 
-    optimizer = torch.optim.AdamW(param_groups, lr=args.lr, weight_decay=args.weight_decay)
+    base_optimizer = torch.optim.AdamW(param_groups, lr=args.lr, weight_decay=args.weight_decay)
+    if args.use_sam:
+        optimizer = SAM(param_groups, base_optimizer, rho=args.sam_rho)
+        print(f"Wrapped optimizer with SAM (rho={args.sam_rho}).")
+    else:
+        optimizer = base_optimizer
 
     epochs = args.epochs if args.epochs is not None else int(config["posttrain"].get("epochs", 5))
     geometry_every = args.geometry_every
@@ -1857,6 +1954,7 @@ def main() -> None:
         total_loss_corrected_memory_center_preserve = 0.0
         total_loss_corrected_memory_inter_preserve = 0.0
         total_loss_correction_field_preserve = 0.0
+        total_loss_adaptive_etf_geo = 0.0
         total_seen = 0
         total_boxes = 0
         total_fg_boxes = 0
@@ -1875,271 +1973,320 @@ def main() -> None:
             images = [img.to(device) for img in images]
             targets = _to_device_targets(targets, device)
 
-            # Standard detection loss on the whole image (the behavior anchor).
-            loss_dict = model(images, targets)
-            loss_det = sum(loss_dict.values())
-
-            # Manifold losses on proposals (or GT boxes if legacy mode requested).
-            layer_features: dict[str, torch.Tensor] = {}
-            scaled_boxes: list[torch.Tensor] = []
-            if need_layer_features:
-                box_features, labels, scaled_boxes, layer_features = extractor(
-                    model, images, targets, return_layers=True
-                )
-            else:
-                box_features, labels, scaled_boxes = extractor(model, images, targets)
-            fc1_loss_dict = {
-                "loss_fc1_geometry_total": torch.tensor(0.0, device=device),
-                "loss_fc1_rank": torch.tensor(0.0, device=device),
-                "loss_fc1_compact": torch.tensor(0.0, device=device),
-            }
-            preserve_loss_dict = {
-                "loss_preserve_total": torch.tensor(0.0, device=device),
-                "loss_preserve_logits": torch.tensor(0.0, device=device),
-                "loss_preserve_bbox": torch.tensor(0.0, device=device),
-            }
-            projection_loss_dict = {
-                "loss_projection_geometry_total": torch.tensor(0.0, device=device),
-                "loss_projection_intra": torch.tensor(0.0, device=device),
-                "loss_projection_proto_div": torch.tensor(0.0, device=device),
-                "loss_projection_inter": torch.tensor(0.0, device=device),
-            }
-            corrected_loss_dict = {
-                "loss_corrected_geometry_total": torch.tensor(0.0, device=device),
-                "loss_corrected_intra": torch.tensor(0.0, device=device),
-                "loss_corrected_inter": torch.tensor(0.0, device=device),
-                "loss_corrected_inter_preserve": torch.tensor(0.0, device=device),
-                "loss_corrected_center_preserve": torch.tensor(0.0, device=device),
-                "loss_corrected_memory_center_preserve": torch.tensor(0.0, device=device),
-                "loss_corrected_memory_inter_preserve": torch.tensor(0.0, device=device),
-            }
-            correction_field_preserve_loss = torch.tensor(0.0, device=device)
-            if box_features.shape[0] == 0:
-                manifold_loss_dict = {
-                    "loss_manifold_total": torch.tensor(0.0, device=device),
-                    "loss_transport": torch.tensor(0.0, device=device),
-                    "loss_energy": torch.tensor(0.0, device=device),
-                }
-                fg_mask = torch.zeros(0, dtype=torch.bool, device=device)
-            else:
-                if use_preservation:
-                    if teacher_model is None:
-                        raise RuntimeError("teacher_model is required when preservation is enabled")
-                    if "roi_pooled" not in layer_features:
-                        raise RuntimeError("roi_pooled layer features are required for preservation")
-                    student_logits, student_bbox = model.roi_heads.box_predictor(box_features)
-                    with torch.no_grad():
-                        teacher_box_features = teacher_model.roi_heads.box_head(
-                            layer_features["roi_pooled"].detach()
-                        )
-                        teacher_logits, teacher_bbox = teacher_model.roi_heads.box_predictor(teacher_box_features)
-                    preserve_loss_dict = prediction_preservation_losses(
-                        student_logits,
-                        student_bbox,
-                        teacher_logits,
-                        teacher_bbox,
-                        labels,
-                        lambda_logits=args.lambda_logit_preserve if manifold_active else 0.0,
-                        lambda_bbox=args.lambda_bbox_preserve if manifold_active else 0.0,
-                        temperature=args.preserve_temperature,
+            batch_state = {}
+            first_pass = True
+            def closure():
+                nonlocal first_pass
+                do_side_effects = first_pass
+                first_pass = False
+                # Standard detection loss on the whole image (the behavior anchor).
+                loss_dict = model(images, targets)
+                loss_det = sum(loss_dict.values())
+    
+                # Manifold losses on proposals (or GT boxes if legacy mode requested).
+                layer_features: dict[str, torch.Tensor] = {}
+                scaled_boxes: list[torch.Tensor] = []
+                if need_layer_features:
+                    box_features, labels, scaled_boxes, layer_features = extractor(
+                        model, images, targets, return_layers=True
                     )
-
-                # Foreground proposals carry class labels 1..C; background is 0.
-                fg_mask = labels >= 1
-                orient_idx_all, scale_idx_all = compute_orient_scale_indices(
-                    scaled_boxes, prototype_bank
-                )
-                orient_idx_fg = orient_idx_all[fg_mask] if orient_idx_all is not None else None
-                scale_idx_fg = scale_idx_all[fg_mask] if scale_idx_all is not None else None
-                if fg_mask.any():
-                    feat_fg = box_features[fg_mask]
-                    labels_fg = labels[fg_mask]
-                    class_weights_fg = per_sample_class_weights(
-                        labels_fg, class_weight_per_class
-                    )
-                    corrected_features_for_losses = None
-                    if args.active_manifold_correction:
-                        manifold_loss_dict = active_manifold_losses(
-                            feat_fg,
-                            labels_fg,
-                            prototype_bank,
-                            sinkhorn,
-                            model.roi_heads.box_predictor,
-                            args.lambda_tr if manifold_active else 0.0,
-                            args.lambda_en if manifold_active else 0.0,
-                            normalize_features,
-                            orient_idx=orient_idx_fg,
-                            scale_idx=scale_idx_fg,
-                            class_weights=class_weights_fg,
-                        )
-                    else:
-                        if transport_head is None:
-                            raise RuntimeError("transport_head is required when active correction is disabled")
-                        manifold_loss_dict = manifold_losses(
-                            feat_fg,
-                            labels_fg,
-                            prototype_bank,
-                            sinkhorn,
-                            transport_head,
-                            args.lambda_tr if manifold_active else 0.0,
-                            args.lambda_en if manifold_active else 0.0,
-                            normalize_features,
-                            orient_idx=orient_idx_fg,
-                            scale_idx=scale_idx_fg,
-                            class_weights=class_weights_fg,
-                        )
-                    if use_fc1_geometry and "fc1" in layer_features:
-                        fc1_loss_dict = fc1_geometry_losses(
-                            layer_features["fc1"][fg_mask],
-                            labels_fg,
-                            rank=args.fc1_rank_target,
-                            lambda_rank=args.lambda_fc1_rank if manifold_active else 0.0,
-                            lambda_compact=args.lambda_fc1_compact if manifold_active else 0.0,
-                            normalize=normalize_features,
-                        )
-                    if use_projection_geometry:
-                        projection = prototype_projection_targets(
-                            feat_fg,
-                            labels_fg,
-                            prototype_bank,
-                            sinkhorn,
-                            normalize_features,
-                            orient_idx=orient_idx_fg,
-                            scale_idx=scale_idx_fg,
-                        )
-                        projection_loss_dict = projection_geometry_losses(
-                            projection["target_features"],
-                            projection["assignments"],
-                            labels_fg,
-                            prototype_bank,
-                            lambda_intra=args.lambda_proj_intra if manifold_active else 0.0,
-                            lambda_proto_div=args.lambda_proto_div if manifold_active else 0.0,
-                            lambda_inter=args.lambda_proj_inter if manifold_active else 0.0,
-                            inter_margin=args.projection_inter_margin,
-                            proto_div_temperature=args.proto_div_temperature,
-                            class_weights=class_weights_fg,
-                            orient_idx=orient_idx_fg,
-                            scale_idx=scale_idx_fg,
-                        )
-                    if (
-                        use_corrected_geometry
-                        and args.active_manifold_correction
-                        and isinstance(model.roi_heads.box_predictor, ManifoldCorrectionPredictor)
-                    ):
-                        if corrected_centroid_memory is not None:
-                            corrected_centroid_memory.update(
-                                feat_fg.detach(),
-                                labels_fg.detach(),
-                                normalize=normalize_features,
-                            )
-                        corrected_features_for_losses = compute_corrected_features_for_active_head(
-                            model.roi_heads.box_predictor,
-                            feat_fg,
-                            labels_fg,
-                        )
-                        corrected_loss_dict = corrected_feature_geometry_losses(
-                            corrected_features_for_losses,
-                            labels_fg,
-                            prototype_bank,
-                            lambda_intra=args.lambda_corrected_intra if manifold_active else 0.0,
-                            lambda_inter=args.lambda_corrected_inter if manifold_active else 0.0,
-                            inter_margin=args.corrected_inter_margin,
-                            normalize=normalize_features,
-                            reference_features=feat_fg,
-                            lambda_inter_preserve=(
-                                args.lambda_corrected_inter_preserve if manifold_active else 0.0
-                            ),
-                            lambda_center_preserve=(
-                                args.lambda_corrected_center_preserve if manifold_active else 0.0
-                            ),
-                            centroid_memory=corrected_centroid_memory,
-                            lambda_memory_center_preserve=(
-                                args.lambda_corrected_memory_center_preserve if manifold_active else 0.0
-                            ),
-                            lambda_memory_inter_preserve=(
-                                args.lambda_corrected_memory_inter_preserve if manifold_active else 0.0
-                            ),
-                        )
-                    if (
-                        use_correction_field_preserve
-                        and args.active_manifold_correction
-                        and isinstance(model.roi_heads.box_predictor, ManifoldCorrectionPredictor)
-                    ):
-                        if correction_field_reference is None:
-                            raise RuntimeError("correction field reference is required")
-                        if corrected_features_for_losses is None:
-                            corrected_features_for_losses = compute_corrected_features_for_active_head(
-                                model.roi_heads.box_predictor,
-                                feat_fg,
-                                labels_fg,
-                            )
-                        with torch.no_grad():
-                            reference_corrected_features = compute_corrected_features_for_active_head(
-                                correction_field_reference,
-                                feat_fg.detach(),
-                                labels_fg.detach(),
-                            )
-                        correction_field_preserve_loss = correction_field_preservation_loss(
-                            corrected_features_for_losses,
-                            reference_corrected_features,
-                            lambda_preserve=(
-                                args.lambda_correction_field_preserve if manifold_active else 0.0
-                            ),
-                        )
-                    # Update prototypes after computing losses unless the run
-                    # treats warmup prototypes as fixed correction endpoints.
-                    maybe_update_prototypes(
-                        prototype_bank,
-                        feat_fg,
-                        labels_fg,
-                        sinkhorn,
-                        normalize_features,
-                        args.freeze_prototypes_after_warmup,
-                        orient_idx=orient_idx_fg,
-                        scale_idx=scale_idx_fg,
-                        class_weights=class_weights_fg,
-                    )
-
-                    # Accumulate features for epoch-end geometry diagnostics.
-                    if len(geometry_feat_buffer) == 0 or geometry_feat_buffer[0].shape[0] < geometry_buffer_size:
-                        with torch.no_grad():
-                            feats_to_store = feat_fg.detach()
-                            labels_to_store = labels_fg.detach()
-                            if args.active_manifold_correction and isinstance(
-                                model.roi_heads.box_predictor, ManifoldCorrectionPredictor
-                            ):
-                                corr_feats = compute_corrected_features_for_active_head(
-                                    model.roi_heads.box_predictor, feats_to_store, labels_to_store
-                                )
-                            else:
-                                corr_feats = feats_to_store.clone()
-                            geometry_feat_buffer.append(feats_to_store)
-                            geometry_label_buffer.append(labels_to_store)
-                            geometry_corr_buffer.append(corr_feats)
                 else:
+                    box_features, labels, scaled_boxes = extractor(model, images, targets)
+                fc1_loss_dict = {
+                    "loss_fc1_geometry_total": torch.tensor(0.0, device=device),
+                    "loss_fc1_rank": torch.tensor(0.0, device=device),
+                    "loss_fc1_compact": torch.tensor(0.0, device=device),
+                }
+                preserve_loss_dict = {
+                    "loss_preserve_total": torch.tensor(0.0, device=device),
+                    "loss_preserve_logits": torch.tensor(0.0, device=device),
+                    "loss_preserve_bbox": torch.tensor(0.0, device=device),
+                }
+                projection_loss_dict = {
+                    "loss_projection_geometry_total": torch.tensor(0.0, device=device),
+                    "loss_projection_intra": torch.tensor(0.0, device=device),
+                    "loss_projection_proto_div": torch.tensor(0.0, device=device),
+                    "loss_projection_inter": torch.tensor(0.0, device=device),
+                }
+                corrected_loss_dict = {
+                    "loss_corrected_geometry_total": torch.tensor(0.0, device=device),
+                    "loss_corrected_intra": torch.tensor(0.0, device=device),
+                    "loss_corrected_inter": torch.tensor(0.0, device=device),
+                    "loss_corrected_inter_preserve": torch.tensor(0.0, device=device),
+                    "loss_corrected_center_preserve": torch.tensor(0.0, device=device),
+                    "loss_corrected_memory_center_preserve": torch.tensor(0.0, device=device),
+                    "loss_corrected_memory_inter_preserve": torch.tensor(0.0, device=device),
+                }
+                correction_field_preserve_loss = torch.tensor(0.0, device=device)
+                if box_features.shape[0] == 0:
                     manifold_loss_dict = {
                         "loss_manifold_total": torch.tensor(0.0, device=device),
                         "loss_transport": torch.tensor(0.0, device=device),
                         "loss_energy": torch.tensor(0.0, device=device),
                     }
-
-            total_loss_batch = (
-                loss_det
-                + manifold_loss_dict["loss_manifold_total"]
-                + fc1_loss_dict["loss_fc1_geometry_total"]
-                + preserve_loss_dict["loss_preserve_total"]
-                + projection_loss_dict["loss_projection_geometry_total"]
-                + corrected_loss_dict["loss_corrected_geometry_total"]
-                + correction_field_preserve_loss
-            )
-
-            optimizer.zero_grad(set_to_none=True)
-            total_loss_batch.backward()
-            if args.max_grad_norm > 0:
-                torch.nn.utils.clip_grad_norm_(
-                    [p for g in optimizer.param_groups for p in g["params"]], args.max_grad_norm
+                    fg_mask = torch.zeros(0, dtype=torch.bool, device=device)
+                else:
+                    if use_preservation:
+                        if teacher_model is None:
+                            raise RuntimeError("teacher_model is required when preservation is enabled")
+                        if "roi_pooled" not in layer_features:
+                            raise RuntimeError("roi_pooled layer features are required for preservation")
+                        student_logits, student_bbox = model.roi_heads.box_predictor(box_features)
+                        with torch.no_grad():
+                            teacher_box_features = teacher_model.roi_heads.box_head(
+                                layer_features["roi_pooled"].detach()
+                            )
+                            teacher_logits, teacher_bbox = teacher_model.roi_heads.box_predictor(teacher_box_features)
+                        preserve_loss_dict = prediction_preservation_losses(
+                            student_logits,
+                            student_bbox,
+                            teacher_logits,
+                            teacher_bbox,
+                            labels,
+                            lambda_logits=args.lambda_logit_preserve if manifold_active else 0.0,
+                            lambda_bbox=args.lambda_bbox_preserve if manifold_active else 0.0,
+                            temperature=args.preserve_temperature,
+                        )
+    
+                    # Foreground proposals carry class labels 1..C; background is 0.
+                    fg_mask = labels >= 1
+                    orient_idx_all, scale_idx_all = compute_orient_scale_indices(
+                        scaled_boxes, prototype_bank
+                    )
+                    orient_idx_fg = orient_idx_all[fg_mask] if orient_idx_all is not None else None
+                    scale_idx_fg = scale_idx_all[fg_mask] if scale_idx_all is not None else None
+                    if fg_mask.any():
+                        feat_fg = box_features[fg_mask]
+                        labels_fg = labels[fg_mask]
+                        class_weights_fg = per_sample_class_weights(
+                            labels_fg, class_weight_per_class
+                        )
+                        corrected_features_for_losses = None
+                        if args.active_manifold_correction:
+                            manifold_loss_dict = active_manifold_losses(
+                                feat_fg,
+                                labels_fg,
+                                prototype_bank,
+                                sinkhorn,
+                                model.roi_heads.box_predictor,
+                                args.lambda_tr if manifold_active else 0.0,
+                                args.lambda_en if manifold_active else 0.0,
+                                normalize_features,
+                                orient_idx=orient_idx_fg,
+                                scale_idx=scale_idx_fg,
+                                class_weights=class_weights_fg,
+                            )
+                        else:
+                            if transport_head is None:
+                                raise RuntimeError("transport_head is required when active correction is disabled")
+                            manifold_loss_dict = manifold_losses(
+                                feat_fg,
+                                labels_fg,
+                                prototype_bank,
+                                sinkhorn,
+                                transport_head,
+                                args.lambda_tr if manifold_active else 0.0,
+                                args.lambda_en if manifold_active else 0.0,
+                                normalize_features,
+                                orient_idx=orient_idx_fg,
+                                scale_idx=scale_idx_fg,
+                                class_weights=class_weights_fg,
+                            )
+                        if use_fc1_geometry and "fc1" in layer_features:
+                            fc1_loss_dict = fc1_geometry_losses(
+                                layer_features["fc1"][fg_mask],
+                                labels_fg,
+                                rank=args.fc1_rank_target,
+                                lambda_rank=args.lambda_fc1_rank if manifold_active else 0.0,
+                                lambda_compact=args.lambda_fc1_compact if manifold_active else 0.0,
+                                normalize=normalize_features,
+                            )
+                        if use_projection_geometry:
+                            projection = prototype_projection_targets(
+                                feat_fg,
+                                labels_fg,
+                                prototype_bank,
+                                sinkhorn,
+                                normalize_features,
+                                orient_idx=orient_idx_fg,
+                                scale_idx=scale_idx_fg,
+                            )
+                            projection_loss_dict = projection_geometry_losses(
+                                projection["target_features"],
+                                projection["assignments"],
+                                labels_fg,
+                                prototype_bank,
+                                lambda_intra=args.lambda_proj_intra if manifold_active else 0.0,
+                                lambda_proto_div=args.lambda_proto_div if manifold_active else 0.0,
+                                lambda_inter=args.lambda_proj_inter if manifold_active else 0.0,
+                                inter_margin=args.projection_inter_margin,
+                                proto_div_temperature=args.proto_div_temperature,
+                                class_weights=class_weights_fg,
+                                orient_idx=orient_idx_fg,
+                                scale_idx=scale_idx_fg,
+                            )
+                        if (
+                            use_corrected_geometry
+                            and args.active_manifold_correction
+                            and isinstance(model.roi_heads.box_predictor, ManifoldCorrectionPredictor)
+                        ):
+                            if corrected_centroid_memory is not None:
+                                corrected_centroid_memory.update(
+                                    feat_fg.detach(),
+                                    labels_fg.detach(),
+                                    normalize=normalize_features,
+                                )
+                            corrected_features_for_losses = compute_corrected_features_for_active_head(
+                                model.roi_heads.box_predictor,
+                                feat_fg,
+                                labels_fg,
+                            )
+                            corrected_loss_dict = corrected_feature_geometry_losses(
+                                corrected_features_for_losses,
+                                labels_fg,
+                                prototype_bank,
+                                lambda_intra=args.lambda_corrected_intra if manifold_active else 0.0,
+                                lambda_inter=args.lambda_corrected_inter if manifold_active else 0.0,
+                                inter_margin=args.corrected_inter_margin,
+                                normalize=normalize_features,
+                                reference_features=feat_fg,
+                                lambda_inter_preserve=(
+                                    args.lambda_corrected_inter_preserve if manifold_active else 0.0
+                                ),
+                                lambda_center_preserve=(
+                                    args.lambda_corrected_center_preserve if manifold_active else 0.0
+                                ),
+                                centroid_memory=corrected_centroid_memory,
+                                lambda_memory_center_preserve=(
+                                    args.lambda_corrected_memory_center_preserve if manifold_active else 0.0
+                                ),
+                                lambda_memory_inter_preserve=(
+                                    args.lambda_corrected_memory_inter_preserve if manifold_active else 0.0
+                                ),
+                            )
+                        if (
+                            use_correction_field_preserve
+                            and args.active_manifold_correction
+                            and isinstance(model.roi_heads.box_predictor, ManifoldCorrectionPredictor)
+                        ):
+                            if correction_field_reference is None:
+                                raise RuntimeError("correction field reference is required")
+                            if corrected_features_for_losses is None:
+                                corrected_features_for_losses = compute_corrected_features_for_active_head(
+                                    model.roi_heads.box_predictor,
+                                    feat_fg,
+                                    labels_fg,
+                                )
+                            with torch.no_grad():
+                                reference_corrected_features = compute_corrected_features_for_active_head(
+                                    correction_field_reference,
+                                    feat_fg.detach(),
+                                    labels_fg.detach(),
+                                )
+                            correction_field_preserve_loss = correction_field_preservation_loss(
+                                corrected_features_for_losses,
+                                reference_corrected_features,
+                                lambda_preserve=(
+                                    args.lambda_correction_field_preserve if manifold_active else 0.0
+                                ),
+                            )
+                        if do_side_effects:
+                            # Update prototypes after computing losses unless the run
+                            # treats warmup prototypes as fixed correction endpoints.
+                            maybe_update_prototypes(
+                                prototype_bank,
+                                feat_fg,
+                                labels_fg,
+                                sinkhorn,
+                                normalize_features,
+                                args.freeze_prototypes_after_warmup,
+                                orient_idx=orient_idx_fg,
+                                scale_idx=scale_idx_fg,
+                                class_weights=class_weights_fg,
+                            )
+    
+                        if do_side_effects:
+                            # Accumulate features for epoch-end geometry diagnostics.
+                            if len(geometry_feat_buffer) == 0 or geometry_feat_buffer[0].shape[0] < geometry_buffer_size:
+                                with torch.no_grad():
+                                    feats_to_store = feat_fg.detach()
+                                    labels_to_store = labels_fg.detach()
+                                    if args.active_manifold_correction and isinstance(
+                                        model.roi_heads.box_predictor, ManifoldCorrectionPredictor
+                                    ):
+                                        corr_feats = compute_corrected_features_for_active_head(
+                                            model.roi_heads.box_predictor, feats_to_store, labels_to_store
+                                        )
+                                    else:
+                                        corr_feats = feats_to_store.clone()
+                                    geometry_feat_buffer.append(feats_to_store)
+                                    geometry_label_buffer.append(labels_to_store)
+                                    geometry_corr_buffer.append(corr_feats)
+                    else:
+                        manifold_loss_dict = {
+                            "loss_manifold_total": torch.tensor(0.0, device=device),
+                            "loss_transport": torch.tensor(0.0, device=device),
+                            "loss_energy": torch.tensor(0.0, device=device),
+                        }
+    
+                adaptive_etf_geo_loss = torch.tensor(0.0, device=device)
+                cls_score_for_geo = _get_cls_score_module(model)
+                if isinstance(cls_score_for_geo, AdaptiveETFClassifier):
+                    geo = cls_score_for_geo.geometry_loss()
+                    if geo is not None:
+                        adaptive_etf_geo_loss = geo
+    
+                total_loss_batch = (
+                    loss_det
+                    + manifold_loss_dict["loss_manifold_total"]
+                    + fc1_loss_dict["loss_fc1_geometry_total"]
+                    + preserve_loss_dict["loss_preserve_total"]
+                    + projection_loss_dict["loss_projection_geometry_total"]
+                    + corrected_loss_dict["loss_corrected_geometry_total"]
+                    + correction_field_preserve_loss
+                    + adaptive_etf_geo_loss
                 )
-            optimizer.step()
+    
+
+                batch_state.update({
+                    "loss_det": loss_det,
+                    "manifold_loss_dict": manifold_loss_dict,
+                    "fc1_loss_dict": fc1_loss_dict,
+                    "preserve_loss_dict": preserve_loss_dict,
+                    "projection_loss_dict": projection_loss_dict,
+                    "corrected_loss_dict": corrected_loss_dict,
+                    "correction_field_preserve_loss": correction_field_preserve_loss,
+                    "adaptive_etf_geo_loss": adaptive_etf_geo_loss,
+                    "total_loss_batch": total_loss_batch,
+                    "box_features": box_features,
+                    "fg_mask": fg_mask,
+                })
+
+                optimizer.zero_grad(set_to_none=True)
+                total_loss_batch.backward()
+                if args.max_grad_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        [p for g in optimizer.param_groups for p in g["params"]], args.max_grad_norm
+                    )
+                return total_loss_batch
+
+            if args.use_sam:
+                optimizer.step(closure)
+            else:
+                closure()
+                optimizer.step()
+
+            total_loss_batch = batch_state["total_loss_batch"]
+            loss_det = batch_state["loss_det"]
+            manifold_loss_dict = batch_state["manifold_loss_dict"]
+            fc1_loss_dict = batch_state["fc1_loss_dict"]
+            preserve_loss_dict = batch_state["preserve_loss_dict"]
+            projection_loss_dict = batch_state["projection_loss_dict"]
+            corrected_loss_dict = batch_state["corrected_loss_dict"]
+            correction_field_preserve_loss = batch_state["correction_field_preserve_loss"]
+            adaptive_etf_geo_loss = batch_state["adaptive_etf_geo_loss"]
+            box_features = batch_state["box_features"]
+            fg_mask = batch_state["fg_mask"]
 
             batch_size = len(images)
             total_seen += batch_size
@@ -2181,6 +2328,7 @@ def main() -> None:
                 float(corrected_loss_dict["loss_corrected_memory_inter_preserve"].item()) * batch_size
             )
             total_loss_correction_field_preserve += float(correction_field_preserve_loss.item()) * batch_size
+            total_loss_adaptive_etf_geo += float(adaptive_etf_geo_loss.item()) * batch_size
             global_step += 1
 
             progress.set_postfix(
@@ -2191,6 +2339,7 @@ def main() -> None:
                 fc1=total_loss_fc1_geometry / max(1, total_seen),
                 keep=total_loss_preserve / max(1, total_seen),
                 field=total_loss_correction_field_preserve / max(1, total_seen),
+                aetfg=total_loss_adaptive_etf_geo / max(1, total_seen),
                 proj=total_loss_projection_geometry / max(1, total_seen),
                 corr=total_loss_corrected_geometry / max(1, total_seen),
             )
@@ -2224,6 +2373,7 @@ def main() -> None:
                 total_loss_corrected_memory_inter_preserve / max(1, total_seen)
             ),
             "loss_correction_field_preserve": total_loss_correction_field_preserve / max(1, total_seen),
+            "loss_adaptive_etf_geo": total_loss_adaptive_etf_geo / max(1, total_seen),
             "avg_boxes_per_batch": total_boxes / max(1, len(train_loader)),
             "avg_fg_boxes_per_batch": total_fg_boxes / max(1, len(train_loader)),
         }
