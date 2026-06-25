@@ -554,9 +554,14 @@ def _same_class_prototype_diversity_loss(
     present_classes = [int(cls.item()) for cls in labels.unique() if int(cls.item()) >= 1]
     for class_id in present_classes:
         class_prototypes = prototypes[class_id]
+        # RemoteSensingPrototypeBank stores (orient, scale, K, D); flatten to (O*S*K, D).
+        if class_prototypes.ndim > 2:
+            class_prototypes = class_prototypes.reshape(-1, class_prototypes.shape[-1])
+        if class_prototypes.shape[0] <= 1:
+            continue
         pairwise_sqdist = torch.cdist(class_prototypes, class_prototypes).square()
         off_diagonal = ~torch.eye(
-            prototype_bank.num_prototypes_per_class,
+            class_prototypes.shape[0],
             dtype=torch.bool,
             device=prototypes.device,
         )
@@ -579,6 +584,9 @@ def _inter_class_projection_margin_loss(
         return endpoints.sum() * 0.0
 
     prototypes = prototype_bank.prototypes.to(device=endpoints.device, dtype=endpoints.dtype)
+    # RemoteSensingPrototypeBank stores (C, orient, scale, K, D); flatten to (C, O*S*K, D).
+    if prototypes.ndim > 3:
+        prototypes = prototypes.reshape(prototypes.shape[0], -1, prototypes.shape[-1])
     all_distances = (endpoints[:, None, None, :] - prototypes[None, :, :, :]).square().sum(dim=-1)
     true_distances = all_distances[torch.arange(labels.numel(), device=endpoints.device), labels.long()]
     true_nearest = true_distances.min(dim=-1).values
@@ -619,11 +627,14 @@ def projection_geometry_losses(
     """Regularize endpoints on the class-conditioned prototype manifold."""
     labels = labels.long()
     loss_intra = _assignment_weighted_same_class_loss(endpoints, assignments, labels)
-    loss_proto_div = _same_class_prototype_diversity_loss(
-        prototype_bank,
-        labels,
-        temperature=proto_div_temperature,
-    )
+    if lambda_proto_div > 0.0:
+        loss_proto_div = _same_class_prototype_diversity_loss(
+            prototype_bank,
+            labels,
+            temperature=proto_div_temperature,
+        )
+    else:
+        loss_proto_div = prototype_bank.prototypes.sum() * 0.0
     loss_inter = _inter_class_projection_margin_loss(
         endpoints,
         labels,
@@ -657,6 +668,9 @@ def _wrong_class_prototype_margin_loss(
         return features.sum() * 0.0
 
     prototypes = prototype_bank.prototypes.to(device=features.device, dtype=features.dtype)
+    # RemoteSensingPrototypeBank stores (C, orient, scale, K, D); flatten to (C, O*S*K, D).
+    if prototypes.ndim > 3:
+        prototypes = prototypes.reshape(prototypes.shape[0], -1, prototypes.shape[-1])
     distance_features = F.normalize(features, dim=-1) if normalize else features
     distance_prototypes = F.normalize(prototypes, dim=-1) if normalize else prototypes
 
@@ -665,7 +679,7 @@ def _wrong_class_prototype_margin_loss(
         distance_prototypes.flatten(start_dim=0, end_dim=1)[None, :, :],
     ).squeeze(1)
     class_ids = torch.arange(prototype_bank.num_classes, device=features.device)
-    class_ids = class_ids.repeat_interleave(prototype_bank.num_prototypes_per_class)
+    class_ids = class_ids.repeat_interleave(prototypes.shape[1])
     wrong_mask = class_ids[None, :] != labels.long()[:, None]
     wrong_mask = wrong_mask & (class_ids[None, :] != 0)
     wrong_distances = all_distances.masked_fill(~wrong_mask, float("inf"))
@@ -689,6 +703,9 @@ def _relative_class_prototype_margin_loss(
         return features.sum() * 0.0
 
     prototypes = prototype_bank.prototypes.to(device=features.device, dtype=features.dtype)
+    # RemoteSensingPrototypeBank stores (C, orient, scale, K, D); flatten to (C, O*S*K, D).
+    if prototypes.ndim > 3:
+        prototypes = prototypes.reshape(prototypes.shape[0], -1, prototypes.shape[-1])
     distance_features = F.normalize(features, dim=-1) if normalize else features
     distance_prototypes = F.normalize(prototypes, dim=-1) if normalize else prototypes
     distances = (
