@@ -23,9 +23,16 @@ import torch.nn.functional as F
 def build_etf_weight(
     num_foreground_classes: int,
     feature_dim: int,
+    background_mode: str = "neg_mean",
+    original_weight: torch.Tensor | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> torch.Tensor:
-    r"""Build a foreground ETF weight matrix of shape ``(num_foreground_classes, feature_dim)``."""
+    r"""Build a foreground ETF weight matrix of shape ``(num_foreground_classes, feature_dim)``.
+
+    The ``background_mode`` and ``original_weight`` arguments are accepted for
+    public-interface compatibility; background construction is handled by
+    :func:`build_background_weight`.
+    """
     if feature_dim < num_foreground_classes:
         raise ValueError(
             f"feature_dim ({feature_dim}) must be >= num_foreground_classes ({num_foreground_classes}) for ETF"
@@ -56,6 +63,7 @@ def build_background_weight(
         if original_weight is None:
             raise ValueError("original_weight is required when background_mode='original'")
         bg = original_weight[0:1].to(dtype=foreground_etf.dtype, device=foreground_etf.device)
+        bg = bg / bg.norm(dim=1, keepdim=True).clamp_min(1e-12)
     else:
         raise ValueError(f"Unsupported background_mode: {mode}")
     return bg
@@ -111,6 +119,12 @@ class ETFClassifier(nn.Module):
         )
         if preserve_logit_scale and scale > 0:
             background_weight = background_weight * scale
+        elif background_mode == "original" and original_weight is not None:
+            # When not preserving the global logit scale, keep the original
+            # background row's magnitude so the pretrained background geometry
+            # is reproduced exactly.
+            bg_norm = original_weight[0:1].norm(dim=1, keepdim=True).clamp_min(1e-12)
+            background_weight = background_weight * bg_norm
 
         weight = torch.cat([background_weight, foreground_etf], dim=0)
         self.register_buffer("weight", weight)
