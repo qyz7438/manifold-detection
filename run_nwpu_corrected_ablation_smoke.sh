@@ -1,9 +1,12 @@
 #!/bin/bash
 set -e
 
-cd /e/CLIproject/RLimage
-# Use the isolated worktree source while keeping data/runs in the main RLimage tree.
-export PYTHONPATH=/e/CLIproject/manifold/.worktrees/feat-nwpu-etf-rs-redesign:$PYTHONPATH
+# Run from the worktree so the *fixed* spectral_detection_posttrain package is
+# imported.  data/ and runs/ are junctions to the main RLimage tree.
+WORKDIR="/e/CLIproject/manifold/.worktrees/feat-nwpu-etf-rs-redesign"
+cd "$WORKDIR"
+export PYTHONPATH="$WORKDIR:$PYTHONPATH"
+
 PYTHON="/e/anaconda/01/envs/RLimage/python.exe"
 CONFIG="spectral_detection_posttrain/configs/manifold_nwpu.yaml"
 COMMON="--config $CONFIG --baseline runs/nwpu_baseline_best.pth --lr 1e-5 --lr-manifold 1e-4 --lambda-tr 0.01 --lambda-en 0.001 --class-reweight inv_sqrt --lambda-proj-intra 0.1 --lambda-proj-inter 0.1 --projection-inter-margin 0.5 --epochs 2 --limit-train 50 --limit-val 50 --early-stopping-patience 5"

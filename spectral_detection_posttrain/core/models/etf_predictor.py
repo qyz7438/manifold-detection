@@ -21,30 +21,31 @@ import torch.nn.functional as F
 
 
 def build_etf_weight(
-    num_foreground_classes: int,
+    num_classes: int,
     feature_dim: int,
     background_mode: str = "neg_mean",
     original_weight: torch.Tensor | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> torch.Tensor:
-    r"""Build a foreground ETF weight matrix of shape ``(num_foreground_classes, feature_dim)``.
+    r"""Build a foreground ETF weight matrix of shape ``(num_classes, feature_dim)``.
 
-    The ``background_mode`` and ``original_weight`` arguments are accepted for
+    ``num_classes`` here refers to the number of foreground classes.  The
+    ``background_mode`` and ``original_weight`` arguments are accepted for
     public-interface compatibility; background construction is handled by
     :func:`build_background_weight`.
     """
-    if feature_dim < num_foreground_classes:
+    if feature_dim < num_classes:
         raise ValueError(
-            f"feature_dim ({feature_dim}) must be >= num_foreground_classes ({num_foreground_classes}) for ETF"
+            f"feature_dim ({feature_dim}) must be >= num_classes ({num_classes}) for ETF"
         )
 
-    e = torch.eye(num_foreground_classes, dtype=dtype)
-    centered = e - (1.0 / num_foreground_classes) * torch.ones_like(e)
+    e = torch.eye(num_classes, dtype=dtype)
+    centered = e - (1.0 / num_classes) * torch.ones_like(e)
     norms = centered.norm(dim=1, keepdim=True).clamp_min(1e-12)
     etf = centered / norms
 
-    if feature_dim > num_foreground_classes:
-        padding = torch.zeros(num_foreground_classes, feature_dim - num_foreground_classes, dtype=dtype)
+    if feature_dim > num_classes:
+        padding = torch.zeros(num_classes, feature_dim - num_classes, dtype=dtype)
         etf = torch.cat([etf, padding], dim=1)
 
     return etf
@@ -77,14 +78,23 @@ class ETFClassifier(nn.Module):
     can be inserted before the fixed classifier, and the whole matrix can be
     rescaled to match the logit magnitude of the pretrained classifier.
 
+    When a projector is requested and the original pretrained classifier
+    weights are available, the projector is initialized so that
+    ``W_etf @ P = W_orig`` (and the bias is copied).  This makes the ETF
+    classifier produce *exactly* the same logits as the baseline at the start
+    of post-training, avoiding the AP collapse that occurs when a randomly
+    oriented ETF weight matrix is dropped into a feature space tuned to the
+    original classifier.
+
     Args:
         feature_dim: dimensionality of input features.
         num_classes: number of output classes (including background as index 0).
         use_bias: if True, add a learnable bias term.
-        use_projector: if True, add LayerNorm + Linear projector before ETF.
+        use_projector: if True, add a Linear projector before the ETF.
         preserve_logit_scale: if True, rescale ETF rows to the mean original weight norm.
         background_mode: ``"neg_mean"`` or ``"original"``.
         original_weight: pretrained ``cls_score.weight`` used for scale/background init.
+        original_bias: pretrained ``cls_score.bias`` used when ``use_bias=True``.
     """
 
     def __init__(
@@ -96,6 +106,7 @@ class ETFClassifier(nn.Module):
         preserve_logit_scale: bool = True,
         background_mode: str = "neg_mean",
         original_weight: torch.Tensor | None = None,
+        original_bias: torch.Tensor | None = None,
     ) -> None:
         super().__init__()
         if num_classes < 2:
@@ -107,6 +118,10 @@ class ETFClassifier(nn.Module):
             raise ValueError(
                 f"original_weight must have shape {(num_classes, feature_dim)}, "
                 f"got {original_weight.shape}"
+            )
+        if original_bias is not None and original_bias.shape != (num_classes,):
+            raise ValueError(
+                f"original_bias must have shape {(num_classes,)}, got {original_bias.shape}"
             )
 
         self.feature_dim = feature_dim
@@ -142,18 +157,30 @@ class ETFClassifier(nn.Module):
 
         self.bias: nn.Parameter | None = None
         if use_bias:
-            self.bias = nn.Parameter(torch.zeros(num_classes))
+            if original_bias is not None:
+                self.bias = nn.Parameter(original_bias.clone().to(dtype=weight.dtype))
+            else:
+                self.bias = nn.Parameter(torch.zeros(num_classes, dtype=weight.dtype))
 
         self.projector: nn.Module | None = None
         if use_projector:
-            self.projector = nn.Sequential(
-                nn.LayerNorm(feature_dim),
-                nn.Linear(feature_dim, feature_dim),
-            )
-            # Initialize the linear layer as an identity so the projector starts close to a no-op.
+            # A single linear layer.  When the original classifier weights are
+            # available we initialize it so that W_etf @ P = W_orig, which makes
+            # the ETF head an exact replica of the baseline at initialization.
+            self.projector = nn.Linear(feature_dim, feature_dim, bias=False)
             with torch.no_grad():
-                self.projector[1].weight.copy_(torch.eye(feature_dim))
-                nn.init.zeros_(self.projector[1].bias)
+                if original_weight is not None:
+                    w = self.weight  # (num_classes, feature_dim)
+                    # (num_classes, num_classes)
+                    gram = w @ w.T
+                    # Regularize the Gram matrix slightly for numerical stability.
+                    eye = torch.eye(num_classes, device=w.device, dtype=w.dtype)
+                    inv_gram = torch.linalg.inv(gram + eye * 1e-6)
+                    # P = w^T @ inv(w @ w^T) @ W_orig  -> (feature_dim, feature_dim)
+                    P = w.T @ inv_gram @ original_weight.to(dtype=w.dtype, device=w.device)
+                    self.projector.weight.copy_(P)
+                else:
+                    self.projector.weight.copy_(torch.eye(feature_dim))
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         """Compute logits as ``projector(features) @ W^T`` (plus optional bias)."""
@@ -202,17 +229,21 @@ def replace_cls_score_with_etf(
         num_classes = cls_score.out_features
 
     original_weight = None
+    original_bias = None
     if hasattr(cls_score, "weight"):
         original_weight = cls_score.weight.detach().clone()
+    if hasattr(cls_score, "bias") and cls_score.bias is not None:
+        original_bias = cls_score.bias.detach().clone()
 
     etf_cls = ETFClassifier(
         feature_dim=in_features,
         num_classes=num_classes,
-        use_bias=False,
+        use_bias=original_bias is not None,
         use_projector=use_projector,
         preserve_logit_scale=preserve_logit_scale,
         background_mode=background_mode,
         original_weight=original_weight,
+        original_bias=original_bias,
     )
     box_predictor.cls_score = etf_cls
     return box_predictor
