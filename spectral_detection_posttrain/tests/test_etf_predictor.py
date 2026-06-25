@@ -1,5 +1,6 @@
 import math
 
+import pytest
 import torch
 
 from spectral_detection_posttrain.core.models.etf_predictor import (
@@ -78,3 +79,17 @@ def test_etf_original_background_mode():
         original_weight=original,
     )
     assert torch.allclose(cls.weight[0], original[0], atol=1e-6)
+
+
+def test_etf_classifier_rejects_single_class():
+    with pytest.raises(ValueError):
+        ETFClassifier(feature_dim=1024, num_classes=1)
+
+
+def test_etf_classifier_no_padding():
+    cls = ETFClassifier(feature_dim=10, num_classes=11, use_projector=False, preserve_logit_scale=False)
+    assert cls.weight.shape == (11, 10)
+    fg = cls.weight[1:]
+    cos = fg @ fg.T
+    off_diag_mask = ~torch.eye(10, dtype=torch.bool)
+    assert torch.allclose(cos[off_diag_mask], torch.full_like(cos[off_diag_mask], -1.0/9.0), atol=1e-5)

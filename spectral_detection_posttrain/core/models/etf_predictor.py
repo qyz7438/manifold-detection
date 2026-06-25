@@ -98,9 +98,20 @@ class ETFClassifier(nn.Module):
         original_weight: torch.Tensor | None = None,
     ) -> None:
         super().__init__()
+        if num_classes < 2:
+            raise ValueError(
+                f"num_classes ({num_classes}) must be >= 2 for ETFClassifier "
+                "(background + at least one foreground class)"
+            )
+        if original_weight is not None and original_weight.shape != (num_classes, feature_dim):
+            raise ValueError(
+                f"original_weight must have shape {(num_classes, feature_dim)}, "
+                f"got {original_weight.shape}"
+            )
+
         self.feature_dim = feature_dim
         self.num_classes = num_classes
-        self.num_foreground_classes = max(1, num_classes - 1)
+        self.num_foreground_classes = num_classes - 1
         self.use_projector = use_projector
         self.preserve_logit_scale = preserve_logit_scale
         self.background_mode = background_mode
