@@ -158,6 +158,12 @@ def parse_args() -> argparse.Namespace:
                         help="Beta for effective_num class reweighting.")
     parser.add_argument("--use-etf-classifier", action="store_true",
                         help="Replace the box_predictor cls_score with a fixed ETF classifier.")
+    parser.add_argument("--etf-use-projector", action="store_true",
+                        help="Add a learnable LayerNorm+Linear projector before the fixed ETF classifier.")
+    parser.add_argument("--etf-preserve-logit-scale", action=argparse.BooleanOptionalAction, default=True,
+                        help="Rescale ETF rows to match the original cls_score weight norm.")
+    parser.add_argument("--etf-background-mode", default="neg_mean", choices=("neg_mean", "original"),
+                        help="How to initialize the background class weight row.")
     parser.add_argument("--lambda-fc1-rank", type=float, default=0.0,
                         help="Weight for the fc1 spectral tail loss. Default keeps the loss disabled.")
     parser.add_argument("--lambda-fc1-compact", type=float, default=0.0,
@@ -1583,9 +1589,20 @@ def main() -> None:
 
     # Optionally replace the learnable cls_score with a fixed ETF classifier.
     if args.use_etf_classifier:
-        replace_cls_score_with_etf(model.roi_heads.box_predictor, num_classes=num_classes)
+        replace_cls_score_with_etf(
+            model.roi_heads.box_predictor,
+            num_classes=num_classes,
+            use_projector=args.etf_use_projector,
+            preserve_logit_scale=args.etf_preserve_logit_scale,
+            background_mode=args.etf_background_mode,
+        )
         model.roi_heads.box_predictor.to(device)
-        print("Replaced box_predictor.cls_score with ETF classifier")
+        print(
+            "Replaced box_predictor.cls_score with ETF classifier "
+            f"(projector={args.etf_use_projector}, "
+            f"preserve_logit_scale={args.etf_preserve_logit_scale}, "
+            f"background_mode={args.etf_background_mode})"
+        )
     use_rs_prototypes = args.rs_orient_bins > 1 or args.rs_scale_bins > 1
     if use_rs_prototypes:
         prototype_bank = RemoteSensingPrototypeBank(
@@ -2332,6 +2349,10 @@ def main() -> None:
         "box_head_conv_channels": args.box_head_conv_channels,
         "box_head_bottleneck_dim": args.box_head_bottleneck_dim,
         "box_head_attention_channels": args.box_head_attention_channels,
+        "use_etf_classifier": args.use_etf_classifier,
+        "etf_use_projector": args.etf_use_projector,
+        "etf_preserve_logit_scale": args.etf_preserve_logit_scale,
+        "etf_background_mode": args.etf_background_mode,
     }
     save_json(result, run_dir / "manifold_result.json")
     print(result)
@@ -2382,6 +2403,10 @@ def main() -> None:
             "box_head_conv_channels": args.box_head_conv_channels,
             "box_head_bottleneck_dim": args.box_head_bottleneck_dim,
             "box_head_attention_channels": args.box_head_attention_channels,
+            "use_etf_classifier": args.use_etf_classifier,
+            "etf_use_projector": args.etf_use_projector,
+            "etf_preserve_logit_scale": args.etf_preserve_logit_scale,
+            "etf_background_mode": args.etf_background_mode,
         },
     }
     torch.save(manifold_payload, run_dir / "manifold_modules.pth")
