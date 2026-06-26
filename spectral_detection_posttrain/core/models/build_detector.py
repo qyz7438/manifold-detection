@@ -69,31 +69,57 @@ def build_detector(config: dict) -> torch.nn.Module:
         model.backbone.forward = _patched_backbone_forward
         model._multi_afm = multi_afm
 
-    elif afm_channels > 0:
+    use_pbg = bool(model_cfg.get("use_pbg", False))
+    use_tam = bool(model_cfg.get("use_tam", False))
+
+    # Build optional structural blocks.
+    pbg = None
+    if use_pbg:
+        from spectral_detection_posttrain.methods.detection.pbg import PhaseBoundaryGate
+        pbg_channels = afm_channels if afm_channels > 0 else 256
+        pbg_alpha_init = float(model_cfg.get("pbg_alpha_init", 0.0))
+        pbg = PhaseBoundaryGate(pbg_channels, alpha_init=pbg_alpha_init)
+
+    spatial_afm = None
+    if afm_channels > 0:
         afm_type = str(model_cfg.get("afm_type", "identity"))
-
         from spectral_detection_posttrain.methods.afm.micro_afm import build_afm_block
-
         afm_residual_mode = str(model_cfg.get("afm_residual_mode", "current"))
         spatial_afm = build_afm_block(
             afm_type=afm_type, channels=afm_channels, residual_mode=afm_residual_mode
         )
+        model._afm_type = afm_type
         model._afm_residual_mode = afm_residual_mode
 
+    tam = None
+    if use_tam:
+        from spectral_detection_posttrain.methods.detection.tam import TaskAlignedManifold
+        tam_latent_dim = int(model_cfg.get("tam_latent_dim", 256))
+        tam = TaskAlignedManifold(in_features, tam_latent_dim)
+
+    # Insert blocks around the box head: PBG -> AFM -> head -> TAM.
+    if pbg is not None or spatial_afm is not None or tam is not None:
         original_box_head = model.roi_heads.box_head
 
         class RefinedBoxHead(nn.Module):
             def __init__(self):
                 super().__init__()
+                self.pbg = pbg
                 self.spatial_afm = spatial_afm
                 self.head = original_box_head
+                self.tam = tam
 
             def forward(self, x):
-                x = self.spatial_afm(x)
-                return self.head(x)
+                if self.pbg is not None:
+                    x = self.pbg(x)
+                if self.spatial_afm is not None:
+                    x = self.spatial_afm(x)
+                z = self.head(x)
+                if self.tam is not None:
+                    z = self.tam(z)
+                return z
 
         model.roi_heads.box_head = RefinedBoxHead()
-        model._afm_type = afm_type
 
     return model
 

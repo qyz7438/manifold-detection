@@ -100,6 +100,12 @@ def main() -> None:
     parser.add_argument("--voc-full", action="store_true", default=False)
     parser.add_argument("--model-name", default="fasterrcnn_mobilenet_v3_large_320_fpn",
                         choices=["fasterrcnn_mobilenet_v3_large_320_fpn", "fasterrcnn_resnet50_fpn"])
+    parser.add_argument("--use-pbg", action="store_true", default=False)
+    parser.add_argument("--use-tam", action="store_true", default=False)
+    parser.add_argument("--use-pah", action="store_true", default=False)
+    parser.add_argument("--pbg-alpha-init", type=float, default=0.0)
+    parser.add_argument("--tam-latent-dim", type=int, default=256)
+    parser.add_argument("--pah-temperature", type=float, default=0.1)
     args = parser.parse_args()
 
     config = {
@@ -109,7 +115,13 @@ def main() -> None:
                   "model_name": args.model_name,
                   "num_classes": 2, "min_size": 320, "max_size": 320,
                   "afm_channels": 256 if args.afm_type != "none" else 0,
-                  "afm_type": args.afm_type, "afm_residual_mode": args.afm_residual_mode},
+                  "afm_type": args.afm_type, "afm_residual_mode": args.afm_residual_mode,
+                  "use_pbg": args.use_pbg,
+                  "use_tam": args.use_tam,
+                  "use_pah": args.use_pah,
+                  "pbg_alpha_init": args.pbg_alpha_init,
+                  "tam_latent_dim": args.tam_latent_dim,
+                  "pah_temperature": args.pah_temperature},
         "train": {"batch_size": 2, "lr": 0.003, "momentum": 0.9, "weight_decay": 0.0005},
         "matching": {"iou_threshold": 0.5, "score_threshold": 0.05},
         "eval": {"batch_size": 2, "high_conf_threshold": 0.7},
