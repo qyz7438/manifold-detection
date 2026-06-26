@@ -101,10 +101,13 @@ def main() -> None:
     parser.add_argument("--model-name", default="fasterrcnn_mobilenet_v3_large_320_fpn",
                         choices=["fasterrcnn_mobilenet_v3_large_320_fpn", "fasterrcnn_resnet50_fpn"])
     parser.add_argument("--use-pbg", action="store_true", default=False)
+    parser.add_argument("--use-lsg", action="store_true", default=False)
     parser.add_argument("--use-tam", action="store_true", default=False)
     parser.add_argument("--use-pah", action="store_true", default=False)
     parser.add_argument("--pbg-alpha-init", type=float, default=1e-2)
     parser.add_argument("--pbg-phase-mask", default="soft", choices=["none", "hard", "soft"])
+    parser.add_argument("--lsg-alpha-init", type=float, default=1.0)
+    parser.add_argument("--lsg-use-phase", action="store_true", default=False)
     parser.add_argument("--roi-align-size", type=int, default=7)
     parser.add_argument("--tam-latent-dim", type=int, default=256)
     parser.add_argument("--tam-spectral-quality", action="store_true", default=False)
@@ -124,10 +127,13 @@ def main() -> None:
                   "afm_channels": 256 if args.afm_type != "none" else 0,
                   "afm_type": args.afm_type, "afm_residual_mode": args.afm_residual_mode,
                   "use_pbg": args.use_pbg,
+                  "use_lsg": args.use_lsg,
                   "use_tam": args.use_tam,
                   "use_pah": args.use_pah,
                   "pbg_alpha_init": args.pbg_alpha_init,
                   "pbg_phase_mask": args.pbg_phase_mask,
+                  "lsg_alpha_init": args.lsg_alpha_init,
+                  "lsg_use_phase": args.lsg_use_phase,
                   "roi_align_size": args.roi_align_size,
                   "tam_latent_dim": args.tam_latent_dim,
                   "tam_spectral_quality": args.tam_spectral_quality,

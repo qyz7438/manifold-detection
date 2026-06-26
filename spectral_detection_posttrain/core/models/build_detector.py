@@ -119,6 +119,7 @@ def build_detector(config: dict) -> torch.nn.Module:
     # Optional structural blocks around the box head.
     # ------------------------------------------------------------------
     use_pbg = bool(model_cfg.get("use_pbg", False))
+    use_lsg = bool(model_cfg.get("use_lsg", False))
     use_tam = bool(model_cfg.get("use_tam", False))
 
     pbg = None
@@ -131,6 +132,18 @@ def build_detector(config: dict) -> torch.nn.Module:
             channels=roi_channels,
             alpha_init=pbg_alpha_init,
             phase_mask=pbg_phase_mask,
+        )
+
+    lsg = None
+    if use_lsg:
+        from spectral_detection_posttrain.methods.detection.pbg import LearnedSpectralGate
+
+        lsg_alpha_init = float(model_cfg.get("lsg_alpha_init", 1.0))
+        lsg_use_phase = bool(model_cfg.get("lsg_use_phase", False))
+        lsg = LearnedSpectralGate(
+            channels=roi_channels,
+            alpha_init=lsg_alpha_init,
+            use_phase=lsg_use_phase,
         )
 
     spatial_afm = None
@@ -167,8 +180,8 @@ def build_detector(config: dict) -> torch.nn.Module:
         if hasattr(model.roi_heads.box_roi_pool, "output_size"):
             model.roi_heads.box_roi_pool.output_size = (roi_align_size, roi_align_size)
 
-    # Insert blocks around the box head: PBG -> AFM -> downsample -> head -> TAM.
-    if pbg is not None or spatial_afm is not None or tam is not None or roi_align_size != 7:
+    # Insert blocks around the box head: PBG -> LSG -> AFM -> downsample -> head -> TAM.
+    if pbg is not None or lsg is not None or spatial_afm is not None or tam is not None or roi_align_size != 7:
         original_box_head = model.roi_heads.box_head
         downsample = nn.AdaptiveAvgPool2d((7, 7)) if roi_align_size != 7 else nn.Identity()
 
@@ -176,6 +189,7 @@ def build_detector(config: dict) -> torch.nn.Module:
             def __init__(self):
                 super().__init__()
                 self.pbg = pbg
+                self.lsg = lsg
                 self.spatial_afm = spatial_afm
                 # Backward-compatible alias used by some trainable-mode helpers.
                 self.afm = spatial_afm
@@ -186,6 +200,8 @@ def build_detector(config: dict) -> torch.nn.Module:
             def forward(self, x, proposals=None):
                 if self.pbg is not None:
                     x = self.pbg(x)
+                if self.lsg is not None:
+                    x = self.lsg(x)
                 if self.spatial_afm is not None:
                     x = self.spatial_afm(x)
                 x = self.downsample(x)

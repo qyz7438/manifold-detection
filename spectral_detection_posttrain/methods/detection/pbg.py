@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -85,3 +87,65 @@ class FrequencySpatialBoundaryGate(nn.Module):
 
 # Backward-compatible alias for earlier CLI/config names.
 PhaseBoundaryGate = FrequencySpatialBoundaryGate
+
+
+class LearnedSpectralGate(nn.Module):
+    """Learned frequency-domain gating module (LSG).
+
+    Unlike FSBG, which reconstructs boundary maps from the phase spectrum and
+    then fuses them spatially, LSG operates entirely in the frequency domain:
+
+        x --rFFT2--> X
+        X --learned magnitude gate--> X' (and optional phase rotation)
+        X' --iRFFT2--> x'
+        output = x + alpha * x'
+
+    The magnitude gate is centered at 1.0 (via ``1 + tanh(...)``), so the
+    module starts as the identity mapping.  The network can then learn to
+    suppress noisy frequencies or boost object-relevant frequencies.
+    """
+
+    def __init__(
+        self,
+        channels: int,
+        alpha_init: float = 1.0,
+        use_phase: bool = True,
+    ):
+        super().__init__()
+        self.use_phase = use_phase
+        hid = max(1, channels // 4)
+
+        self.mag_gate = nn.Sequential(
+            nn.Conv2d(channels, hid, 1, bias=False),
+            nn.BatchNorm2d(hid),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(hid, channels, 1, bias=False),
+        )
+
+        if use_phase:
+            self.phase_gate = nn.Sequential(
+                nn.Conv2d(channels, hid, 1, bias=False),
+                nn.BatchNorm2d(hid),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(hid, channels, 1, bias=False),
+            )
+        else:
+            self.phase_gate = None
+
+        self.alpha = nn.Parameter(torch.tensor(alpha_init, dtype=torch.float32))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        X = torch.fft.rfft2(x, norm="ortho")
+        mag = torch.abs(X)
+
+        # Center gate at 1.0 -> identity at initialization.
+        mag_gate = 1.0 + torch.tanh(self.mag_gate(mag))
+        X_out = mag_gate * X
+
+        if self.use_phase:
+            phase = torch.angle(X)
+            phase_shift = torch.tanh(self.phase_gate(phase)) * math.pi
+            X_out = X_out * torch.exp(1j * phase_shift)
+
+        x_out = torch.fft.irfft2(X_out, s=x.shape[-2:], norm="ortho")
+        return x + self.alpha * x_out
