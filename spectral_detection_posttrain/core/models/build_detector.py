@@ -70,27 +70,30 @@ def build_detector(config: dict) -> torch.nn.Module:
         model._multi_afm = multi_afm
 
     elif afm_channels > 0:
+        afm_type = str(model_cfg.get("afm_type", "identity"))
+
         from spectral_detection_posttrain.methods.afm.micro_afm import build_afm_block
 
-        afm_type = str(model_cfg.get("afm_type", "identity"))
         afm_residual_mode = str(model_cfg.get("afm_residual_mode", "current"))
-        afm = build_afm_block(afm_type=afm_type, channels=afm_channels, residual_mode=afm_residual_mode)
-        if afm is not None:
-            original_box_head = model.roi_heads.box_head
+        spatial_afm = build_afm_block(
+            afm_type=afm_type, channels=afm_channels, residual_mode=afm_residual_mode
+        )
+        model._afm_residual_mode = afm_residual_mode
 
-            class AFMThenHead(nn.Module):
-                def __init__(self):
-                    super().__init__()
-                    self.afm = afm
-                    self.head = original_box_head
+        original_box_head = model.roi_heads.box_head
 
-                def forward(self, x):
-                    x = self.afm(x)
-                    return self.head(x)
+        class RefinedBoxHead(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.spatial_afm = spatial_afm
+                self.head = original_box_head
 
-            model.roi_heads.box_head = AFMThenHead()
-            model._afm_type = afm_type
-            model._afm_residual_mode = afm_residual_mode
+            def forward(self, x):
+                x = self.spatial_afm(x)
+                return self.head(x)
+
+        model.roi_heads.box_head = RefinedBoxHead()
+        model._afm_type = afm_type
 
     return model
 

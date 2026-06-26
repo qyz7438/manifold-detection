@@ -1,1 +1,4 @@
-"""Experiment method families: AFM, RLVR, DPO, and segmentation extensions."""
+"""Active detection method families: AFM baseline and structural components (PBG, TAM, PAH).
+
+Legacy methods (RLVR, DPO, segmentation, etc.) have been moved to legacy/.
+"""

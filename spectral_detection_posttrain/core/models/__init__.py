@@ -25,15 +25,12 @@ from .bbox_adapter import (
     freeze_selected_adapters,
     install_residual_bbox_adapter,
 )
-from .spectral_quality_head import SpectralQualityHead
-
 __all__ = [
     "AttentionPoolBoxHead",
     "BottleneckBoxHead",
     "BottleneckTwoMLPHead",
     "ConvLowDimBoxHead",
     "ResidualBBoxPredictorAdapter",
-    "SpectralQualityHead",
     "build_detector",
     "freeze_adapters_and_predictor",
     "freeze_backbone",

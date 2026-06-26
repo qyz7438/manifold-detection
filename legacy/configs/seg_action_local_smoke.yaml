@@ -1,0 +1,24 @@
+seed: 42
+device: cuda
+data:
+  root: ./data/PennFudanPed
+  max_size: 320
+  batch_size: 1
+  num_workers: 0
+model:
+  name: fcn_resnet50
+  num_classes: 2
+  in_ch: 2048
+train:
+  epochs: 1
+  lr: 0.0005
+  weight_decay: 0.0
+posttrain:
+  action: logit
+  reward: ce_delta
+  objective: rlvr
+  scale: 1.0
+  num_samples: 4
+  sigma: 0.1
+  kl_weight: 0.0
+  supervised_weight: 0.0

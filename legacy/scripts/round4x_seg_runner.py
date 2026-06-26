@@ -10,62 +10,20 @@ from pathlib import Path
 import numpy as np
 import torch, torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
 from torchvision.models.segmentation import fcn_resnet50
-from torchvision.transforms import functional as TF
-from PIL import Image
 from tqdm import tqdm
 
 sys.path.insert(0, "E:/CLIproject/RLimage")
+from spectral_detection_posttrain.datasets.penn_fudan_seg import (
+    PennFudanSegDataset,
+    build_seg_loaders,
+)
 from spectral_detection_posttrain.models.micro_afm import MPLSegAFMBlock
 from spectral_detection_posttrain.utils.seed import set_seed
 from spectral_detection_posttrain.utils.io import save_json, ensure_run_dir
 
 GIT = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
-
-# ─── Dataset ────────────────────────────────────────────────
-class PennFudanSegDataset(Dataset):
-    """Penn-Fudan Pedestrian segmentation dataset."""
-    def __init__(self, root: str, split: str = "train", fraction: float = 0.8, max_size: int = 320):
-        self.root = Path(root)
-        self.max_size = max_size
-        imgs = sorted((self.root / "PNGImages").glob("*.png"))
-        n_train = int(len(imgs) * fraction)
-        self.images = imgs[:n_train] if split == "train" else imgs[n_train:]
-        self.masks = [self.root / "PedMasks" / (p.stem + "_mask.png") for p in self.images]
-
-    def __len__(self):
-        return len(self.images)
-
-    def __getitem__(self, idx):
-        img = Image.open(self.images[idx]).convert("RGB")
-        mask = Image.open(self.masks[idx])
-        # resize
-        w, h = img.size
-        scale = min(self.max_size / max(w, h), 1.0)
-        nw, nh = int(w * scale), int(h * scale)
-        img = TF.resize(img, [nh, nw])
-        mask = TF.resize(mask, [nh, nw], interpolation=TF.InterpolationMode.NEAREST)
-        img_t = TF.to_tensor(img)
-        mask_t = torch.as_tensor(np.array(mask), dtype=torch.long)
-        # Penn-Fudan masks: 0=background, 1=pedestrian, 2=border → merge border to person
-        mask_t[mask_t == 2] = 1
-        return img_t, mask_t
-
-
-def build_seg_loaders(root: str, max_size: int = 320, batch_size: int = 1, num_workers: int = 0):
-    train_ds = PennFudanSegDataset(root, "train", max_size=max_size)
-    val_ds = PennFudanSegDataset(root, "val", max_size=max_size)
-    return (
-        DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=_collate),
-        DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=_collate),
-    )
-
-
-def _collate(batch):
-    return tuple(zip(*batch))
-
 
 # ─── AFM Wrapper ────────────────────────────────────────────
 class FCNSegAFM(nn.Module):
