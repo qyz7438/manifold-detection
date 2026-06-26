@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import torch
 import torch.nn as nn
 from spectral_detection_posttrain.experiments.schema import resolve_model_name, validate_experiment_config
@@ -20,6 +21,18 @@ MODEL_REGISTRY = {
         FasterRCNN_ResNet50_FPN_Weights,
     ),
 }
+
+
+def _get_roi_feature_channels(model: torch.nn.Module) -> int:
+    """Return the channel depth of the tensor that enters box_head.
+
+    TorchVision Faster R-CNN keeps this in ``model.backbone.out_channels`` for
+    FPN backbones.  We fall back to a config override or the heuristic 256.
+    """
+    out_ch = getattr(model.backbone, "out_channels", None)
+    if isinstance(out_ch, int) and out_ch > 0:
+        return out_ch
+    return 256
 
 
 def build_detector(config: dict) -> torch.nn.Module:
@@ -43,20 +56,45 @@ def build_detector(config: dict) -> torch.nn.Module:
         if not bool(model_cfg.get("allow_random_init_fallback", True)):
             raise
         model = build_fn(weights=None, weights_backbone=None, **model_kwargs)
-    in_features = model.roi_heads.box_predictor.cls_score.in_features
+
+    # ------------------------------------------------------------------
+    # Resolve feature dimensions safely.
+    # ------------------------------------------------------------------
+    roi_channels = int(model_cfg.get("roi_channels", 0))
+    if roi_channels <= 0:
+        roi_channels = _get_roi_feature_channels(model)
+
+    box_in_features = model.roi_heads.box_predictor.cls_score.in_features
+
+    # ------------------------------------------------------------------
+    # Optional PAH: keep a reference to the old predictor so we can
+    # initialise the residual prototype head from pretrained weights.
+    # ------------------------------------------------------------------
     use_pah = bool(model_cfg.get("use_pah", False))
+    old_predictor = model.roi_heads.box_predictor
     if use_pah:
-        from spectral_detection_posttrain.methods.detection.pah import PrototypeAwareHead
+        from spectral_detection_posttrain.methods.detection.pah import ResidualPrototypeHead
+
         pah_temperature = float(model_cfg.get("pah_temperature", 0.1))
-        model.roi_heads.box_predictor = PrototypeAwareHead(
-            in_features, num_classes, temperature=pah_temperature
+        pah_learnable_temp = bool(model_cfg.get("pah_learnable_temp", False))
+        pah_num_bg = int(model_cfg.get("pah_num_bg", 4))
+        pah_gamma_init = float(model_cfg.get("pah_gamma_init", 0.0))
+        model.roi_heads.box_predictor = ResidualPrototypeHead(
+            in_features=box_in_features,
+            num_classes=num_classes,
+            temperature=pah_temperature,
+            learnable_temp=pah_learnable_temp,
+            num_background_prototypes=pah_num_bg,
+            gamma_init=pah_gamma_init,
+            old_predictor=old_predictor,
         )
     else:
-        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+        model.roi_heads.box_predictor = FastRCNNPredictor(box_in_features, num_classes)
 
-    afm_channels = int(model_cfg.get("afm_channels", 0))
+    # ------------------------------------------------------------------
+    # Optional multi-scale AFM on FPN features (legacy / special use).
+    # ------------------------------------------------------------------
     afm_fpn = bool(model_cfg.get("afm_fpn", False))
-
     if afm_fpn:
         from spectral_detection_posttrain.methods.afm.micro_afm import MultiScaleAFM
 
@@ -77,18 +115,26 @@ def build_detector(config: dict) -> torch.nn.Module:
         model.backbone.forward = _patched_backbone_forward
         model._multi_afm = multi_afm
 
+    # ------------------------------------------------------------------
+    # Optional structural blocks around the box head.
+    # ------------------------------------------------------------------
     use_pbg = bool(model_cfg.get("use_pbg", False))
     use_tam = bool(model_cfg.get("use_tam", False))
 
-    # Build optional structural blocks.
     pbg = None
     if use_pbg:
         from spectral_detection_posttrain.methods.detection.pbg import PhaseBoundaryGate
-        pbg_channels = afm_channels if afm_channels > 0 else 256
-        pbg_alpha_init = float(model_cfg.get("pbg_alpha_init", 0.0))
-        pbg = PhaseBoundaryGate(pbg_channels, alpha_init=pbg_alpha_init)
+
+        pbg_alpha_init = float(model_cfg.get("pbg_alpha_init", 1e-2))
+        pbg_phase_mask = str(model_cfg.get("pbg_phase_mask", "soft"))
+        pbg = PhaseBoundaryGate(
+            channels=roi_channels,
+            alpha_init=pbg_alpha_init,
+            phase_mask=pbg_phase_mask,
+        )
 
     spatial_afm = None
+    afm_channels = int(model_cfg.get("afm_channels", 0))
     if afm_channels > 0:
         afm_type = str(model_cfg.get("afm_type", "identity"))
         from spectral_detection_posttrain.methods.afm.micro_afm import build_afm_block
@@ -102,32 +148,70 @@ def build_detector(config: dict) -> torch.nn.Module:
     tam = None
     if use_tam:
         from spectral_detection_posttrain.methods.detection.tam import TaskAlignedManifold
-        tam_latent_dim = int(model_cfg.get("tam_latent_dim", 256))
-        tam = TaskAlignedManifold(in_features, tam_latent_dim)
 
-    # Insert blocks around the box head: PBG -> AFM -> head -> TAM.
-    if pbg is not None or spatial_afm is not None or tam is not None:
+        tam_latent_dim = int(model_cfg.get("tam_latent_dim", 256))
+        tam_spectral_quality = bool(model_cfg.get("tam_spectral_quality", False))
+        tam_contrastive = bool(model_cfg.get("tam_contrastive", False))
+        tam = TaskAlignedManifold(
+            in_features=box_in_features,
+            latent_dim=tam_latent_dim,
+            use_spectral_quality=tam_spectral_quality,
+            use_contrastive=tam_contrastive,
+        )
+
+    # Optionally increase ROI Align resolution for better frequency-domain
+    # processing.  box_head is trained for 7x7 inputs, so we downsample back
+    # before feeding it if a larger ROI size is requested.
+    roi_align_size = int(model_cfg.get("roi_align_size", 7))
+    if roi_align_size != 7:
+        if hasattr(model.roi_heads.box_roi_pool, "output_size"):
+            model.roi_heads.box_roi_pool.output_size = (roi_align_size, roi_align_size)
+
+    # Insert blocks around the box head: PBG -> AFM -> downsample -> head -> TAM.
+    if pbg is not None or spatial_afm is not None or tam is not None or roi_align_size != 7:
         original_box_head = model.roi_heads.box_head
+        downsample = nn.AdaptiveAvgPool2d((7, 7)) if roi_align_size != 7 else nn.Identity()
 
         class RefinedBoxHead(nn.Module):
             def __init__(self):
                 super().__init__()
                 self.pbg = pbg
                 self.spatial_afm = spatial_afm
+                # Backward-compatible alias used by some trainable-mode helpers.
+                self.afm = spatial_afm
+                self.downsample = downsample
                 self.head = original_box_head
                 self.tam = tam
 
-            def forward(self, x):
+            def forward(self, x, proposals=None):
                 if self.pbg is not None:
                     x = self.pbg(x)
                 if self.spatial_afm is not None:
                     x = self.spatial_afm(x)
+                x = self.downsample(x)
                 z = self.head(x)
                 if self.tam is not None:
-                    z = self.tam(z)
+                    labels = getattr(self, "_last_labels", None)
+                    z = self.tam(z, roi_feature=x, labels=labels)
+                    self._last_labels = None
                 return z
 
         model.roi_heads.box_head = RefinedBoxHead()
+
+        # If TAM contrastive learning is enabled, patch the training-sample
+        # selector so that the matched labels are available inside the wrapper.
+        if tam is not None and tam.use_contrastive:
+            original_select = model.roi_heads.select_training_samples
+
+            def _patched_select(proposals, targets):
+                proposals_out, matched_idxs, labels, regression_targets = original_select(
+                    proposals, targets
+                )
+                if labels is not None and len(labels) > 0:
+                    model.roi_heads.box_head._last_labels = torch.cat(labels, dim=0)
+                return proposals_out, matched_idxs, labels, regression_targets
+
+            model.roi_heads.select_training_samples = _patched_select
 
     return model
 

@@ -103,9 +103,16 @@ def main() -> None:
     parser.add_argument("--use-pbg", action="store_true", default=False)
     parser.add_argument("--use-tam", action="store_true", default=False)
     parser.add_argument("--use-pah", action="store_true", default=False)
-    parser.add_argument("--pbg-alpha-init", type=float, default=0.0)
+    parser.add_argument("--pbg-alpha-init", type=float, default=1e-2)
+    parser.add_argument("--pbg-phase-mask", default="soft", choices=["none", "hard", "soft"])
+    parser.add_argument("--roi-align-size", type=int, default=7)
     parser.add_argument("--tam-latent-dim", type=int, default=256)
-    parser.add_argument("--pah-temperature", type=float, default=0.1)
+    parser.add_argument("--tam-spectral-quality", action="store_true", default=False)
+    parser.add_argument("--tam-contrastive", action="store_true", default=False)
+    parser.add_argument("--pah-temperature", type=float, default=0.3)
+    parser.add_argument("--pah-learnable-temp", action="store_true", default=False)
+    parser.add_argument("--pah-num-bg", type=int, default=4)
+    parser.add_argument("--pah-gamma-init", type=float, default=0.0)
     args = parser.parse_args()
 
     config = {
@@ -120,8 +127,15 @@ def main() -> None:
                   "use_tam": args.use_tam,
                   "use_pah": args.use_pah,
                   "pbg_alpha_init": args.pbg_alpha_init,
+                  "pbg_phase_mask": args.pbg_phase_mask,
+                  "roi_align_size": args.roi_align_size,
                   "tam_latent_dim": args.tam_latent_dim,
-                  "pah_temperature": args.pah_temperature},
+                  "tam_spectral_quality": args.tam_spectral_quality,
+                  "tam_contrastive": args.tam_contrastive,
+                  "pah_temperature": args.pah_temperature,
+                  "pah_learnable_temp": args.pah_learnable_temp,
+                  "pah_num_bg": args.pah_num_bg,
+                  "pah_gamma_init": args.pah_gamma_init},
         "train": {"batch_size": 2, "lr": 0.003, "momentum": 0.9, "weight_decay": 0.0005},
         "matching": {"iou_threshold": 0.5, "score_threshold": 0.05},
         "eval": {"batch_size": 2, "high_conf_threshold": 0.7},
@@ -206,6 +220,17 @@ def main() -> None:
                         ).to(device)
             loss_dict = model(images, targets)
             loss = sum(loss_dict.values())
+
+            # Optional auxiliary losses from TAM (spectral quality / contrastive).
+            tam_aux = 0.0
+            if (
+                hasattr(model.roi_heads.box_head, "tam")
+                and model.roi_heads.box_head.tam is not None
+            ):
+                tam_aux = model.roi_heads.box_head.tam.get_aux_loss()
+                if isinstance(tam_aux, torch.Tensor) and tam_aux.item() != 0.0:
+                    loss = loss + tam_aux
+
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()

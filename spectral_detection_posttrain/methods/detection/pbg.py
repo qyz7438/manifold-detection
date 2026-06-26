@@ -3,24 +3,84 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class PhaseBoundaryGate(nn.Module):
-    """Local phase/edge boundary gate for ROI features.
+class FrequencySpatialBoundaryGate(nn.Module):
+    """Joint frequency-spatial boundary gate for ROI features.
 
-    Learns a low-cost spatial attention map from the ROI feature tensor and
-    applies a residual gate: ``x + alpha * sigmoid(edge(x)) * x``.
-    ``alpha`` is initialized to 0 so the block starts as an identity mapping.
+    The module extracts boundary cues from two complementary views:
+
+    1. **Spatial view**: a small conv edge detector on the raw ROI feature.
+    2. **Frequency view**: phase-only reconstruction via rFFT2 -> magnitude mask
+       -> iRFFT2, which suppresses smooth regions and highlights structural
+       boundaries.  A configurable magnitude mask prevents unstable low-energy
+       frequency bins from contaminating the reconstruction.
+
+    The two boundary maps are fused into a single spatial attention gate and
+    applied as a residual: ``x + alpha * gate * x``.  ``alpha`` is initialised
+    to a small positive value so the gate branch receives gradients from the
+    first forward pass while still being close to an identity mapping.
     """
 
-    def __init__(self, channels: int, alpha_init: float = 0.0):
+    def __init__(
+        self,
+        channels: int,
+        alpha_init: float = 1e-2,
+        phase_mask: str = "soft",
+        eps: float = 1e-6,
+    ):
         super().__init__()
-        self.edge_conv = nn.Sequential(
-            nn.Conv2d(channels, max(1, channels // 4), 3, padding=1),
+        if phase_mask not in {"none", "hard", "soft"}:
+            raise ValueError(f"Unknown phase_mask: {phase_mask}")
+        self.phase_mask = phase_mask
+        self.eps = eps
+
+        hid = max(1, channels // 4)
+        self.spatial_edge = nn.Sequential(
+            nn.Conv2d(channels, hid, 3, padding=1, bias=False),
+            nn.BatchNorm2d(hid),
             nn.ReLU(inplace=True),
-            nn.Conv2d(max(1, channels // 4), 1, 3, padding=1),
+            nn.Conv2d(hid, 1, 3, padding=1, bias=False),
+        )
+        self.phase_encoder = nn.Sequential(
+            nn.Conv2d(channels, hid, 1, bias=False),
+            nn.BatchNorm2d(hid),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(hid, 1, 1, bias=False),
+        )
+        self.fusion = nn.Sequential(
+            nn.Conv2d(2, 1, 3, padding=1, bias=False),
+            nn.BatchNorm2d(1),
+            nn.Sigmoid(),
         )
         self.alpha = nn.Parameter(torch.tensor(alpha_init, dtype=torch.float32))
 
+    def _phase_boundary(self, x: torch.Tensor) -> torch.Tensor:
+        fr = torch.fft.rfft2(x, norm="ortho")
+        mag = torch.abs(fr)
+        phase = torch.angle(fr)
+
+        if self.phase_mask == "none":
+            phase_only = torch.exp(1j * phase)
+        elif self.phase_mask == "hard":
+            mask = (mag > self.eps).float()
+            phase_only = mask * torch.exp(1j * phase)
+        else:  # soft
+            # Soft gate: trust phase more where magnitude is large relative to
+            # the per-channel mean.  This avoids amplifying noise in low-energy
+            # frequency bins.
+            mean_mag = mag.mean(dim=(-2, -1), keepdim=True).clamp_min(self.eps)
+            mask = (mag / mean_mag).clamp(0.0, 1.0)
+            phase_only = mask * torch.exp(1j * phase)
+
+        pb = torch.fft.irfft2(phase_only, s=x.shape[-2:], norm="ortho")
+        pb = F.relu(pb)
+        return self.phase_encoder(pb)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        edge = self.edge_conv(x)
-        gate = torch.sigmoid(edge)
+        spatial = self.spatial_edge(x)
+        phase = self._phase_boundary(x)
+        gate = self.fusion(torch.cat([spatial, phase], dim=1))
         return x + self.alpha * gate * x
+
+
+# Backward-compatible alias for earlier CLI/config names.
+PhaseBoundaryGate = FrequencySpatialBoundaryGate
