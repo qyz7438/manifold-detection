@@ -15,9 +15,11 @@ class FrequencySpatialBoundaryGate(nn.Module):
        frequency bins from contaminating the reconstruction.
 
     The two boundary maps are fused into a single spatial attention gate and
-    applied as a residual: ``x + alpha * gate * x``.  ``alpha`` is initialised
-    to a small positive value so the gate branch receives gradients from the
-    first forward pass while still being close to an identity mapping.
+    applied as a residual: ``x + alpha * tanh(gate) * x``.  ``alpha`` is
+    initialised to a small positive value and the fusion conv is initialised to
+    zero, so the module starts as an identity mapping.  Using ``tanh`` instead of
+    a saturating sigmoid gives the gate a much larger dynamic range near zero and
+    avoids the flat-gate problem observed in FSBG v2.
     """
 
     def __init__(
@@ -46,11 +48,10 @@ class FrequencySpatialBoundaryGate(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(hid, 1, 1, bias=False),
         )
-        self.fusion = nn.Sequential(
-            nn.Conv2d(2, 1, 3, padding=1, bias=False),
-            nn.BatchNorm2d(1),
-            nn.Sigmoid(),
-        )
+        # FSBG v3: direct sum of spatial + phase edge maps, passed through tanh.
+        # Avoids a conv fusion layer that was collapsing the gate to a near-
+        # constant value.  Spatial/phase encoders remain learnable.
+        self.fusion_bias = nn.Parameter(torch.zeros(1, 1, 1, 1))
         self.alpha = nn.Parameter(torch.tensor(alpha_init, dtype=torch.float32))
 
     def _phase_boundary(self, x: torch.Tensor) -> torch.Tensor:
@@ -78,7 +79,7 @@ class FrequencySpatialBoundaryGate(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         spatial = self.spatial_edge(x)
         phase = self._phase_boundary(x)
-        gate = self.fusion(torch.cat([spatial, phase], dim=1))
+        gate = torch.tanh(spatial + phase + self.fusion_bias)
         return x + self.alpha * gate * x
 
 

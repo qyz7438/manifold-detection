@@ -136,9 +136,9 @@ def main() -> None:
                   "pah_learnable_temp": args.pah_learnable_temp,
                   "pah_num_bg": args.pah_num_bg,
                   "pah_gamma_init": args.pah_gamma_init},
-        "train": {"batch_size": 2, "lr": 0.003, "momentum": 0.9, "weight_decay": 0.0005},
+        "train": {"batch_size": 16, "lr": 0.024, "momentum": 0.9, "weight_decay": 0.0005},
         "matching": {"iou_threshold": 0.5, "score_threshold": 0.05},
-        "eval": {"batch_size": 2, "high_conf_threshold": 0.7},
+        "eval": {"batch_size": 16, "high_conf_threshold": 0.7},
     }
 
     VOC_20 = ["aeroplane","bicycle","bird","boat","bottle","bus","car","cat","chair",
