@@ -96,7 +96,7 @@ def main() -> None:
     parser.add_argument("--edge-mix", action="store_true", default=False)
     parser.add_argument("--limit-train", type=int, default=None)
     parser.add_argument("--limit-val", type=int, default=None)
-    parser.add_argument("--dataset", default="penn_fudan", choices=["penn_fudan", "voc"])
+    parser.add_argument("--dataset", default="penn_fudan", choices=["penn_fudan", "voc", "nwpu"])
     parser.add_argument("--voc-full", action="store_true", default=False)
     parser.add_argument("--model-name", default="fasterrcnn_mobilenet_v3_large_320_fpn",
                         choices=["fasterrcnn_mobilenet_v3_large_320_fpn", "fasterrcnn_resnet50_fpn"])
@@ -151,6 +151,16 @@ def main() -> None:
                                "train_set": "train", "val_set": "val"})
         config["model"]["num_classes"] = len(classes) + 1
         config["model"]["max_size"] = 480
+    elif args.dataset == "nwpu":
+        config["data"].update({
+            "root": "./data/NWPU VHR-10 dataset",
+            "annotation": "./data/NWPU_VHR10_coco.json",
+            "train_fraction": 0.7,
+            "max_size": 480,
+        })
+        config["model"]["num_classes"] = 11
+        config["model"]["min_size"] = 480
+        config["model"]["max_size"] = 480
 
     set_seed(args.seed)
     device = resolve_device(config)
@@ -158,6 +168,9 @@ def main() -> None:
     if args.dataset == "voc":
         from spectral_detection_posttrain.datasets.voc_detection import build_voc_detection_loaders
         train_loader, val_loader = build_voc_detection_loaders(config, limit_train=args.limit_train, limit_val=args.limit_val)
+    elif args.dataset == "nwpu":
+        from spectral_detection_posttrain.datasets.nwpu_vhr10 import build_nwpu_vhr10_loaders
+        train_loader, val_loader = build_nwpu_vhr10_loaders(config, limit_train=args.limit_train, limit_val=args.limit_val)
     else:
         train_loader, val_loader = build_penn_fudan_loaders(config, limit_train=args.limit_train, limit_val=args.limit_val)
     model = build_detector(config).to(device)
