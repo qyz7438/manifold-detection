@@ -138,12 +138,12 @@ def build_detector(config: dict) -> torch.nn.Module:
     if use_lsg:
         from spectral_detection_posttrain.methods.detection.pbg import LearnedSpectralGate
 
-        lsg_alpha_init = float(model_cfg.get("lsg_alpha_init", 1.0))
-        lsg_use_phase = bool(model_cfg.get("lsg_use_phase", False))
+        lsg_alpha_init = float(model_cfg.get("lsg_alpha_init", 0.1))
+        lsg_use_radius = bool(model_cfg.get("lsg_use_radius", True))
         lsg = LearnedSpectralGate(
             channels=roi_channels,
             alpha_init=lsg_alpha_init,
-            use_phase=lsg_use_phase,
+            use_radius=lsg_use_radius,
         )
 
     spatial_afm = None

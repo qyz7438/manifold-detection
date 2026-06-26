@@ -90,62 +90,85 @@ PhaseBoundaryGate = FrequencySpatialBoundaryGate
 
 
 class LearnedSpectralGate(nn.Module):
-    """Learned frequency-domain gating module (LSG).
+    """Learned frequency-domain magnitude gate (LSG v1).
 
-    Unlike FSBG, which reconstructs boundary maps from the phase spectrum and
-    then fuses them spatially, LSG operates entirely in the frequency domain:
+    LSG differs from FSBG in that it never reconstructs spatial boundary maps.
+    Instead it learns a per-channel frequency response directly on the magnitude
+    spectrum:
 
         x --rFFT2--> X
-        X --learned magnitude gate--> X' (and optional phase rotation)
-        X' --iRFFT2--> x'
-        output = x + alpha * x'
+        |X| --log1p + norm --[radius coord]--> Conv1x1 --tanh--> ΔG
+        X' = (1 + ΔG) * X
+        x_filt = iRFFT2(X')
+        output = x + alpha * (x_filt - x)
 
-    The magnitude gate is centered at 1.0 (via ``1 + tanh(...)``), so the
-    module starts as the identity mapping.  The network can then learn to
-    suppress noisy frequencies or boost object-relevant frequencies.
+    Key properties:
+      * Strict identity at init: the last conv weight is zero -> ΔG=0, gate=1,
+        and the correction term (x_filt - x) is zero.
+      * Optional radius coordinate gives the 1x1 conv explicit frequency-position
+        awareness, otherwise it only sees amplitude values.
+      * Magnitude is log-compressed and channel-normalized so the gate learns
+        relative spectral structure rather than raw energy magnitude.
+      * FFT is run in float32 to avoid CUDA half-precision shape restrictions.
     """
 
     def __init__(
         self,
         channels: int,
-        alpha_init: float = 1.0,
-        use_phase: bool = True,
+        alpha_init: float = 0.1,
+        use_radius: bool = True,
     ):
         super().__init__()
-        self.use_phase = use_phase
+        self.use_radius = use_radius
+        self.eps = 1e-6
         hid = max(1, channels // 4)
 
+        in_ch = channels + (1 if use_radius else 0)
         self.mag_gate = nn.Sequential(
-            nn.Conv2d(channels, hid, 1, bias=False),
+            nn.Conv2d(in_ch, hid, 1, bias=False),
             nn.BatchNorm2d(hid),
             nn.ReLU(inplace=True),
             nn.Conv2d(hid, channels, 1, bias=False),
         )
-
-        if use_phase:
-            self.phase_gate = nn.Sequential(
-                nn.Conv2d(channels, hid, 1, bias=False),
-                nn.BatchNorm2d(hid),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(hid, channels, 1, bias=False),
-            )
-        else:
-            self.phase_gate = None
+        # Zero-init the last conv -> ΔG=0 at start -> strict identity.
+        nn.init.zeros_(self.mag_gate[-1].weight)
 
         self.alpha = nn.Parameter(torch.tensor(alpha_init, dtype=torch.float32))
 
+    def _radius_map(self, h: int, w_half: int, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+        """Normalized radial frequency coordinate map (B=1, C=1)."""
+        fy = torch.fft.fftfreq(h, device=device, dtype=dtype).view(1, 1, h, 1)
+        fx = torch.fft.rfftfreq((w_half - 1) * 2, device=device, dtype=dtype).view(1, 1, 1, w_half)
+        r = torch.sqrt(fx ** 2 + fy ** 2)
+        r = r / (r.max() + self.eps)
+        return r
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        X = torch.fft.rfft2(x, norm="ortho")
-        mag = torch.abs(X)
+        orig_dtype = x.dtype
+        # FFT in float32 for stability / AMP compatibility.
+        x_float = x.float()
 
-        # Center gate at 1.0 -> identity at initialization.
-        mag_gate = 1.0 + torch.tanh(self.mag_gate(mag))
-        X_out = mag_gate * X
+        X = torch.fft.rfft2(x_float, norm="ortho")
 
-        if self.use_phase:
-            phase = torch.angle(X)
-            phase_shift = torch.tanh(self.phase_gate(phase)) * math.pi
-            X_out = X_out * torch.exp(1j * phase_shift)
+        # Log-compress and per-sample/channel normalize magnitude.
+        mag = torch.log1p(torch.abs(X))
+        mag = (mag - mag.mean(dim=(-2, -1), keepdim=True)) / (
+            mag.std(dim=(-2, -1), keepdim=True) + self.eps
+        )
 
-        x_out = torch.fft.irfft2(X_out, s=x.shape[-2:], norm="ortho")
-        return x + self.alpha * x_out
+        if self.use_radius:
+            r = self._radius_map(mag.size(-2), mag.size(-1), mag.device, mag.dtype)
+            r = r.expand(mag.size(0), 1, mag.size(-2), mag.size(-1))
+            gate_input = torch.cat([mag, r], dim=1)
+        else:
+            gate_input = mag
+
+        delta = torch.tanh(self.mag_gate(gate_input))
+        gate = 1.0 + delta  # identity at init because delta=0
+
+        X_out = gate * X
+        x_filt = torch.fft.irfft2(X_out, s=x_float.shape[-2:], norm="ortho")
+
+        # Residual correction: strict identity when alpha=0 or gate=1.
+        y = x_float + self.alpha * (x_filt - x_float)
+        return y.to(orig_dtype)

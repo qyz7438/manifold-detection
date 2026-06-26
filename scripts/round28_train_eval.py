@@ -106,8 +106,8 @@ def main() -> None:
     parser.add_argument("--use-pah", action="store_true", default=False)
     parser.add_argument("--pbg-alpha-init", type=float, default=1e-2)
     parser.add_argument("--pbg-phase-mask", default="soft", choices=["none", "hard", "soft"])
-    parser.add_argument("--lsg-alpha-init", type=float, default=1.0)
-    parser.add_argument("--lsg-use-phase", action="store_true", default=False)
+    parser.add_argument("--lsg-alpha-init", type=float, default=0.1)
+    parser.add_argument("--lsg-use-radius", action="store_true", default=True)
     parser.add_argument("--roi-align-size", type=int, default=7)
     parser.add_argument("--tam-latent-dim", type=int, default=256)
     parser.add_argument("--tam-spectral-quality", action="store_true", default=False)
@@ -133,7 +133,7 @@ def main() -> None:
                   "pbg_alpha_init": args.pbg_alpha_init,
                   "pbg_phase_mask": args.pbg_phase_mask,
                   "lsg_alpha_init": args.lsg_alpha_init,
-                  "lsg_use_phase": args.lsg_use_phase,
+                  "lsg_use_radius": args.lsg_use_radius,
                   "roi_align_size": args.roi_align_size,
                   "tam_latent_dim": args.tam_latent_dim,
                   "tam_spectral_quality": args.tam_spectral_quality,
