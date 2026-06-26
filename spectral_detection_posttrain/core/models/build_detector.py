@@ -44,7 +44,15 @@ def build_detector(config: dict) -> torch.nn.Module:
             raise
         model = build_fn(weights=None, weights_backbone=None, **model_kwargs)
     in_features = model.roi_heads.box_predictor.cls_score.in_features
-    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+    use_pah = bool(model_cfg.get("use_pah", False))
+    if use_pah:
+        from spectral_detection_posttrain.methods.detection.pah import PrototypeAwareHead
+        pah_temperature = float(model_cfg.get("pah_temperature", 0.1))
+        model.roi_heads.box_predictor = PrototypeAwareHead(
+            in_features, num_classes, temperature=pah_temperature
+        )
+    else:
+        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
     afm_channels = int(model_cfg.get("afm_channels", 0))
     afm_fpn = bool(model_cfg.get("afm_fpn", False))
