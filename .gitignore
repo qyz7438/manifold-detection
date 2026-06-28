@@ -55,3 +55,12 @@ Thumbs.db
 .vscode/
 
 .worktrees/
+
+# Backups and temporary push directories
+*.bak
+temp_push/
+patch_*.py
+
+# Archived legacy experiment artifacts (kept locally but not tracked)
+docs/reports/archive/
+scripts/legacy/

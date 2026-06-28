@@ -1,0 +1,64 @@
+group                       n  AP50_mean   std     AP75_mean   std     ECE_mean  bestAP50
+nwpu_mob_baseline           3     0.4955  0.0314     0.1464  0.0253   0.0423    0.5335
+nwpu_mob_fpn_sm             3     0.5472  0.0136     0.1825  0.0248   0.1103    0.5494
+nwpu_resnet_baseline        3     0.9162  0.0118     0.8069  0.0189   0.0493    0.9304
+nwpu_resnet_fpn_sm          3     0.9205  0.0209     0.7546  0.0779   0.0496    0.9340
+
+group                     seed  AP50    AP75    ECE     bestAP50
+nwpu_mob_baseline           -1 0.5259 0.1543 0.0360 0.5285
+nwpu_mob_baseline           -1 0.4975 0.1667 0.0422 0.5193
+nwpu_mob_baseline           -1 0.4631 0.1181 0.0487 0.5527
+nwpu_mob_fpn_sm             -1 0.5323 0.2106 0.0669 0.5390
+nwpu_mob_fpn_sm             -1 0.5589 0.1639 0.1532 0.5589
+nwpu_mob_fpn_sm             -1 0.5504 0.1729 0.1109 0.5504
+nwpu_resnet_baseline        -1 0.9273 0.8245 0.0474 0.9273
+nwpu_resnet_baseline        -1 0.9176 0.8092 0.0477 0.9375
+nwpu_resnet_baseline        -1 0.9038 0.7870 0.0528 0.9264
+nwpu_resnet_fpn_sm          -1 0.9326 0.6671 0.0438 0.9400
+nwpu_resnet_fpn_sm          -1 0.9324 0.7800 0.0519 0.9345
+nwpu_resnet_fpn_sm          -1 0.8963 0.8165 0.0531 0.9276
+
+=== nwpu_mob_baseline last-epoch diagnostics (n=3) ===
+=== nwpu_mob_fpn_sm last-epoch diagnostics (n=3) ===
+  fpn_sm/0_alpha                                mean= 0.374685 std= 0.027014
+  fpn_sm/0_cos_delta_x                          mean=-0.995973 std= 0.000020
+  fpn_sm/0_eff_rel_delta                        mean= 0.361930 std= 0.030005
+  fpn_sm/0_freq_residual_ratio                  mean= 0.976875 std= 0.001332
+  fpn_sm/0_raw_rel_delta                        mean= 0.976652 std= 0.000848
+  fpn_sm/1_alpha                                mean=-0.073533 std= 0.004291
+  fpn_sm/1_cos_delta_x                          mean=-0.996448 std= 0.000325
+  fpn_sm/1_eff_rel_delta                        mean= 0.068699 std= 0.004046
+  fpn_sm/1_freq_residual_ratio                  mean= 0.977343 std= 0.004431
+  fpn_sm/1_raw_rel_delta                        mean= 0.976360 std= 0.003920
+  fpn_sm/pool_alpha                             mean= 0.021302 std= 0.009289
+  fpn_sm/pool_cos_delta_x                       mean=-0.996428 std= 0.000437
+  fpn_sm/pool_eff_rel_delta                     mean= 0.022477 std= 0.008842
+  fpn_sm/pool_freq_residual_ratio               mean= 0.976686 std= 0.005364
+  fpn_sm/pool_raw_rel_delta                     mean= 0.975550 std= 0.004948
+=== nwpu_resnet_baseline last-epoch diagnostics (n=3) ===
+=== nwpu_resnet_fpn_sm last-epoch diagnostics (n=3) ===
+  fpn_sm/0_alpha                                mean= 0.018569 std= 0.012251
+  fpn_sm/0_cos_delta_x                          mean=-0.996327 std= 0.000386
+  fpn_sm/0_eff_rel_delta                        mean= 0.019955 std= 0.012551
+  fpn_sm/0_freq_residual_ratio                  mean= 0.979706 std= 0.002348
+  fpn_sm/0_raw_rel_delta                        mean= 0.978043 std= 0.002115
+  fpn_sm/1_alpha                                mean=-0.018319 std= 0.005282
+  fpn_sm/1_cos_delta_x                          mean=-0.996390 std= 0.000531
+  fpn_sm/1_eff_rel_delta                        mean= 0.015870 std= 0.006408
+  fpn_sm/1_freq_residual_ratio                  mean= 0.978404 std= 0.001406
+  fpn_sm/1_raw_rel_delta                        mean= 0.976890 std= 0.001219
+  fpn_sm/2_alpha                                mean=-0.033536 std= 0.002159
+  fpn_sm/2_cos_delta_x                          mean=-0.996045 std= 0.000476
+  fpn_sm/2_eff_rel_delta                        mean= 0.032963 std= 0.001486
+  fpn_sm/2_freq_residual_ratio                  mean= 0.977667 std= 0.001790
+  fpn_sm/2_raw_rel_delta                        mean= 0.976452 std= 0.001824
+  fpn_sm/3_alpha                                mean=-0.031861 std= 0.004060
+  fpn_sm/3_cos_delta_x                          mean=-0.996240 std= 0.000458
+  fpn_sm/3_eff_rel_delta                        mean= 0.030780 std= 0.003798
+  fpn_sm/3_freq_residual_ratio                  mean= 0.980105 std= 0.001796
+  fpn_sm/3_raw_rel_delta                        mean= 0.978472 std= 0.001663
+  fpn_sm/pool_alpha                             mean= 0.014346 std= 0.001003
+  fpn_sm/pool_cos_delta_x                       mean=-0.996267 std= 0.000436
+  fpn_sm/pool_eff_rel_delta                     mean= 0.014035 std= 0.000956
+  fpn_sm/pool_freq_residual_ratio               mean= 0.980115 std= 0.001766
+  fpn_sm/pool_raw_rel_delta                     mean= 0.978461 std= 0.001619

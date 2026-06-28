@@ -1,0 +1,2 @@
+# Compatibility shim; new code should use canonical methods/rlvr paths.
+from legacy.methods.rlvr.detection_verifier import *  # noqa: F401,F403

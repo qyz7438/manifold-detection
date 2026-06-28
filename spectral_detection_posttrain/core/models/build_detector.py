@@ -116,6 +116,171 @@ def build_detector(config: dict) -> torch.nn.Module:
         model._multi_afm = multi_afm
 
     # ------------------------------------------------------------------
+    # Helper: infer the actual FPN level keys produced by this backbone.
+    # ------------------------------------------------------------------
+    def _infer_fpn_keys(model):
+        with torch.no_grad():
+            min_size = int(model_cfg.get("min_size", 320))
+            max_size = int(model_cfg.get("max_size", 320))
+            dummy = torch.zeros(1, 3, min_size, max_size, device="cpu")
+            feats = model.backbone(dummy)
+            if isinstance(feats, torch.Tensor):
+                feats = {"0": feats}
+            return list(feats.keys())
+
+    # ------------------------------------------------------------------
+    # Optional FPN-level FFT + complex spectral manifold analysis.
+    # ------------------------------------------------------------------
+    fpn_spectral_manifold = bool(model_cfg.get("fpn_spectral_manifold", False))
+    fpn_real_adapter = bool(model_cfg.get("fpn_real_adapter", False))
+    if fpn_spectral_manifold and fpn_real_adapter:
+        raise ValueError(
+            "fpn_spectral_manifold and fpn_real_adapter are mutually exclusive."
+        )
+
+    if fpn_spectral_manifold:
+        from spectral_detection_posttrain.methods.manifold import FPNSpectralManifold
+
+        fpn_sm_channels = int(model_cfg.get("fpn_sm_channels", roi_channels))
+        fpn_sm_levels = int(model_cfg.get("fpn_sm_levels", 4))
+        fpn_sm_latent_dim = model_cfg.get("fpn_sm_latent_dim", None)
+        if fpn_sm_latent_dim is not None:
+            fpn_sm_latent_dim = int(fpn_sm_latent_dim)
+        fpn_sm_hidden_dim = model_cfg.get("fpn_sm_hidden_dim", None)
+        if fpn_sm_hidden_dim is not None:
+            fpn_sm_hidden_dim = int(fpn_sm_hidden_dim)
+        fpn_sm_use_freq_coords = bool(model_cfg.get("fpn_sm_use_freq_coords", True))
+        fpn_sm_use_level_coords = bool(model_cfg.get("fpn_sm_use_level_coords", True))
+        fpn_sm_gate_activation = str(model_cfg.get("fpn_sm_gate_activation", "sigmoid"))
+        fpn_sm_suppress_dc = bool(model_cfg.get("fpn_sm_suppress_dc", False))
+        fpn_sm_init_alpha = float(model_cfg.get("fpn_sm_init_alpha", 1e-3))
+        fpn_sm_level_keys = model_cfg.get("fpn_sm_level_keys", None)
+        if fpn_sm_level_keys is None:
+            fpn_sm_level_keys = _infer_fpn_keys(model)
+        fpn_sm = FPNSpectralManifold(
+            channels=fpn_sm_channels,
+            num_levels=fpn_sm_levels,
+            level_keys=fpn_sm_level_keys,
+            latent_dim=fpn_sm_latent_dim,
+            hidden_dim=fpn_sm_hidden_dim,
+            use_freq_coords=fpn_sm_use_freq_coords,
+            use_level_coords=fpn_sm_use_level_coords,
+            gate_activation=fpn_sm_gate_activation,
+            suppress_dc=fpn_sm_suppress_dc,
+            init_alpha=fpn_sm_init_alpha,
+        )
+        original_backbone_forward = model.backbone.forward
+
+        def _patched_backbone_forward_sm(x):
+            features = original_backbone_forward(x)
+            if isinstance(features, torch.Tensor):
+                features = {"0": features}
+            return fpn_sm(features)
+
+        model.backbone.forward = _patched_backbone_forward_sm
+        model._fpn_spectral_manifold = fpn_sm
+
+    # ------------------------------------------------------------------
+    # Optional FPN-level real-valued adapter control.
+    # ------------------------------------------------------------------
+    if fpn_real_adapter:
+        from spectral_detection_posttrain.methods.manifold import FPNRealAdapter
+
+        fpn_real_channels = int(model_cfg.get("fpn_real_channels", roi_channels))
+        fpn_real_levels = int(model_cfg.get("fpn_real_levels", 4))
+        fpn_real_latent_dim = model_cfg.get("fpn_real_latent_dim", None)
+        if fpn_real_latent_dim is not None:
+            fpn_real_latent_dim = int(fpn_real_latent_dim)
+        fpn_real_init_alpha = float(model_cfg.get("fpn_real_init_alpha", 1e-3))
+        fpn_real_level_keys = model_cfg.get("fpn_real_level_keys", None)
+        if fpn_real_level_keys is None:
+            fpn_real_level_keys = _infer_fpn_keys(model)
+        fpn_real = FPNRealAdapter(
+            channels=fpn_real_channels,
+            num_levels=fpn_real_levels,
+            level_keys=fpn_real_level_keys,
+            latent_dim=fpn_real_latent_dim,
+            init_alpha=fpn_real_init_alpha,
+        )
+        original_backbone_forward = model.backbone.forward
+
+        def _patched_backbone_forward_real(x):
+            features = original_backbone_forward(x)
+            if isinstance(features, torch.Tensor):
+                features = {"0": features}
+            return fpn_real(features)
+
+        model.backbone.forward = _patched_backbone_forward_real
+        model._fpn_real_adapter = fpn_real
+
+    # ------------------------------------------------------------------
+    # Optional FPN-level channel-attention baselines (SE / FcaNet / ECA).
+    # Placed at the same location as FPNSpectralManifold for fair comparison.
+    # ------------------------------------------------------------------
+    fpn_attention_type = model_cfg.get("fpn_attention_type", "none")
+    if fpn_attention_type not in ("none", "se", "fcanet", "eca"):
+        raise ValueError(f"Unsupported fpn_attention_type: {fpn_attention_type}")
+    if fpn_attention_type != "none":
+        from spectral_detection_posttrain.methods.manifold import FPNAttentionWrapper
+
+        fpn_attn_channels = int(model_cfg.get("fpn_attn_channels", roi_channels))
+        fpn_attn_reduction = int(
+            model_cfg.get(
+                "fpn_attention_reduction",
+                model_cfg.get("fpn_attn_reduction", 16),
+            )
+        )
+        fpn_attn_level_keys = model_cfg.get("fpn_attn_level_keys", None)
+        if fpn_attn_level_keys is None:
+            fpn_attn_level_keys = _infer_fpn_keys(model)
+        fpn_attn = FPNAttentionWrapper(
+            attention_type=fpn_attention_type,
+            channels=fpn_attn_channels,
+            level_keys=fpn_attn_level_keys,
+            reduction=fpn_attn_reduction,
+        )
+        original_backbone_forward = model.backbone.forward
+
+        def _patched_backbone_forward_attn(x):
+            features = original_backbone_forward(x)
+            if isinstance(features, torch.Tensor):
+                features = {"0": features}
+            return fpn_attn(features)
+
+        model.backbone.forward = _patched_backbone_forward_attn
+        model._fpn_attention = fpn_attn
+
+    # ------------------------------------------------------------------
+    # Optional image-level FFT + complex spectral manifold analysis.
+    # Applied before the backbone so it operates on the raw input image.
+    # If FPN/AFM manifolds are also enabled, this runs first in the chain.
+    # ------------------------------------------------------------------
+    image_spectral_manifold = bool(model_cfg.get("image_spectral_manifold", False))
+    if image_spectral_manifold:
+        from spectral_detection_posttrain.methods.manifold import ImageSpectralManifold
+
+        img_sm_channels = int(model_cfg.get("img_sm_channels", 3))
+        img_sm_latent_dim = model_cfg.get("img_sm_latent_dim", None)
+        if img_sm_latent_dim is not None:
+            img_sm_latent_dim = int(img_sm_latent_dim)
+        img_sm = ImageSpectralManifold(
+            channels=img_sm_channels,
+            latent_dim=img_sm_latent_dim,
+        )
+        # Capture whatever backbone pipeline is already in place (plain, AFM, FPN-SM).
+        original_backbone_forward = model.backbone.forward
+
+        def _patched_backbone_forward_img_sm(x):
+            x = img_sm(x)
+            features = original_backbone_forward(x)
+            if isinstance(features, torch.Tensor):
+                features = {"0": features}
+            return features
+
+        model.backbone.forward = _patched_backbone_forward_img_sm
+        model._image_spectral_manifold = img_sm
+
+    # ------------------------------------------------------------------
     # Optional structural blocks around the box head.
     # ------------------------------------------------------------------
     use_pbg = bool(model_cfg.get("use_pbg", False))
@@ -172,6 +337,37 @@ def build_detector(config: dict) -> torch.nn.Module:
             use_contrastive=tam_contrastive,
         )
 
+    # ------------------------------------------------------------------
+    # Optional ROI-level FFT + complex spectral manifold analysis.
+    # Applied after RoI Align and before the box head flatten step.
+    # ------------------------------------------------------------------
+    roi_spectral_manifold = bool(model_cfg.get("roi_spectral_manifold", False))
+    roi_sm = None
+    if roi_spectral_manifold:
+        from spectral_detection_posttrain.methods.manifold import ROISpectralManifold
+
+        roi_sm_channels = int(model_cfg.get("roi_sm_channels", roi_channels))
+        roi_sm_latent_dim = model_cfg.get("roi_sm_latent_dim", None)
+        if roi_sm_latent_dim is not None:
+            roi_sm_latent_dim = int(roi_sm_latent_dim)
+        roi_sm_hidden_dim = model_cfg.get("roi_sm_hidden_dim", None)
+        if roi_sm_hidden_dim is not None:
+            roi_sm_hidden_dim = int(roi_sm_hidden_dim)
+        roi_sm_use_freq_coords = bool(model_cfg.get("roi_sm_use_freq_coords", True))
+        roi_sm_gate_activation = str(model_cfg.get("roi_sm_gate_activation", "sigmoid"))
+        roi_sm_suppress_dc = bool(model_cfg.get("roi_sm_suppress_dc", False))
+        roi_sm_init_alpha = float(model_cfg.get("roi_sm_init_alpha", 1e-3))
+        roi_sm = ROISpectralManifold(
+            channels=roi_sm_channels,
+            latent_dim=roi_sm_latent_dim,
+            hidden_dim=roi_sm_hidden_dim,
+            use_freq_coords=roi_sm_use_freq_coords,
+            gate_activation=roi_sm_gate_activation,
+            suppress_dc=roi_sm_suppress_dc,
+            init_alpha=roi_sm_init_alpha,
+        )
+        model._roi_spectral_manifold = roi_sm
+
     # Optionally increase ROI Align resolution for better frequency-domain
     # processing.  box_head is trained for 7x7 inputs, so we downsample back
     # before feeding it if a larger ROI size is requested.
@@ -180,8 +376,16 @@ def build_detector(config: dict) -> torch.nn.Module:
         if hasattr(model.roi_heads.box_roi_pool, "output_size"):
             model.roi_heads.box_roi_pool.output_size = (roi_align_size, roi_align_size)
 
-    # Insert blocks around the box head: PBG -> LSG -> AFM -> downsample -> head -> TAM.
-    if pbg is not None or lsg is not None or spatial_afm is not None or tam is not None or roi_align_size != 7:
+    # Insert blocks around the box head:
+    #   PBG -> LSG -> AFM -> ROI-SM -> downsample -> head -> TAM.
+    if (
+        pbg is not None
+        or lsg is not None
+        or spatial_afm is not None
+        or roi_sm is not None
+        or tam is not None
+        or roi_align_size != 7
+    ):
         original_box_head = model.roi_heads.box_head
         downsample = nn.AdaptiveAvgPool2d((7, 7)) if roi_align_size != 7 else nn.Identity()
 
@@ -193,6 +397,7 @@ def build_detector(config: dict) -> torch.nn.Module:
                 self.spatial_afm = spatial_afm
                 # Backward-compatible alias used by some trainable-mode helpers.
                 self.afm = spatial_afm
+                self.roi_sm = roi_sm
                 self.downsample = downsample
                 self.head = original_box_head
                 self.tam = tam
@@ -204,6 +409,8 @@ def build_detector(config: dict) -> torch.nn.Module:
                     x = self.lsg(x)
                 if self.spatial_afm is not None:
                     x = self.spatial_afm(x)
+                if self.roi_sm is not None:
+                    x = self.roi_sm(x)
                 x = self.downsample(x)
                 z = self.head(x)
                 if self.tam is not None:

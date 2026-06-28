@@ -7,7 +7,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as torch_f
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset
 from torchvision.datasets import VOCDetection
 from torchvision.transforms import functional as F
 
@@ -116,13 +116,36 @@ def _resize_image_and_target(image: torch.Tensor, target: dict, max_size: int) -
     return resized, scaled
 
 
+def _make_subset(data_root: str, cfg: dict, classes: list[str], split: str, download: bool, max_size: int | None):
+    years_cfg = cfg.get(f"{split}_years")
+    if years_cfg is None:
+        year = str(cfg.get("year", "2007"))
+        image_set = str(cfg.get(f"{split}_set", "train" if split == "train" else "val"))
+        return VOCDetectionSubset(data_root, year=year, image_set=image_set, classes=classes, download=download, max_size=max_size)
+    subsets = []
+    for item in years_cfg:
+        if isinstance(item, dict):
+            year = str(item["year"])
+            image_set = str(item.get("image_set", "train" if split == "train" else "val"))
+        else:
+            year = str(item)
+            image_set = "train" if split == "train" else "val"
+        subsets.append(VOCDetectionSubset(data_root, year=year, image_set=image_set, classes=classes, download=download, max_size=max_size))
+    if len(subsets) == 1:
+        return subsets[0]
+    return ConcatDataset(subsets)
+
+
 def build_voc_detection_loaders(config: dict, limit_train: int | None = None, limit_val: int | None = None, batch_size: int | None = None):
     data_cfg = config["data"]
     classes = list(data_cfg.get("classes", ["person", "car", "dog"]))
-    year = str(data_cfg.get("year", "2007"))
     data_root = str(data_cfg.get("root", "./data"))
-    train_set = VOCDetectionSubset(data_root, year=year, image_set=str(data_cfg.get("train_set", "train")), classes=classes, download=bool(data_cfg.get("download", True)), max_size=data_cfg.get("max_size"))
-    val_set = VOCDetectionSubset(data_root, year=year, image_set=str(data_cfg.get("val_set", "val")), classes=classes, download=bool(data_cfg.get("download", True)), max_size=data_cfg.get("max_size"))
+    download = bool(data_cfg.get("download", True))
+    max_size = data_cfg.get("max_size")
+
+    train_set = _make_subset(data_root, data_cfg, classes, "train", download, max_size)
+    val_set = _make_subset(data_root, data_cfg, classes, "val", download, max_size)
+
     rng = random.Random(int(config.get("seed", 42)))
     train_indices = list(range(len(train_set)))
     val_indices = list(range(len(val_set)))

@@ -157,7 +157,7 @@ E:\anaconda\01\envs\RLimage\python.exe -m pytest `
   tests/test_experiment_schema.py `
   tests/test_experiment_metadata.py `
   tests/test_manifold_modules.py `
-  tests/methods/test_adversarial_defense.py -q
+  tests/methods/test_pbg.py -q
 ```
 
 Full test suite:
@@ -174,3 +174,72 @@ E:\anaconda\01\envs\RLimage\python.exe -m pytest -q
 - Separate offline verifier quality from online detector improvement.
 - Report AP50, AP75, precision, recall, false-positive rate, ECE, prediction count, and whether eval is full-val or limited smoke.
 - Never compare `limit_val=32` smoke metrics against full-val metrics as if they are equivalent.
+
+## Current Active Experiment Matrix (June 2026)
+
+The immediate priority is the **VOC 20-class main matrix (M1)** followed by NWPU VHR-10 completion (M4) and COCO smoke validation (M3).
+
+| Task | Dataset | Seeds | Models / Methods | Status |
+|------|---------|-------|------------------|--------|
+| M1   | VOC 07  | 42,2024,999 | MobileNet baseline, MobileNet+fpn_sm, ResNet50 baseline, ResNet50+fpn_sm | in progress on GPU2 |
+| M2   | VOC 07  | 42,2024,999 | SE / FcaNet / ECA comparison + per-size AP | queued |
+| M3   | COCO 17 | 42 | smoke run on 500/200 images | data ready, script ready |
+| M4   | NWPU    | 42,2024,999 | baseline + fpn_sm | needs third seed |
+| S1-S2| VOC 07  | all | statistical significance + aggregated tables | pending M1/M2 |
+| A2-A10| VOC/PF | selected | fpn_sm ablations (latent dim, freq coords, level coords, gate activation, suppress dc, init alpha, etc.) | pending |
+
+**GPU policy on the remote server**: only `CUDA_VISIBLE_DEVICES=2` may be used. Do not stop, restart, or otherwise interfere with the process currently running the VOC matrix. New jobs must wait until GPU2 is free or be launched with `nohup` after the active run finishes.
+
+## Remote Server Quick Reference
+
+```bash
+ssh ps@122.51.19.136
+cd /home/ps/lzz/RLimage
+source /home/ps/anaconda3/etc/profile.d/conda.sh
+conda activate RLimage
+export PYTHONPATH=/home/ps/lzz/RLimage:$PYTHONPATH
+export CUDA_VISIBLE_DEVICES=2
+python scripts/round28_train_eval.py --help
+```
+
+Python interpreter: `/home/ps/anaconda3/envs/RLimage/bin/python` (Python 3.10, PyTorch 2.1.0+cu121).
+
+## Code Conventions For Current Work
+
+- **Single-run script**: all train/eval flows go through `scripts/round28_train_eval.py`.
+- **Datasets**: use `--dataset {penn_fudan,voc,nwpu,coco}`; for VOC use `--voc-full` for the full 20-class train/val split.
+- **FPN spectral manifold**: `--fpn-spectral-manifold` plus `--fpn-sm-*` flags.
+- **FPN real adapter**: `--fpn-real-adapter` plus `--fpn-real-*` flags.
+- **FPN attention baselines**: `--fpn-attention-type {se,fcanet,eca}` and `--fpn-attention-reduction N`.
+- **Run naming**: use descriptive names such as `<dataset>_<model>_<method>_s<seed>_<epochs>ep`.
+- **Run directory**: outputs are written under `runs/<run_name>/` (config, checkpoints, eval metrics, logs).
+
+## Keeping The Repository Clean
+
+- Active run scripts and analysis tools live in `scripts/`.
+- Obsolete/one-off scripts and old round reports are archived to `scripts/legacy/` and `docs/reports/archive/`; these directories are ignored by git.
+- Temporary backup files (`*.bak`, `temp_push/`) are deleted and ignored.
+- Do not commit runtime artifacts (`runs/`, `data/`, checkpoints, logs).
+
+## Updated Useful Commands
+
+Focused refactor smoke (local or remote):
+
+```bash
+python -m pytest \
+  tests/test_canonical_runner.py \
+  tests/test_experiment_schema.py \
+  tests/test_experiment_metadata.py \
+  tests/test_manifold_modules.py \
+  tests/methods/test_pbg.py -q
+```
+
+Full test suite before validation:
+
+```bash
+python -m pytest -q
+```
+
+## Note On Test Suite
+
+The full `pytest tests/` collection currently reports a small number of historical test errors because the environment is missing `scikit-learn`, which is only required by legacy raw-iFFT verifier and dimensionality modules. The actively maintained smoke set (canonical runner, experiment schema/metadata, manifold modules, PBG, geometry metrics) passes. Do not install new packages on the remote server without explicit user approval.

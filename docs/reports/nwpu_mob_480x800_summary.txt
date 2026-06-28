@@ -1,0 +1,29 @@
+group                       n  AP50_mean   std     AP75_mean   std     ECE_mean  bestAP50
+nwpu_mob_480x800_baseline   3     0.7344  0.0171     0.2981  0.0194   0.0611    0.7470
+nwpu_mob_480x800_fpn_sm     3     0.5100  0.4422     0.2305  0.2008   0.0378    0.5113
+
+group                     seed  AP50    AP75    ECE     bestAP50
+nwpu_mob_480x800_baseline   -1 0.7280 0.2788 0.0390 0.7280
+nwpu_mob_480x800_baseline   -1 0.7214 0.2979 0.0727 0.7593
+nwpu_mob_480x800_baseline   -1 0.7537 0.3176 0.0717 0.7537
+nwpu_mob_480x800_fpn_sm     -1 0.7444 0.3673 0.0240 0.7483
+nwpu_mob_480x800_fpn_sm     -1 0.7857 0.3240 0.0516 0.7857
+nwpu_mob_480x800_fpn_sm     -1 0.0000 0.0000 None 0.0000
+
+=== nwpu_mob_480x800_baseline last-epoch diagnostics (n=3) ===
+=== nwpu_mob_480x800_fpn_sm last-epoch diagnostics (n=3) ===
+  fpn_sm/0_alpha                                mean= 0.636541 std= 0.034014
+  fpn_sm/0_cos_delta_x                          mean=-0.997500 std= 0.000015
+  fpn_sm/0_eff_rel_delta                        mean= 0.620344 std= 0.012590
+  fpn_sm/0_freq_residual_ratio                  mean= 0.981621 std= 0.000023
+  fpn_sm/0_raw_rel_delta                        mean= 0.981121 std= 0.000319
+  fpn_sm/1_alpha                                mean=-0.083618 std= 0.009007
+  fpn_sm/1_cos_delta_x                          mean=-0.997744 std= 0.000340
+  fpn_sm/1_eff_rel_delta                        mean= 0.077008 std= 0.011478
+  fpn_sm/1_freq_residual_ratio                  mean= 0.981601 std= 0.000575
+  fpn_sm/1_raw_rel_delta                        mean= 0.981093 std= 0.000875
+  fpn_sm/pool_alpha                             mean= 0.000946 std= 0.013870
+  fpn_sm/pool_cos_delta_x                       mean=-0.997761 std= 0.000400
+  fpn_sm/pool_eff_rel_delta                     mean= 0.009906 std= 0.006716
+  fpn_sm/pool_freq_residual_ratio               mean= 0.981669 std= 0.000738
+  fpn_sm/pool_raw_rel_delta                     mean= 0.981152 std= 0.000924

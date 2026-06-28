@@ -1,38 +1,31 @@
 # RLIimage
 
-RLIimage is a research codebase for **RLVR-style post-training for object detection**. The current active question is not whether a detector can rerank already finished boxes, but whether a detector can be improved with verifiable signals about which proposals are trustworthy, where the model should look, and how score or localization decisions should change.
+RLIimage is a research codebase for **RLVR-style post-training for object detection**. The current active question is whether a detector can be improved with verifiable signals about which proposals are trustworthy, where evidence should come from, and how scores or localization decisions should change.
 
-The project started from ROI Fourier rewards on Penn-Fudan. That early MVP is now historical. The active codebase has been refactored into method families, reusable signal modules, canonical experiment metadata, and cleaner experiment runners.
+The project evolved through ROI Fourier rewards on Penn-Fudan, in-network FFT (AFM), and is now focused on **FPN-level spectral manifolds, channel-attention baselines, and large-scale multi-dataset validation (Penn-Fudan / VOC / NWPU VHR-10 / COCO)**.
 
-## Current Status
+## Current Active Lines
 
-The current non-AFM research line focuses on:
+- **FPN Spectral Manifold (fpn_sm)**: inserts a complex-valued FFT manifold after the FPN, with per-frequency gates conditioned on level/frequency coordinates. Trains end-to-end with standard detection losses.
+- **FPN Channel-Attention Baselines (SE / FcaNet / ECA)**: fair comparison modules placed at the same FPN stage as `fpn_sm`.
+- **Multi-dataset training/Eval**: `round28_train_eval.py` supports Penn-Fudan, Pascal VOC 2007, NWPU VHR-10, and COCO 2017.
+- **Analysis tooling**: per-size AP, model profiling (params/FLOPs/latency/VRAM), and result aggregation across `runs/`.
 
-- **Detection RLVR / score rescue**: KL-anchored policy or preference optimization for low-confidence high-IoU proposals.
-- **DPO score rescue**: pairwise preference learning over detector proposals.
-- **Verifier signals**: FFT/raw-iFFT, geometry, edge alignment, and manifold signals used as offline or training-time evidence.
-- **Manifold post-training**: prototype-bank, Sinkhorn assignment, and transport-head guidance on detector proposal features.
-- **Adversarial patch defense**: DPatch/RP2-style detector attack plus spectral/manifold defenses.
-
-Recent non-AFM findings:
-
-- Oracle score rescue on NWPU shows a real AP75 ceiling: a perfect LC-HI signal can lift AP75 by about `+0.052`, but naive rescue greatly increases false positives.
-- GRPO score rescue currently produces only tiny AP75 movement on smoke runs.
-- DPO can learn proposal preferences, but without absolute threshold and rescue-budget constraints it increases predictions and hurts AP.
-- Interpretable verifier fusion has useful offline signal, but online training transfer remains weak.
-- Manifold proposal post-training has a positive Penn-Fudan smoke result, but still needs full clean validation.
-
-AFM/in-network FFT remains documented as a separate historical line, but it is not the default active path unless explicitly requested.
+Historical RLVR / DPO / score-rescue and AFM lines remain in the codebase but are not the default active path unless explicitly requested.
 
 ## Repository Layout
 
 ```text
 spectral_detection_posttrain/
   core/                 detector builders, matching, shared model primitives
+  datasets/             Penn-Fudan / VOC / NWPU / COCO loaders
+  eval/                 detection metrics and diagnostics
   methods/
     rlvr/               ROI policy losses, confidence rescue, detector verifiers
     dpo/                action verifier and preference-learning helpers
-    manifold/           prototype banks, Sinkhorn assignment, transport heads
+    manifold/           prototype banks, Sinkhorn assignment, transport heads,
+                        FPN spectral manifold, FPN real adapter,
+                        FPN attention baselines (SE/FcaNet/ECA)
     defense/            detector patch attacks and spectral/manifold defenses
     segmentation/       segmentation prototypes and signals
   signals/
@@ -41,6 +34,20 @@ spectral_detection_posttrain/
     pixel_classification/
   trainers/             detection and segmentation training entry points
   experiments/          canonical runner, schema, metadata, version records
+  utils/                seed, io, checkpoint helpers
+scripts/                maintained runners and analysis tools
+  round28_train_eval.py           main single-run train/eval script
+  run_voc_matrix_v2.sh            active VOC 20-class matrix (GPU2)
+  run_voc_comparison_matrix.sh    SE/FcaNet/ECA comparison on VOC
+  run_nwpu_matrix.sh              NWPU VHR-10 matrix
+  run_nwpu_mob_480x800_matrix.sh  NWPU mobile baseline matrix
+  run_coco_smoke.sh               COCO 2017 smoke test
+  aggregate_results.py            summarize eval_metrics.json across runs
+  eval_per_size.py                AP by small/medium/large objects
+  profile_model.py                params/FLOPs/FPS/VRAM profiling
+  summarize_round.py              round-level markdown summaries
+docs/reports/           active experiment reports (see docs/reports/index.md)
+obsidian/               human-readable project notes
 ```
 
 Compatibility shims keep historical imports working:
@@ -50,50 +57,101 @@ Compatibility shims keep historical imports working:
 - `spectral_detection_posttrain/rlvr/*` forwards to `methods/rlvr/*`
 - `spectral_detection_posttrain/train/*` forwards to `trainers/detection/*`
 
-Historical `scripts/round*.py` files are intentionally kept as experiment artifacts. New maintained code should use canonical package paths.
-
 ## Environment
 
-Use the existing conda environment:
+### Local (Windows)
 
 ```powershell
 conda activate RLimage
+E:\anaconda\01\envs\RLimage\python.exe -m pytest tests/ -q
 ```
 
-Direct Python path on this machine:
+### Remote Server (`ps@122.51.19.136`)
 
-```text
-E:\anaconda\01\envs\RLimage\python.exe
+```bash
+source /home/ps/anaconda3/etc/profile.d/conda.sh
+conda activate RLimage
+export PYTHONPATH=/home/ps/lzz/RLimage:$PYTHONPATH
+export CUDA_VISIBLE_DEVICES=2
+python scripts/round28_train_eval.py --help
+```
+
+Only **GPU2** is available on the remote server. Do not stop or interfere with processes already running on GPU2.
+
+## Quick Start
+
+### Run a single Penn-Fudan baseline
+
+```bash
+python scripts/round28_train_eval.py \
+  --dataset penn_fudan \
+  --model-name fasterrcnn_mobilenet_v3_large_320_fpn \
+  --epochs 12 --seed 42 --batch-size 8 --lr 0.005 \
+  --run-name pf_baseline_s42
+```
+
+### Run with FPN spectral manifold
+
+```bash
+python scripts/round28_train_eval.py \
+  --dataset voc --voc-full \
+  --model-name fasterrcnn_resnet50_fpn \
+  --epochs 12 --seed 42 --batch-size 4 --lr 0.005 \
+  --min-size 800 --max-size 1333 \
+  --fpn-spectral-manifold \
+  --no-fpn-sm-use-freq-coords \
+  --fpn-sm-latent-dim 64 --fpn-sm-hidden-dim 128 \
+  --fpn-sm-init-alpha 0.01 \
+  --run-name voc_resnet_fpn_sm_s42_12ep
+```
+
+### Run a channel-attention baseline
+
+```bash
+python scripts/round28_train_eval.py \
+  --dataset voc --voc-full \
+  --model-name fasterrcnn_resnet50_fpn \
+  --epochs 12 --seed 42 --batch-size 4 --lr 0.005 \
+  --fpn-attention-type se --fpn-attention-reduction 16 \
+  --run-name voc_resnet_se_s42_12ep
+```
+
+### Aggregate results across runs
+
+```bash
+python scripts/aggregate_results.py --runs runs/ --out docs/reports/aggregated_results.md
+python scripts/eval_per_size.py --run-dir runs/<run_name>
+python scripts/profile_model.py --run-dir runs/<run_name>
 ```
 
 ## Useful Checks
 
-Run the focused refactor smoke tests:
+Focused smoke tests:
 
-```powershell
-E:\anaconda\01\envs\RLimage\python.exe -m pytest `
-  tests/test_canonical_runner.py `
-  tests/test_experiment_schema.py `
-  tests/test_experiment_metadata.py `
-  tests/test_manifold_modules.py `
-  tests/methods/test_adversarial_defense.py -q
+```bash
+python -m pytest \
+  tests/test_canonical_runner.py \
+  tests/test_experiment_schema.py \
+  tests/test_experiment_metadata.py \
+  tests/test_manifold_modules.py \
+  tests/methods/test_pbg.py -q
 ```
 
-Run all tests when preparing a validated experiment branch:
+Full test suite (run before claiming validation):
 
-```powershell
-E:\anaconda\01\envs\RLimage\python.exe -m pytest -q
+```bash
+python -m pytest -q
 ```
 
 ## Current Important Artifacts
 
-- `docs/versioning_scheme.md`: new version naming scheme.
-- `docs/package_migration_signal_layout_2026-06-21.md`: canonical package layout and compatibility policy.
-- `docs/round2226_nwpu_oracle_rerank_summary.md`: oracle NWPU score-rescue ceiling.
-- `docs/round2227_nwpu_grpo_score_rescue_summary.md`: GRPO score-rescue smoke result.
-- `docs/round2228_nwpu_dpo_score_rescue_summary.md`: DPO score-rescue smoke result.
-- `docs/round2221_interpretable_reward_signal_diagnostics.md`: offline verifier fusion diagnostics.
-- `obsidian/RLIimage Map.md`: human-readable project map.
+- `docs/reports/top_tier_experiment_roadmap.md`: 顶刊路线图与实验矩阵计划
+- `docs/reports/voc_matrix_plan.md`: VOC 20-class 矩阵设计
+- `docs/reports/voc_matrix_interim_results.md`: VOC 矩阵中期结果
+- `docs/reports/nwpu_matrix_analysis.md` / `nwpu_matrix_summary.txt`: NWPU 矩阵分析
+- `docs/reports/nwpu_mob_480x800_analysis.md` / `nwpu_mob_480x800_summary.txt`: NWPU mobile 480×800 矩阵
+- `docs/reports/index.md`: active report index
+- `obsidian/RLIimage Map.md`: human-readable project map
 
 ## Reproducibility Rules
 
@@ -101,3 +159,4 @@ E:\anaconda\01\envs\RLimage\python.exe -m pytest -q
 - Record config hash, checkpoint hash, git commit, and dirty status.
 - Treat `runs/`, `data/`, local agent state, and generated analysis caches as local artifacts.
 - Promote an experiment to validated only after full clean eval and a fixed commit.
+- Keep active run scripts and configs in `scripts/`; archive obsolete artifacts to `scripts/legacy/` and `docs/reports/archive/`.
