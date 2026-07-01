@@ -64,3 +64,4 @@ patch_*.py
 # Archived legacy experiment artifacts (kept locally but not tracked)
 docs/reports/archive/
 scripts/legacy/
+tests/legacy/
