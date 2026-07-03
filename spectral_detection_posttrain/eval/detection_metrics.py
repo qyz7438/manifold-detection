@@ -5,6 +5,14 @@ import torch
 from spectral_detection_posttrain.core.matching.pred_gt_matcher import match_predictions_to_gt
 
 
+# COCO-style area buckets (pixels^2)
+_SIZE_BUCKETS = {
+    "small": (0.0, 32.0 * 32.0),
+    "medium": (32.0 * 32.0, 96.0 * 96.0),
+    "large": (96.0 * 96.0, float("inf")),
+}
+
+
 def _compute_ap(recalls: list[float], precisions: list[float]) -> float:
     if not recalls:
         return 0.0
@@ -17,6 +25,80 @@ def _compute_ap(recalls: list[float], precisions: list[float]) -> float:
         if mrec[i] != mrec[i - 1]:
             ap += (mrec[i] - mrec[i - 1]) * mpre[i]
     return ap
+
+
+def _box_areas(boxes: torch.Tensor) -> torch.Tensor:
+    """Compute box areas (x2 - x1) * (y2 - y1)."""
+    if boxes.numel() == 0:
+        return torch.zeros((0,), dtype=torch.float32)
+    x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+    return (x2 - x1) * (y2 - y1)
+
+
+def _filter_target_by_area(target: dict, area_min: float, area_max: float) -> dict:
+    """Return a target dict containing only boxes whose area falls in [area_min, area_max)."""
+    boxes = target.get("boxes", torch.empty((0, 4)))
+    if boxes.numel() == 0:
+        return {"boxes": boxes, "labels": target.get("labels", torch.empty((0,), dtype=torch.long))}
+    areas = _box_areas(boxes)
+    mask = (areas >= area_min) & (areas < area_max)
+    filtered = {"boxes": boxes[mask]}
+    labels = target.get("labels", torch.empty((0,), dtype=torch.long))
+    if labels.numel() > 0:
+        filtered["labels"] = labels[mask]
+    return filtered
+
+
+def _compute_ap_at_iou(
+    predictions: list[dict],
+    targets: list[dict],
+    iou_threshold: float,
+    score_threshold: float,
+    area_min: float = 0.0,
+    area_max: float = float("inf"),
+) -> tuple[float, int]:
+    """Compute AP at a given IoU threshold, optionally restricted to a GT-area bucket.
+
+    Returns (ap, total_gt_in_bucket).
+    """
+    scored: list[tuple[float, bool]] = []
+    total_gt = 0
+
+    for prediction, target in zip(predictions, targets):
+        target_cpu = {k: v.detach().cpu() if torch.is_tensor(v) else v for k, v in target.items()}
+        pred_cpu = {k: v.detach().cpu() if torch.is_tensor(v) else v for k, v in prediction.items()}
+
+        filtered_target = _filter_target_by_area(target_cpu, area_min, area_max)
+        total_gt += len(filtered_target.get("boxes", []))
+
+        matched = match_predictions_to_gt(
+            pred_cpu, filtered_target, iou_threshold=iou_threshold, score_threshold=score_threshold
+        )
+        matched_pred_indices = {m["pred_index"] for m in matched["matches"]}
+
+        scores = pred_cpu.get("scores", torch.empty((0,)))
+        for pred_idx, score in enumerate(scores.tolist()):
+            if score < score_threshold:
+                continue
+            scored.append((float(score), pred_idx in matched_pred_indices))
+
+    if not scored or total_gt == 0:
+        return 0.0, total_gt
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    tp_cum = 0
+    fp_cum = 0
+    precisions = []
+    recalls = []
+    for _, is_tp in scored:
+        if is_tp:
+            tp_cum += 1
+        else:
+            fp_cum += 1
+        precisions.append(tp_cum / max(1, tp_cum + fp_cum))
+        recalls.append(tp_cum / max(1, total_gt))
+
+    return _compute_ap(recalls, precisions), total_gt
 
 
 def _compute_class_ap(
@@ -130,6 +212,7 @@ def evaluate_detection_predictions(
     fixed_recall: float = 0.85,
     per_class: bool = False,
     num_classes: int | None = None,
+    per_size: bool = False,
 ) -> dict:
     scored = []
     total_gt = 0
@@ -172,10 +255,11 @@ def evaluate_detection_predictions(
     final_precision = tp_cum / max(1, tp_cum + fp_cum)
     final_recall = tp_cum / max(1, total_gt)
 
-    ap75 = _compute_ap75(predictions, targets, score_threshold)
+    ap50, _ = _compute_ap_at_iou(predictions, targets, iou_threshold=0.5, score_threshold=score_threshold)
+    ap75, _ = _compute_ap_at_iou(predictions, targets, iou_threshold=0.75, score_threshold=score_threshold)
 
     result = {
-        "ap50": _compute_ap(recalls, precisions),
+        "ap50": ap50,
         "ap75": ap75,
         "precision": final_precision,
         "recall": final_recall,
@@ -189,6 +273,20 @@ def evaluate_detection_predictions(
         "num_predictions": len(scored),
         "num_gt": total_gt,
     }
+
+    if per_size:
+        for bucket_name, (area_min, area_max) in _SIZE_BUCKETS.items():
+            ap50_b, n50 = _compute_ap_at_iou(
+                predictions, targets, iou_threshold=0.5,
+                score_threshold=score_threshold, area_min=area_min, area_max=area_max,
+            )
+            ap75_b, n75 = _compute_ap_at_iou(
+                predictions, targets, iou_threshold=0.75,
+                score_threshold=score_threshold, area_min=area_min, area_max=area_max,
+            )
+            result[f"ap50_{bucket_name}"] = ap50_b
+            result[f"ap75_{bucket_name}"] = ap75_b
+            result[f"num_gt_{bucket_name}"] = n50
 
     if per_class:
         if num_classes is None:
@@ -211,39 +309,9 @@ def evaluate_detection_predictions(
 
 
 def _compute_ap75(predictions: list[dict], targets: list[dict], score_threshold: float = 0.05) -> float:
-    iou_threshold = 0.75
-    tp_fp_labels: list[tuple[float, bool]] = []
-    total_gt = 0
-
-    for prediction, target in zip(predictions, targets):
-        target_cpu = {k: v.detach().cpu() if torch.is_tensor(v) else v for k, v in target.items()}
-        pred_cpu = {k: v.detach().cpu() if torch.is_tensor(v) else v for k, v in prediction.items()}
-        total_gt += len(target_cpu.get("boxes", []))
-        matched = match_predictions_to_gt(pred_cpu, target_cpu, iou_threshold=iou_threshold, score_threshold=score_threshold)
-        matched_indices = {m["pred_index"] for m in matched["matches"]}
-        scores = pred_cpu.get("scores", torch.empty((0,)))
-        for pred_idx, score in enumerate(scores.tolist()):
-            if score < score_threshold:
-                continue
-            tp_fp_labels.append((float(score), pred_idx in matched_indices))
-
-    if not tp_fp_labels:
-        return 0.0
-
-    tp_fp_labels.sort(key=lambda x: x[0], reverse=True)
-    tp_cum = 0
-    fp_cum = 0
-    precisions = []
-    recalls = []
-    for _, is_tp in tp_fp_labels:
-        if is_tp:
-            tp_cum += 1
-        else:
-            fp_cum += 1
-        precisions.append(tp_cum / max(1, tp_cum + fp_cum))
-        recalls.append(tp_cum / max(1, total_gt))
-
-    return _compute_ap(recalls, precisions)
+    """Backward-compatible AP75 helper."""
+    ap75, _ = _compute_ap_at_iou(predictions, targets, iou_threshold=0.75, score_threshold=score_threshold)
+    return ap75
 
 
 def summarize_iou_diagnostics(matched_ious: list[float], matched_scores: list[float]) -> dict[str, float]:

@@ -14,7 +14,10 @@ from tqdm import tqdm
 from spectral_detection_posttrain.datasets import build_penn_fudan_loaders
 from spectral_detection_posttrain.eval.detection_metrics import evaluate_detection_predictions
 from spectral_detection_posttrain.models import build_detector
+from spectral_detection_posttrain.utils.checkpoint_hash import sha256_file
+from spectral_detection_posttrain.utils.git_state import get_git_state
 from spectral_detection_posttrain.utils.io import ensure_run_dir, save_checkpoint, save_json
+from spectral_detection_posttrain.utils.model_cost import count_flops, count_parameters
 from spectral_detection_posttrain.utils.seed import resolve_device, set_seed
 
 
@@ -148,6 +151,12 @@ def main() -> None:
     parser.add_argument("--edge-mix", action="store_true", default=False)
     parser.add_argument("--limit-train", type=int, default=None)
     parser.add_argument("--limit-val", type=int, default=None)
+    parser.add_argument("--require-clean-git", action="store_true", default=False,
+                        help="Fail if the git working tree has uncommitted changes")
+    parser.add_argument("--per-size-ap", action="store_true", default=False,
+                        help="Compute AP per object size bucket")
+    parser.add_argument("--model-cost", action="store_true", default=False,
+                        help="Compute parameter count and FLOPs at the end of training")
     parser.add_argument("--dataset", default="penn_fudan", choices=["penn_fudan", "voc", "nwpu", "coco"])
     parser.add_argument("--voc-full", action="store_true", default=False)
     parser.add_argument("--voc-root", default="./data", help="Root directory containing VOCdevkit")
@@ -274,7 +283,7 @@ def main() -> None:
                                "classes": classes, "max_size": 480,
                                "num_workers": args.num_workers,
                                "train_years": [{"year": "2007", "image_set": "trainval"},
-                                               {"year": "2012", "image_set": "trainval"}],
+                                               {"year": "2012", "image_set": "train"}],
                                "val_years": [{"year": "2012", "image_set": "val"}]})
         config["model"]["num_classes"] = len(classes) + 1
         config["model"]["max_size"] = 480
@@ -283,7 +292,7 @@ def main() -> None:
                                "download": False,
                                "max_size": 800,
                                "num_workers": args.num_workers})
-        config["model"]["num_classes"] = 91  # 80 COCO classes + background
+        config["model"]["num_classes"] = 81  # 80 COCO classes + background
         config["model"]["min_size"] = 800
         config["model"]["max_size"] = 1333
     elif args.dataset == "nwpu":
@@ -298,13 +307,21 @@ def main() -> None:
         config["model"]["max_size"] = 480
 
     if args.min_size is not None:
+        config["data"]["min_size"] = args.min_size
         config["model"]["min_size"] = args.min_size
     if args.max_size is not None:
+        config["data"]["max_size"] = args.max_size
         config["model"]["max_size"] = args.max_size
 
     set_seed(args.seed)
     device = resolve_device(config)
     run_dir = ensure_run_dir(args.run_name)
+    config["git_state"] = get_git_state()
+    if args.require_clean_git and config["git_state"]["dirty"]:
+        raise RuntimeError(
+            f"Git working tree is dirty (commit {config['git_state']['commit']}). "
+            "Commit or stash before a canonical run, or omit --require-clean-git."
+        )
     save_json(config, run_dir / "config.json")
     if args.dataset == "voc":
         from spectral_detection_posttrain.datasets.voc_detection import build_voc_detection_loaders
@@ -389,6 +406,22 @@ def main() -> None:
                 if isinstance(tam_aux, torch.Tensor) and tam_aux.item() != 0.0:
                     loss = loss + tam_aux
 
+            if not torch.isfinite(loss):
+                print(f"ERROR: Non-finite loss at epoch {epoch}. Stopping run.")
+                failed_metrics = {
+                    "run_name": args.run_name,
+                    "failed_nan": True,
+                    "failed_epoch": epoch,
+                    "ap50": 0.0,
+                    "ap75": 0.0,
+                    "best_ap50": -1.0,
+                    "num_predictions": 0,
+                    "ece": 0.0,
+                    "history": history,
+                }
+                save_json(failed_metrics, run_dir / "eval_metrics.json")
+                raise RuntimeError(f"Non-finite loss at epoch {epoch} for run {args.run_name}")
+
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
@@ -408,6 +441,7 @@ def main() -> None:
             iou_threshold=float(config["matching"]["iou_threshold"]),
             score_threshold=float(config["matching"]["score_threshold"]),
             high_conf_threshold=float(config["eval"]["high_conf_threshold"]),
+            per_size=args.per_size_ap,
         )
         spectral_stats = _epoch_spectral_stats(model)
         row = {"epoch": epoch, "train_loss": avg_loss,
@@ -426,6 +460,21 @@ def main() -> None:
                     "afm_residual_mode": args.afm_residual_mode,
                     "trainable_mode": args.trainable_mode, "epochs": args.epochs,
                     "seed": args.seed, "best_ap50": best_ap50, "history": history})
+
+    last_ckpt = run_dir / "checkpoint_last.pth"
+    best_ckpt = run_dir / "checkpoint_best.pth"
+    if last_ckpt.exists():
+        metrics["checkpoint_last_hash"] = sha256_file(last_ckpt)
+    if best_ckpt.exists():
+        metrics["checkpoint_best_hash"] = sha256_file(best_ckpt)
+
+    if args.model_cost:
+        try:
+            metrics["num_params"] = count_parameters(model)
+            metrics["flops"] = count_flops(model, device=device)
+        except Exception as exc:
+            metrics["model_cost_error"] = str(exc)
+
     save_json(metrics, run_dir / "eval_metrics.json")
     print(metrics)
 

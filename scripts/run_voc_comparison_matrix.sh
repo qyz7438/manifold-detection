@@ -24,7 +24,7 @@ for SEED in 42 2024 999; do
     --fpn-attention-type eca \
     --run-name voc_mob_eca_s${SEED}_12ep
 
-  echo "===== voc_resnet_fcanet seed=$SEED ====="
+  echo "===== voc_resnet_fcanet seed=$SEED (bs4 lr0.005) ====="
   python scripts/round28_train_eval.py \
     --dataset $DATASET --voc-full --model-name fasterrcnn_resnet50_fpn \
     --epochs $EPOCHS --seed $SEED --batch-size 4 --lr 0.005 \
@@ -32,7 +32,7 @@ for SEED in 42 2024 999; do
     --fpn-attention-type fcanet --fpn-attention-reduction 16 \
     --run-name voc_resnet_fcanet_s${SEED}_12ep
 
-  echo "===== voc_resnet_eca seed=$SEED ====="
+  echo "===== voc_resnet_eca seed=$SEED (bs4 lr0.005) ====="
   python scripts/round28_train_eval.py \
     --dataset $DATASET --voc-full --model-name fasterrcnn_resnet50_fpn \
     --epochs $EPOCHS --seed $SEED --batch-size 4 --lr 0.005 \
