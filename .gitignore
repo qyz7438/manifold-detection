@@ -17,18 +17,29 @@ data/
 runs/
 nni_experiments/
 nni_home/
+nni_configs/
 checkpoints/
 outputs/
 output/
 *.pth
+*.pth.tar
 *.pt
 *.ckpt
 *.onnx
+*.safetensors
+*.pkl
+*.joblib
+*.h5
+*.hdf5
 *.npz
 
 # Logs
 *.log
 logs/
+local_logs/
+wandb/
+lightning_logs/
+tensorboard/
 
 # Local agent/runtime state and generated research scratchpads
 .agent_reports/
