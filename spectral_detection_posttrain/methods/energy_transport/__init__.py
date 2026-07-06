@@ -1,0 +1,46 @@
+"""Action-local energy-guided transport primitives for detector post-training.
+
+This package is the maintained entry point for the new research line where the
+class-conditioned target manifold is unknown.  It models ROI correction as a
+small, constrained action rather than as direct prototype attraction.
+"""
+
+from spectral_detection_posttrain.methods.energy_transport.actions import (
+    ActionLocalTransportHead,
+    ROITransportActions,
+    apply_bounded_score_delta,
+    rescue_budget_loss,
+    summarize_score_actions,
+    threshold_preservation_loss,
+    transport_action_energy,
+)
+from spectral_detection_posttrain.methods.energy_transport.contracts import (
+    ActionOutcome,
+    ConstraintConfig,
+    PreferenceBatch,
+    ROIActionState,
+)
+from spectral_detection_posttrain.methods.energy_transport.operators import (
+    apply_box_delta,
+    clip_boxes_to_image,
+)
+from spectral_detection_posttrain.methods.energy_transport.preferences import (
+    build_top_bottom_preferences,
+)
+
+__all__ = [
+    "ActionLocalTransportHead",
+    "ActionOutcome",
+    "ConstraintConfig",
+    "PreferenceBatch",
+    "ROIActionState",
+    "ROITransportActions",
+    "apply_bounded_score_delta",
+    "apply_box_delta",
+    "build_top_bottom_preferences",
+    "clip_boxes_to_image",
+    "rescue_budget_loss",
+    "summarize_score_actions",
+    "threshold_preservation_loss",
+    "transport_action_energy",
+]

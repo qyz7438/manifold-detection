@@ -1,4 +1,6 @@
-"""Active detection method families: AFM baseline and structural components (PBG, TAM, PAH).
+"""Active detection method families.
 
-Legacy methods (RLVR, DPO, segmentation, etc.) have been moved to legacy/.
+The current maintained research line is action-local energy-guided ROI
+transport.  AFM, DPO, RLVR, spectral manifolds, and prototype manifolds remain
+available as baselines, diagnostics, or historical components.
 """

@@ -1,17 +1,17 @@
-# RLIimage
+# Manifold Detection
 
-RLIimage is a research codebase for **RLVR-style post-training for object detection**. The current active question is whether a detector can be improved with verifiable signals about which proposals are trustworthy, where evidence should come from, and how scores or localization decisions should change.
+This repository is a research codebase for **energy-guided ROI transport in object detection**.  The current active question is whether a detector can learn small, verifiable local actions that move uncertain proposals toward valid detection states without flooding NMS with false positives.
 
-The project evolved through ROI Fourier rewards on Penn-Fudan, in-network FFT (AFM), and is now focused on **FPN-level spectral manifolds, channel-attention baselines, and large-scale multi-dataset validation (Penn-Fudan / VOC / NWPU VHR-10 / COCO)**.
+The project evolved through RLVR-style score rescue, DPO proposal preferences, FFT/raw-iFFT verifier signals, and prototype manifold losses.  The current refactor keeps those lessons but changes the main framing: the class-conditioned target manifold is unknown, so transport must be modeled as an **action-local, low-energy, constrained policy** rather than as direct attraction to a known class prototype.
 
 ## Current Active Lines
 
-- **FPN Spectral Manifold (fpn_sm)**: inserts a complex-valued FFT manifold after the FPN, with per-frequency gates conditioned on level/frequency coordinates. Trains end-to-end with standard detection losses.
-- **FPN Channel-Attention Baselines (SE / FcaNet / ECA)**: fair comparison modules placed at the same FPN stage as `fpn_sm`.
-- **Multi-dataset training/Eval**: `round28_train_eval.py` supports Penn-Fudan, Pascal VOC 2007, NWPU VHR-10, and COCO 2017.
-- **Analysis tooling**: per-size AP, model profiling (params/FLOPs/latency/VRAM), and result aggregation across `runs/`.
+- **Energy-Guided ROI Transport**: predicts bounded feature, score, bbox, and keep/reject actions for ROI states, with low-energy, threshold-preservation, and rescue-budget constraints.
+- **Proposal-Aligned Verifier Diagnostics**: FFT/raw-iFFT, geometry, prototype, and high-dimensional ROI signals remain useful as proposal rankers and controls.
+- **Prototype Manifold Diagnostics**: `PrototypeBank`, `SinkhornAssigner`, and historical `TransportHead` modules remain available, but prototype attraction alone is no longer treated as the main objective.
+- **Multi-dataset training/eval**: maintained runners support Penn-Fudan, Pascal VOC 2007, NWPU VHR-10, and COCO 2017 for clean evaluation.
 
-Historical RLVR / DPO / score-rescue and AFM lines remain in the codebase but are not the default active path unless explicitly requested.
+Historical RLVR / DPO / score-rescue, AFM, FPN-SM, and channel-attention lines remain in the codebase as baselines or reproducibility artifacts.  They are not the default active claim unless explicitly requested.
 
 ## Repository Layout
 
@@ -21,6 +21,7 @@ spectral_detection_posttrain/
   datasets/             Penn-Fudan / VOC / NWPU / COCO loaders
   eval/                 detection metrics and diagnostics
   methods/
+    energy_transport/   action-local low-energy ROI transport primitives
     rlvr/               ROI policy losses, confidence rescue, detector verifiers
     dpo/                action verifier and preference-learning helpers
     manifold/           prototype banks, Sinkhorn assignment, transport heads,
@@ -47,6 +48,7 @@ scripts/                maintained runners and analysis tools
   profile_model.py                params/FLOPs/FPS/VRAM profiling
   summarize_round.py              round-level markdown summaries
 docs/reports/           active experiment reports (see docs/reports/index.md)
+docs/energy_guided_roi_transport.md
 obsidian/               human-readable project notes
 ```
 
@@ -92,6 +94,8 @@ python scripts/round28_train_eval.py \
 
 ### Run with FPN spectral manifold
 
+FPN-SM is now a baseline/diagnostic path, not the active transport claim.
+
 ```bash
 python scripts/round28_train_eval.py \
   --dataset voc --voc-full \
@@ -130,6 +134,7 @@ Focused smoke tests:
 
 ```bash
 python -m pytest \
+  tests/test_energy_guided_transport.py \
   tests/test_canonical_runner.py \
   tests/test_experiment_schema.py \
   tests/test_experiment_metadata.py \

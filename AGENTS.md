@@ -1,14 +1,38 @@
-# RLIimage Agent Guide
+# Manifold Detection Agent Guide
 
 ## Core Objective
 
-Build and evaluate an **RLVR-style post-training framework for object detection**. The goal is to move beyond ordinary ROI reranking and test whether verifiable signals can help a detector learn which boxes are trustworthy, where evidence should come from, and how scores or localization decisions should change.
+Build and evaluate an **energy-guided ROI transport framework for object detection**. The goal is to move beyond ordinary manifold regularization and test whether verifiable signals can help a detector learn small local actions: which boxes are trustworthy, where evidence should come from, how scores or boxes should change, and when a proposal should remain below threshold.
 
-The current active line is **non-AFM** unless the user explicitly asks for AFM. Treat AFM/in-network FFT as a documented historical branch, not the default path for new work.
+The current active line is **action-local, non-AFM ROI transport** unless the user explicitly asks for AFM/FPN-SM. Treat AFM, FPN-SM, and old external FFT rewards as documented baselines or historical branches, not the default path for new work.
 
 ## Current Active Research Lines
 
-### 1. Detection RLVR / Score Rescue
+### 1. Energy-Guided ROI Transport
+
+The central problem is that the class-conditioned target manifold is not known.  Class prototypes and verifier scores are partial anchors, but the true target is defined by detector behavior after thresholding, score calibration, bbox regression, and NMS.
+
+New maintained code should start from:
+
+- `spectral_detection_posttrain/methods/energy_transport/`
+
+The current primitives are:
+
+- `ActionLocalTransportHead`
+- `ROITransportActions`
+- `transport_action_energy`
+- `threshold_preservation_loss`
+- `rescue_budget_loss`
+- `apply_bounded_score_delta`
+
+Design implication:
+
+- Model transport as bounded local actions, not as direct prototype attraction.
+- Keep score changes residual/additive, not score replacement.
+- Add rescue budget, threshold preservation, and false-positive penalties.
+- Judge success on clean full evaluation, not geometry metrics alone.
+
+### 2. Detection RLVR / Score Rescue
 
 The main detection setting is NWPU VHR-10 and Penn-Fudan smoke validation. The central problem is low-confidence high-IoU proposals: useful boxes exist, but the detector score keeps them below the final threshold or NMS ranking.
 
@@ -20,11 +44,10 @@ Recent status:
 
 Design implication:
 
-- Use residual/additive score changes, not score replacement.
-- Add rescue budget, threshold preservation, and false-positive penalties.
-- Judge success on full clean eval, not small smoke-only splits.
+- Treat RLVR/GRPO/DPO as training mechanisms for action-local transport, not as the whole project identity.
+- Preserve historical results as evidence for constraints and failure modes.
 
-### 2. Verifier Signals
+### 3. Verifier Signals
 
 The project has several verifier families:
 
@@ -39,9 +62,9 @@ Current conclusion:
 - Online transfer into detector improvement is still weak.
 - Any new verifier must pass shuffled/control comparisons and full clean eval.
 
-### 3. Manifold Post-Training
+### 4. Manifold Post-Training
 
-The new manifold path uses proposal-aligned feature training:
+The historical manifold path uses proposal-aligned feature training:
 
 - `PrototypeBank`
 - `SinkhornAssigner`
@@ -56,8 +79,9 @@ Current status:
 
 - `manifold_posttrain_proposal_smoke` has a positive Penn-Fudan smoke result.
 - It still needs clean full validation and NWPU testing before being treated as a real improvement.
+- Prototype attraction alone is no longer the active thesis; it is a baseline/diagnostic unless connected to action-local constraints.
 
-### 4. Adversarial Patch Defense
+### 5. Adversarial Patch Defense
 
 The defense line contains DPatch/RP2-style detector attacks and spectral/manifold defenses.
 
@@ -87,6 +111,7 @@ New maintained code should use these namespaces:
 
 ```text
 spectral_detection_posttrain/core/          detector builders, matching, shared primitives
+spectral_detection_posttrain/methods/energy_transport/
 spectral_detection_posttrain/methods/rlvr/  RLVR losses, confidence rescue, verifier modules
 spectral_detection_posttrain/methods/dpo/   action verifier and DPO utilities
 spectral_detection_posttrain/methods/manifold/

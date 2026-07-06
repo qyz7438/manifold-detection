@@ -1,10 +1,15 @@
-# RLIimage Architecture
+# Manifold Detection Architecture
 
-This project studies post-training and architecture changes for visual detection and segmentation, with three main method families:
+This project studies post-training and architecture changes for visual detection.  The current active family is:
 
-- AFM: in-network FFT modules and spectral feature perturbation.
+- Energy-guided ROI transport: action-local feature, score, bbox, and keep/reject corrections under low-energy and detection-environment constraints.
+
+Historical method families remain available for comparison:
+
+- AFM / FPN-SM: in-network FFT or spectral adapters trained through standard detection losses.
 - RLVR: verifier-guided post-training with reward or rescue signals.
 - DPO: pairwise preference optimization over proposals, actions, or logits.
+- Prototype manifold losses: class prototype banks, Sinkhorn assignment, and low-energy residual fields.
 
 The current codebase still contains substantial historical experiment code. The architecture goal is not a cosmetic directory move. The priority is to create stable canonical entry points, migrate implementation modules behind those entry points, and preserve reproducibility of historical runs.
 
@@ -14,9 +19,11 @@ The current codebase still contains substantial historical experiment code. The 
 spectral_detection_posttrain/
 |-- core/              # canonical matching and shared model components
 |-- methods/
+|   |-- energy_transport/  # action-local ROI transport primitives
 |   |-- afm/           # canonical AFM modules
 |   |-- dpo/           # canonical DPO/action-preference utilities
 |   |-- rlvr/          # canonical RLVR policy/verifier/rescue utilities
+|   |-- manifold/      # prototype/spectral manifold diagnostics and baselines
 |   `-- segmentation/  # segmentation method namespace
 |-- signals/
 |   `-- fft/           # canonical raw iFFT/FFT verifier feature code
@@ -61,26 +68,31 @@ Current maintained code should use the new canonical paths. Historical scripts a
 
 ## Data Flow
 
-Detection post-training currently follows this high-level flow:
+Energy-guided detection post-training should follow this high-level flow:
 
 1. Load resolved config.
 2. Validate model name, dataset, checkpoint, and eval mode.
 3. Build frozen baseline detector and trainable policy detector.
 4. Generate proposals from rollout or RPN.
-5. Extract ROI logits, box regression, ROI features, and verifier features.
-6. Compute detector loss, KL anchor, rescue losses, RLVR loss, or DPO loss.
-7. Evaluate with clean detector settings.
-8. Record metadata, resolved config, checkpoint hash, git state, metrics, and safety-guard decisions.
+5. Extract ROI logits, box regression, ROI features, proposal geometry, and verifier features.
+6. Predict local actions: feature delta, score delta, bbox delta, and/or keep/reject.
+7. Apply action constraints: low transport energy, threshold preservation, rescue budget, false-positive penalties, and optional KL/reference anchors.
+8. Evaluate after detector post-processing, including NMS and clean score thresholds.
+9. Record metadata, resolved config, checkpoint hash, git state, action diagnostics, metrics, and safety-guard decisions.
 
 Segmentation should follow the same canonical runner principles, but the training signal is dense mask supervision rather than proposal-level matching.
 
 ## Method Boundaries
+
+Energy-guided ROI transport is the active bridge between representation geometry and action learning.  It treats prototype/FFT/geometry signals as partial evidence for local actions, not as complete target states.
 
 AFM is an architecture path. It changes the forward computation and receives gradients through standard task losses.
 
 RLVR is a reward/rescue path. It updates selected trainable parameters using verifiable reward signals, KL anchors, and safety guards.
 
 DPO is a pairwise preference path. It compares chosen and rejected proposals/actions/logits and optimizes relative preference against a frozen baseline.
+
+Prototype manifold modules are diagnostics and baselines unless an experiment explicitly connects them to action-local constraints and clean full-val detector improvement.
 
 Segmentation is a task path. It should support AFM, RLVR, and DPO variants, but should not reuse detection-specific proposal assumptions.
 
