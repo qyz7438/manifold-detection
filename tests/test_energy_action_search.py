@@ -7,6 +7,7 @@ from spectral_detection_posttrain.methods.energy_transport import (
     apply_score_action_to_prediction,
     select_min_energy_score_actions,
 )
+from scripts.eval_energy_action_search import replace_or_append_selected_actions_to_base_prediction
 
 
 def test_min_energy_search_rescues_smallest_delta_per_gt() -> None:
@@ -102,3 +103,64 @@ def test_apply_score_action_to_prediction_clamps_and_optionally_relabels() -> No
     assert torch.allclose(updated["scores"], torch.tensor([1.0, 0.07]))
     assert updated["labels"].tolist() == [1, 3]
     assert prediction["labels"].tolist() == [1, 1]
+
+
+def test_replace_or_append_selected_actions_replaces_same_gt_low_iou_base() -> None:
+    base = {
+        "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0]]),
+        "scores": torch.tensor([0.80]),
+        "labels": torch.tensor([1]),
+    }
+    source = {
+        "boxes": torch.tensor([[0.0, 0.0, 20.0, 20.0]]),
+        "scores": torch.tensor([0.04]),
+        "labels": torch.tensor([1]),
+    }
+    target = {
+        "boxes": torch.tensor([[0.0, 0.0, 20.0, 20.0]]),
+        "labels": torch.tensor([1]),
+    }
+
+    updated = replace_or_append_selected_actions_to_base_prediction(
+        base,
+        source,
+        target,
+        score_delta=torch.tensor([0.02]),
+        rescue_mask=torch.tensor([True]),
+        source_gt_indices=torch.tensor([0]),
+        target_iou=0.75,
+    )
+
+    assert updated["boxes"].shape[0] == 1
+    assert torch.allclose(updated["boxes"][0], source["boxes"][0])
+    assert torch.allclose(updated["scores"], torch.tensor([0.80]))
+
+
+def test_replace_or_append_selected_actions_appends_when_no_base_match() -> None:
+    base = {
+        "boxes": torch.tensor([[40.0, 40.0, 60.0, 60.0]]),
+        "scores": torch.tensor([0.70]),
+        "labels": torch.tensor([1]),
+    }
+    source = {
+        "boxes": torch.tensor([[0.0, 0.0, 20.0, 20.0]]),
+        "scores": torch.tensor([0.04]),
+        "labels": torch.tensor([1]),
+    }
+    target = {
+        "boxes": torch.tensor([[0.0, 0.0, 20.0, 20.0]]),
+        "labels": torch.tensor([1]),
+    }
+
+    updated = replace_or_append_selected_actions_to_base_prediction(
+        base,
+        source,
+        target,
+        score_delta=torch.tensor([0.02]),
+        rescue_mask=torch.tensor([True]),
+        source_gt_indices=torch.tensor([0]),
+        target_iou=0.75,
+    )
+
+    assert updated["boxes"].shape[0] == 2
+    assert torch.allclose(updated["scores"], torch.tensor([0.70, 0.06]))

@@ -58,7 +58,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--prediction-base",
         default="rollout",
-        choices=("rollout", "default_plus_selected"),
+        choices=("rollout", "default_plus_selected", "default_replace_or_insert"),
         help="Evaluate actions on rollout predictions or insert selected rollout candidates into default predictions.",
     )
     parser.add_argument("--per-class", action=argparse.BooleanOptionalAction, default=True)
@@ -225,6 +225,91 @@ def append_selected_actions_to_base_prediction(
     return output
 
 
+def replace_or_append_selected_actions_to_base_prediction(
+    base_prediction: dict,
+    source_prediction: dict,
+    target: dict,
+    score_delta: torch.Tensor,
+    rescue_mask: torch.Tensor,
+    source_gt_indices: torch.Tensor,
+    *,
+    target_iou: float,
+    labels: torch.Tensor | None = None,
+    relabel_mask: torch.Tensor | None = None,
+) -> dict:
+    """Move a same-GT base detection to the selected rollout endpoint.
+
+    If no default detection is assigned to the selected GT, the candidate is
+    appended.  This keeps the oracle action closer to a local box/score move
+    than to unconstrained proposal insertion.
+    """
+    output = {
+        key: value.clone() if torch.is_tensor(value) else value
+        for key, value in base_prediction.items()
+    }
+    selected = torch.nonzero(rescue_mask.bool(), as_tuple=False).flatten()
+    if selected.numel() == 0:
+        return output
+
+    source_scores = source_prediction.get("scores", torch.empty((0,), dtype=torch.float32))
+    if score_delta.shape != source_scores.shape:
+        raise ValueError("score_delta must share shape with source prediction scores")
+
+    base_ious, base_gt_indices, _ = best_iou_and_gt(base_prediction, target, class_aware=True)
+    used_base: set[int] = set()
+    append_boxes = []
+    append_scores = []
+    append_labels = []
+    for source_idx in selected.tolist():
+        gt_idx = int(source_gt_indices[source_idx].item())
+        if gt_idx < 0:
+            continue
+        source_label = source_prediction["labels"][source_idx].clone()
+        if labels is not None and relabel_mask is not None and bool(relabel_mask[source_idx].item()):
+            source_label = labels[source_idx].to(dtype=source_label.dtype)
+
+        same_gt = base_gt_indices == gt_idx
+        same_label = base_prediction["labels"] == source_label.to(base_prediction["labels"].device)
+        replaceable = same_gt & same_label & (base_ious > 0.0) & (base_ious < float(target_iou))
+        replace_indices = [
+            int(item)
+            for item in torch.nonzero(replaceable, as_tuple=False).flatten().tolist()
+            if int(item) not in used_base
+        ]
+        new_score = (
+            source_scores[source_idx]
+            + score_delta[source_idx].to(source_scores.device, dtype=source_scores.dtype)
+        ).clamp(0.0, 1.0)
+        if replace_indices:
+            base_idx = max(replace_indices, key=lambda idx: float(base_ious[idx].item()))
+            used_base.add(base_idx)
+            output["boxes"][base_idx] = source_prediction["boxes"][source_idx].to(output["boxes"].device)
+            output["scores"][base_idx] = torch.maximum(
+                output["scores"][base_idx],
+                new_score.to(output["scores"].device, dtype=output["scores"].dtype),
+            )
+            output["labels"][base_idx] = source_label.to(output["labels"].device, dtype=output["labels"].dtype)
+        else:
+            append_boxes.append(source_prediction["boxes"][source_idx].clone())
+            append_scores.append(new_score.detach().cpu())
+            append_labels.append(source_label.detach().cpu())
+
+    if append_boxes:
+        output["boxes"] = torch.cat(
+            [output["boxes"], torch.stack(append_boxes).to(output["boxes"].device, dtype=output["boxes"].dtype)],
+            dim=0,
+        )
+        output["scores"] = torch.cat(
+            [output["scores"], torch.stack(append_scores).to(output["scores"].device, dtype=output["scores"].dtype)],
+            dim=0,
+        )
+        output["labels"] = torch.cat(
+            [output["labels"], torch.stack(append_labels).to(output["labels"].device, dtype=output["labels"].dtype)],
+            dim=0,
+        )
+    return output
+
+
 def apply_action_search(
     predictions: list[dict],
     targets: list[dict],
@@ -233,9 +318,16 @@ def apply_action_search(
     oracle_relabel: bool,
     only_unmatched_gt: bool,
     base_predictions: list[dict] | None = None,
+    base_mode: str = "rollout",
 ) -> tuple[list[dict], dict[str, float | int]]:
+    if base_mode not in {"rollout", "default_plus_selected", "default_replace_or_insert"}:
+        raise ValueError(f"unsupported base_mode: {base_mode}")
+    if base_mode == "rollout" and base_predictions is not None:
+        raise ValueError("rollout mode must not receive base_predictions")
+    if base_mode != "rollout" and base_predictions is None:
+        raise ValueError(f"{base_mode} mode requires base_predictions")
     if base_predictions is not None and config.demote_low_quality:
-        raise ValueError("default_plus_selected mode only supports rescue actions, not demotions")
+        raise ValueError("default prediction modes only support rescue actions, not demotions")
     if base_predictions is not None and len(base_predictions) != len(predictions):
         raise ValueError("base_predictions must match predictions length")
 
@@ -280,19 +372,31 @@ def apply_action_search(
             config=config,
         )
 
-        if base_predictions is None:
+        if base_mode == "rollout":
             adjusted_prediction = apply_score_action_to_prediction(
                 prediction,
                 result.score_delta,
                 labels=oracle_labels if oracle_relabel else None,
                 relabel_mask=result.rescue_mask if oracle_relabel else None,
             )
-        else:
+        elif base_mode == "default_plus_selected":
             adjusted_prediction = append_selected_actions_to_base_prediction(
                 base_predictions[image_idx],
                 prediction,
                 result.score_delta,
                 result.rescue_mask,
+                labels=oracle_labels if oracle_relabel else None,
+                relabel_mask=result.rescue_mask if oracle_relabel else None,
+            )
+        else:
+            adjusted_prediction = replace_or_append_selected_actions_to_base_prediction(
+                base_predictions[image_idx],
+                prediction,
+                target,
+                result.score_delta,
+                result.rescue_mask,
+                gt_indices,
+                target_iou=float(config.target_iou),
                 labels=oracle_labels if oracle_relabel else None,
                 relabel_mask=result.rescue_mask if oracle_relabel else None,
             )
@@ -413,7 +517,7 @@ def main() -> None:
         demote_low_quality=bool(args.demote_low_quality),
         demote_target_score=args.demote_target_score,
     )
-    base_predictions = default_predictions if args.prediction_base == "default_plus_selected" else None
+    base_predictions = default_predictions if args.prediction_base != "rollout" else None
     action_predictions, action_summary = apply_action_search(
         rollout_predictions,
         rollout_targets,
@@ -421,6 +525,7 @@ def main() -> None:
         oracle_relabel=bool(args.oracle_relabel),
         only_unmatched_gt=bool(args.only_unmatched_gt),
         base_predictions=base_predictions,
+        base_mode=args.prediction_base,
     )
     action_metrics = evaluate_detection_predictions(action_predictions, rollout_targets, **metric_kwargs)
 
