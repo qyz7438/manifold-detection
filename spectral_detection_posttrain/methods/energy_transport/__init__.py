@@ -27,19 +27,29 @@ from spectral_detection_posttrain.methods.energy_transport.operators import (
 from spectral_detection_posttrain.methods.energy_transport.preferences import (
     build_top_bottom_preferences,
 )
+from spectral_detection_posttrain.methods.energy_transport.search import (
+    ActionSearchConfig,
+    ScoreActionSearchResult,
+    apply_score_action_to_prediction,
+    select_min_energy_score_actions,
+)
 
 __all__ = [
     "ActionLocalTransportHead",
     "ActionOutcome",
+    "ActionSearchConfig",
     "ConstraintConfig",
     "PreferenceBatch",
     "ROIActionState",
     "ROITransportActions",
+    "ScoreActionSearchResult",
     "apply_bounded_score_delta",
     "apply_box_delta",
+    "apply_score_action_to_prediction",
     "build_top_bottom_preferences",
     "clip_boxes_to_image",
     "rescue_budget_loss",
+    "select_min_energy_score_actions",
     "summarize_score_actions",
     "threshold_preservation_loss",
     "transport_action_energy",
