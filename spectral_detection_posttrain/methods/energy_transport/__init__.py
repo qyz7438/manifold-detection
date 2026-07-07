@@ -14,6 +14,16 @@ from spectral_detection_posttrain.methods.energy_transport.actions import (
     threshold_preservation_loss,
     transport_action_energy,
 )
+from spectral_detection_posttrain.methods.energy_transport.cone_projection import (
+    ConeDecomposition,
+    ConeProjectionEndpoint,
+    compute_class_prototypes,
+    cone_dpog_regularizer,
+    cone_residual_alignment_loss,
+    cross_entropy_energy,
+    decompose_cone_features,
+    local_tangent_energy_endpoint,
+)
 from spectral_detection_posttrain.methods.energy_transport.contracts import (
     ActionOutcome,
     ConstraintConfig,
@@ -38,6 +48,8 @@ __all__ = [
     "ActionLocalTransportHead",
     "ActionOutcome",
     "ActionSearchConfig",
+    "ConeDecomposition",
+    "ConeProjectionEndpoint",
     "ConstraintConfig",
     "PreferenceBatch",
     "ROIActionState",
@@ -48,6 +60,12 @@ __all__ = [
     "apply_score_action_to_prediction",
     "build_top_bottom_preferences",
     "clip_boxes_to_image",
+    "compute_class_prototypes",
+    "cone_dpog_regularizer",
+    "cone_residual_alignment_loss",
+    "cross_entropy_energy",
+    "decompose_cone_features",
+    "local_tangent_energy_endpoint",
     "rescue_budget_loss",
     "select_min_energy_score_actions",
     "summarize_score_actions",
