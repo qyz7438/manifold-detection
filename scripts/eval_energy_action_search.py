@@ -367,6 +367,7 @@ def apply_action_search(
             ious,
             image_indices,
             gt_indices=gt_indices,
+            selection_quality=prediction.get("verifier_quality"),
             rescue_candidate_mask=candidate_mask,
             low_quality_mask=ious <= float(config.low_quality_iou),
             config=config,

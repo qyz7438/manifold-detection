@@ -59,6 +59,7 @@ def select_min_energy_score_actions(
     image_indices: torch.Tensor,
     *,
     gt_indices: torch.Tensor | None = None,
+    selection_quality: torch.Tensor | None = None,
     rescue_candidate_mask: torch.Tensor | None = None,
     low_quality_mask: torch.Tensor | None = None,
     config: ActionSearchConfig | None = None,
@@ -76,6 +77,11 @@ def select_min_energy_score_actions(
     _check_vector("image_indices", image_indices)
     if scores.shape != ious.shape or scores.shape != image_indices.shape:
         raise ValueError("scores, ious, and image_indices must share shape")
+    if selection_quality is None:
+        selection_quality = ious
+    _check_vector("selection_quality", selection_quality)
+    if selection_quality.shape != scores.shape:
+        raise ValueError("selection_quality must share shape with scores")
 
     if gt_indices is None:
         gt_indices = torch.arange(scores.numel(), device=scores.device)
@@ -97,7 +103,7 @@ def select_min_energy_score_actions(
     target_score = _positive_target_score(cfg)
     can_rescue = (
         rescue_candidate_mask.bool()
-        & (ious >= float(cfg.target_iou))
+        & (selection_quality >= float(cfg.target_iou))
         & (gt_indices >= 0)
         & (scores < target_score)
     )
@@ -131,7 +137,7 @@ def select_min_energy_score_actions(
                 continue
             selected = torch.stack(per_gt)
             order_energy = required_delta[selected] ** 2
-            order_iou = ious[selected]
+            order_iou = selection_quality[selected]
             order_score = scores[selected]
             order = sorted(
                 range(selected.numel()),

@@ -69,6 +69,25 @@ def test_search_does_not_cross_low_quality_candidates() -> None:
     assert result.summary["num_low_quality_crossings"] == 0
 
 
+def test_search_can_use_verifier_quality_instead_of_oracle_iou() -> None:
+    scores = torch.tensor([0.04, 0.04])
+    ious = torch.tensor([0.90, 0.90])
+    verifier_quality = torch.tensor([0.20, 0.90])
+    image_indices = torch.zeros(2, dtype=torch.long)
+    cfg = ActionSearchConfig(score_threshold=0.05, target_iou=0.75, threshold_margin=0.01)
+
+    result = select_min_energy_score_actions(
+        scores,
+        ious,
+        image_indices,
+        selection_quality=verifier_quality,
+        config=cfg,
+    )
+
+    assert result.rescue_mask.tolist() == [False, True]
+    assert result.summary["num_rescue_candidates"] == 1
+
+
 def test_search_can_demote_low_quality_predictions() -> None:
     scores = torch.tensor([0.08, 0.04])
     ious = torch.tensor([0.10, 0.90])
