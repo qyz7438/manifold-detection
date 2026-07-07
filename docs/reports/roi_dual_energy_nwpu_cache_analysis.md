@@ -94,6 +94,42 @@ This also matches the earlier action-local framing: the detector endpoint is not
 only a class prototype in hidden feature space, but a valid post-head detection
 state with class identity, score calibration, box quality, and NMS survival.
 
+## Effect Check
+
+I also checked whether per-candidate energy can directly rank AP75 positives.
+This is the stricter test for using the energy as a score-rescue or reranking
+signal.
+
+| feature space | score | AP75 AUC | AP75 AP |
+|---|---:|---:|---:|
+| detector baseline | `label_prob` | 0.8293 | 0.2095 |
+| 1024-d box-head | `-E_intra` | 0.4017 | 0.0568 |
+| 75-d final-head | `-E_intra` | 0.4411 | 0.0553 |
+| 75-d final-head | `-E_basin` | 0.5248 | 0.0728 |
+
+Simple score fusions such as:
+
+```text
+label_prob + alpha * (-E_intra)
+label_prob + alpha * (-E_basin)
+label_prob + alpha * margin
+```
+
+did not beat `label_prob` on validation.  The best validation row remained the
+plain detector label probability.
+
+So the current effect is:
+
+- useful as a batch/group structure diagnostic;
+- useful for locating which representation space carries the class structure;
+- not yet useful as a direct per-candidate reranking score;
+- not ready to claim AP improvement.
+
+This matters for method design.  The next implementation should not simply add
+`-E_intra` to the score.  If we use dual energy in training, it should be a
+group/batch regularizer on the final/action state, guarded by AP/FP/ECE metrics,
+not a standalone rescue scorer.
+
 ## Limits
 
 This is still an offline cache analysis.  It does not prove AP improvement.
