@@ -1841,6 +1841,7 @@ def main() -> None:
                 "loss_corrected_memory_inter_preserve": torch.tensor(0.0, device=device),
             }
             correction_field_preserve_loss = torch.tensor(0.0, device=device)
+            prototype_update_payload = None
             if box_features.shape[0] == 0:
                 manifold_loss_dict = {
                     "loss_manifold_total": torch.tensor(0.0, device=device),
@@ -2011,18 +2012,15 @@ def main() -> None:
                                 args.lambda_correction_field_preserve if manifold_active else 0.0
                             ),
                         )
-                    # Update prototypes after computing losses unless the run
-                    # treats warmup prototypes as fixed correction endpoints.
-                    maybe_update_prototypes(
-                        prototype_bank,
-                        feat_fg,
-                        labels_fg,
-                        sinkhorn,
-                        normalize_features,
-                        args.freeze_prototypes_after_warmup,
-                        orient_idx=orient_idx_fg,
-                        scale_idx=scale_idx_fg,
-                        class_weights=class_weights_fg,
+                    # Prototype EMA updates mutate buffers used by the losses above.
+                    # Defer the update until after backward so autograd sees a
+                    # stable prototype field for the whole batch.
+                    prototype_update_payload = (
+                        feat_fg.detach(),
+                        labels_fg.detach(),
+                        orient_idx_fg.detach() if orient_idx_fg is not None else None,
+                        scale_idx_fg.detach() if scale_idx_fg is not None else None,
+                        class_weights_fg.detach() if class_weights_fg is not None else None,
                     )
 
                     # Accumulate features for epoch-end geometry diagnostics.
@@ -2065,6 +2063,25 @@ def main() -> None:
                     [p for g in optimizer.param_groups for p in g["params"]], args.max_grad_norm
                 )
             optimizer.step()
+            if prototype_update_payload is not None:
+                (
+                    update_feat,
+                    update_labels,
+                    update_orient_idx,
+                    update_scale_idx,
+                    update_class_weights,
+                ) = prototype_update_payload
+                maybe_update_prototypes(
+                    prototype_bank,
+                    update_feat,
+                    update_labels,
+                    sinkhorn,
+                    normalize_features,
+                    args.freeze_prototypes_after_warmup,
+                    orient_idx=update_orient_idx,
+                    scale_idx=update_scale_idx,
+                    class_weights=update_class_weights,
+                )
 
             batch_size = len(images)
             total_seen += batch_size
