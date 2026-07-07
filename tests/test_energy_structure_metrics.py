@@ -7,6 +7,7 @@ from spectral_detection_posttrain.methods.energy_transport import (
     centered_relation_matrix,
     inter_class_relation_energy,
     prototype_basin_geometry,
+    prototype_anchor_energy,
     relation_cka,
     roi_basin_energy,
     roi_basin_retention,
@@ -135,7 +136,16 @@ def test_inter_class_relation_energy_penalizes_wrong_class_relation() -> None:
 
     assert relation_cka(centered_relation_matrix(reference), centered_relation_matrix(reference)).item() > 0.99
     assert aligned_components["inter_reference_alignment"] > wrong_components["inter_reference_alignment"]
+    assert aligned_components["inter_anchor_energy"] < wrong_components["inter_anchor_energy"]
     assert aligned_energy < wrong_energy
+
+
+def test_prototype_anchor_energy_tracks_class_index_identity() -> None:
+    anchors = torch.eye(3)
+    aligned = anchors.clone()
+    permuted = anchors[[1, 2, 0]]
+
+    assert prototype_anchor_energy(aligned, anchors) < prototype_anchor_energy(permuted, anchors)
 
 
 def test_basin_leakage_graph_tracks_off_diagonal_confusion() -> None:

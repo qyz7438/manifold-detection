@@ -238,6 +238,21 @@ def inter_class_separation_energy(
     return (off_diag - float(cosine_margin)).clamp_min(0.0).square().mean()
 
 
+def prototype_anchor_energy(prototypes: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
+    """Class-indexed prototype anchor energy.
+
+    Relation matrices alone are invariant to global rotations of the class
+    configuration.  In a detector, class identities are tied to classifier
+    output channels, so the inter-class term also needs a light row-wise anchor
+    when frozen/reference prototypes or classifier weights are available.
+    """
+    if prototypes.shape != anchors.shape or prototypes.ndim != 2:
+        raise ValueError("prototypes and anchors must have the same shape (C, D)")
+    proto = normalize_l2(prototypes)
+    anchor = normalize_l2(anchors)
+    return (1.0 - (proto * anchor).sum(dim=-1)).mean()
+
+
 def inter_class_relation_energy(
     prototypes: torch.Tensor,
     *,
@@ -245,6 +260,7 @@ def inter_class_relation_energy(
     classifier_weight: torch.Tensor | None = None,
     target_relation: torch.Tensor | None = None,
     relation_weight: float = 1.0,
+    anchor_weight: float = 0.25,
     separation_weight: float = 0.25,
     simplex_weight: float = 0.0,
     cosine_margin: float = 0.0,
@@ -259,12 +275,13 @@ def inter_class_relation_energy(
     """
     if prototypes.ndim != 2:
         raise ValueError("prototypes must have shape (C, D)")
-    if relation_weight < 0.0 or separation_weight < 0.0 or simplex_weight < 0.0:
+    if relation_weight < 0.0 or anchor_weight < 0.0 or separation_weight < 0.0 or simplex_weight < 0.0:
         raise ValueError("energy weights must be non-negative")
     class_count, feature_dim = prototypes.shape
     relation = centered_relation_matrix(prototypes)
     components: dict[str, torch.Tensor] = {}
     relation_terms: list[torch.Tensor] = []
+    anchor_terms: list[torch.Tensor] = []
 
     if reference_prototypes is not None:
         if reference_prototypes.shape != prototypes.shape:
@@ -272,16 +289,23 @@ def inter_class_relation_energy(
         align = relation_cka(relation, centered_relation_matrix(reference_prototypes))
         components["inter_reference_alignment"] = align
         relation_terms.append(1.0 - align.clamp(0.0, 1.0))
+        anchor = prototype_anchor_energy(prototypes, reference_prototypes)
+        components["inter_reference_anchor_energy"] = anchor
+        anchor_terms.append(anchor)
 
     if classifier_weight is not None:
         if classifier_weight.ndim != 2 or classifier_weight.shape[0] < class_count:
             raise ValueError("classifier_weight must have shape (>=C, D)")
         if classifier_weight.shape[1] != feature_dim:
             raise ValueError("classifier_weight feature dimension must match prototypes")
-        weight_relation = centered_relation_matrix(classifier_weight[:class_count])
+        weight = classifier_weight[:class_count]
+        weight_relation = centered_relation_matrix(weight)
         align = relation_cka(relation, weight_relation)
         components["inter_classifier_alignment"] = align
         relation_terms.append(1.0 - align.clamp(0.0, 1.0))
+        anchor = prototype_anchor_energy(prototypes, weight)
+        components["inter_classifier_anchor_energy"] = anchor
+        anchor_terms.append(anchor)
 
     if target_relation is not None:
         if target_relation.shape != (class_count, class_count):
@@ -294,17 +318,23 @@ def inter_class_relation_energy(
         relation_energy = torch.stack(relation_terms).mean()
     else:
         relation_energy = prototypes.new_tensor(0.0)
+    if anchor_terms:
+        anchor_energy = torch.stack(anchor_terms).mean()
+    else:
+        anchor_energy = prototypes.new_tensor(0.0)
 
     separation = inter_class_separation_energy(prototypes, cosine_margin=cosine_margin)
     simplex = simplex_energy(prototypes)
     energy = (
         float(relation_weight) * relation_energy
+        + float(anchor_weight) * anchor_energy
         + float(separation_weight) * separation
         + float(simplex_weight) * simplex
     )
     components.update(
         {
             "inter_relation_energy": relation_energy,
+            "inter_anchor_energy": anchor_energy,
             "inter_separation_energy": separation,
             "inter_simplex_energy": simplex,
             "e_inter": energy,
@@ -565,6 +595,7 @@ def roi_dual_energy(
     intra_weight: float = 0.5,
     inter_weight: float = 0.5,
     relation_weight: float = 1.0,
+    anchor_weight: float = 0.25,
     separation_weight: float = 0.25,
     simplex_weight: float = 0.0,
     cosine_margin: float = 0.0,
@@ -624,6 +655,7 @@ def roi_dual_energy(
         classifier_weight=classifier_weight,
         target_relation=target_relation,
         relation_weight=relation_weight,
+        anchor_weight=anchor_weight,
         separation_weight=separation_weight,
         simplex_weight=simplex_weight,
         cosine_margin=cosine_margin,

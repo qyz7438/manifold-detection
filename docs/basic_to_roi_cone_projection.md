@@ -8,15 +8,16 @@ Its core formulation is an intra-class / inter-class dual-energy plane:
 
 ```text
 E_intra = compactness energy + basin stability energy
-E_inter = class-relation energy + class separation / relation validity
+E_inter = class-relation energy + class identity anchors + class separation
 DualEnergy = weighted combination of E_intra and E_inter
 ```
 
 `E_intra` is about whether samples of the same class collapse into a stable
 basin.  `E_inter` is about whether different classes keep a valid relational
-structure instead of simply becoming compact in isolation.  The training
-transition matters because useful generalization appears when both sides move
-together.
+structure instead of simply becoming compact in isolation.  For detection it
+also needs a light class-index anchor, because classifier output channels give
+each category an identity.  The training transition matters because useful
+generalization appears when both sides move together.
 
 The important warning is also inherited from `basic`: a geometry metric can
 improve while task accuracy gets worse.  Therefore detection structure metrics
@@ -65,6 +66,7 @@ E_inter_roi:
     frozen/reference prototypes,
     classifier weights,
     or later semantic/text class-relation matrices
+  while preserving class-index identity when detector classifier axes are fixed
 ```
 
 ## What DPOG Means Here
@@ -96,8 +98,8 @@ Maintained primitives:
 - `roi_compactness_energy`: normalized distance from foreground ROI features to
   their class prototypes;
 - `roi_basin_energy`: softplus energy for leaving the correct class basin;
-- `inter_class_relation_energy`: TCRA-like inter-class relation alignment plus
-  class separation;
+- `inter_class_relation_energy`: TCRA-like inter-class relation alignment,
+  class-index anchor energy, and class separation;
 - `roi_dual_energy`: differentiable `E_intra / E_inter / DualEnergy` bundle;
 - `roi_basin_retention`: score-form diagnostic for basin retention;
 - `prototype_basin_geometry`: graph agreement among class prototypes, current
