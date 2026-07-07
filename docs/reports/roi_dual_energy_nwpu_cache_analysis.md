@@ -130,6 +130,78 @@ This matters for method design.  The next implementation should not simply add
 group/batch regularizer on the final/action state, guarded by AP/FP/ECE metrics,
 not a standalone rescue scorer.
 
+## Offline Adapter Diagnostic
+
+I then added a small offline final-head adapter/scorer experiment:
+
+```powershell
+E:\anaconda\01\envs\RLimage\python.exe scripts\experiment_roi_dual_energy_adapter.py `
+  --cache E:\CLIproject\RLimage\runs\round2148_final_head_dim_full_ap75\candidate_features.npz `
+  --feature-key final_head_l2 `
+  --pos-weight-mode balanced `
+  --residual-scale-init 0.25 `
+  --epochs 80 `
+  --seeds 1 `
+  --output output\roi_dual_energy_adapter_diagnostic_balanced_res025.json
+```
+
+The script now records more than AP/AUC:
+
+- train/val AUC, AP, Brier, ECE, precision-at-positive-count;
+- full threshold tables at 0.05/0.10/0.20/0.30/0.40/0.50;
+- top-k tables at `top_pos_count`, `top_2x_pos_count`, `top_50`, `top_100`;
+- residual logit/probability magnitude, embedding step, gate, residual scale;
+- score-IoU, prior-IoU, and residual-IoU correlations;
+- groups such as `low_conf_high_iou`, `rescue_band_030_050_high_iou`,
+  `risky_score_ge_030_low_iou`, and AP75 positives/negatives;
+- dual-energy components by validation group;
+- training snapshots every `--log-every` epochs.
+
+The detector prior itself has this validation profile:
+
+| metric | value |
+|---|---:|
+| label_prob AUC | 0.8293 |
+| label_prob AP | 0.2095 |
+| ECE | 0.0500 |
+| precision at 41 positives | 0.3171 |
+| score >= 0.30 | 93 predictions, 18 TP, 75 FP |
+| score >= 0.40 | 36 predictions, 10 TP, 26 FP |
+| score >= 0.50 | 0 predictions |
+
+With the conservative residual scale (`residual_scale_init=0.05`), balanced
+training moved scores by only about `0.0013` probability on average.  The
+0.30-0.50 high-IoU rescue band gained about `+0.0039`, but the risky
+score>=0.30 low-IoU group also gained about `+0.0037`.  No candidate crossed
+0.50.
+
+With a larger residual scale (`residual_scale_init=0.25`), the model finally
+moved scores, but not selectively:
+
+| variant | val AP | ECE | pred@0.50 | rescue-band delta | risky-030 delta |
+|---|---:|---:|---:|---:|---:|
+| BCE only | 0.2099 | 0.0702 | 16 | +0.0586 | +0.0546 |
+| intra all 0.05 | 0.2101 | 0.0700 | 16 | +0.0586 | +0.0541 |
+| dual all 0.05 | 0.2099 | 0.0700 | 16 | +0.0581 | +0.0540 |
+| dual pos 0.20 | 0.2096 | 0.0703 | 16 | +0.0586 | +0.0549 |
+
+This is the important failure mode: increasing action capacity raises both the
+good rescue band and the risky low-IoU band by almost the same amount.  The
+dual-energy variants lower validation dual energy only slightly and do not
+create a better score action than BCE alone.  In this offline final-head setup,
+dual energy is still acting as a structural diagnostic, not as a selective
+detector action policy.
+
+The next action-local version therefore needs an explicit verifier/constraint
+that distinguishes:
+
+```text
+raise score for low-confidence high-IoU candidates
+do not raise score for already risky low-IoU candidates
+```
+
+A plain residual scorer plus group dual-energy regularization is not enough.
+
 ## Limits
 
 This is still an offline cache analysis.  It does not prove AP improvement.
