@@ -1,17 +1,22 @@
-# Basic Project Mapping: ROI Structure Transition, Not Just Cone Projection
+# Basic Project Mapping: ROI Intra/Inter Dual Energy
 
 ## Corrected Reading
 
 The useful lesson from `basic/nc-rf-scsi` is not that a single new loss, a
 one-dimensional class order, or a cone-residual endpoint is the whole story.
-Its strongest CIFAR evidence is a transition signature:
+Its core formulation is an intra-class / inter-class dual-energy plane:
 
-- class features become more compact relative to class spacing;
-- the decision basin becomes more stable under small perturbations;
-- prototype, probe-sample, classifier-weight, and basin graphs become more
-  compatible;
-- the effect depends on the training/reset/schedule window, not on an isolated
-  RF-style regularizer alone.
+```text
+E_intra = compactness energy + basin stability energy
+E_inter = class-relation energy + class separation / relation validity
+DualEnergy = weighted combination of E_intra and E_inter
+```
+
+`E_intra` is about whether samples of the same class collapse into a stable
+basin.  `E_inter` is about whether different classes keep a valid relational
+structure instead of simply becoming compact in isolation.  The training
+transition matters because useful generalization appears when both sides move
+together.
 
 The important warning is also inherited from `basic`: a geometry metric can
 improve while task accuracy gets worse.  Therefore detection structure metrics
@@ -39,13 +44,28 @@ The endpoint we can defend is a verifiable foreground ROI state:
 proposal-aligned ROI feature
   -> compact within its class
   -> retained in the correct class basin under small perturbations
-  -> compatible with class prototype / sample / classifier / leakage graphs
+  -> separated from and relationally aligned with other classes
   -> still improves detector behavior after score thresholding, bbox regression, and NMS
 ```
 
 This keeps the project aligned with the active energy-guided ROI transport
 story: local actions are allowed, but only when they preserve threshold behavior,
 respect rescue budgets, and do not create false positives.
+
+In detection terms:
+
+```text
+E_intra_roi:
+  foreground RoIs of class y should be close to mu_y
+  and should keep a positive margin against mu_not_y under perturbation
+
+E_inter_roi:
+  class prototypes should not collapse into each other
+  and their relation matrix should align with available anchors:
+    frozen/reference prototypes,
+    classifier weights,
+    or later semantic/text class-relation matrices
+```
 
 ## What DPOG Means Here
 
@@ -63,9 +83,9 @@ That is a residual stability diagnostic.  It is not the whole manifold
 optimization target.  A detector can have low RoI-DPOG and still be badly
 calibrated, unstable near threshold, or full of false positives.
 
-## Maintained Structure Metrics
+## Maintained Dual-Energy Metrics
 
-The detection-side structure signature now starts from:
+The detection-side dual-energy implementation starts from:
 
 ```text
 spectral_detection_posttrain/methods/energy_transport/structure_metrics.py
@@ -75,14 +95,15 @@ Maintained primitives:
 
 - `roi_compactness_energy`: normalized distance from foreground ROI features to
   their class prototypes;
-- `roi_basin_retention`: prototype-margin retention under small feature
-  perturbations;
+- `roi_basin_energy`: softplus energy for leaving the correct class basin;
+- `inter_class_relation_energy`: TCRA-like inter-class relation alignment plus
+  class separation;
+- `roi_dual_energy`: differentiable `E_intra / E_inter / DualEnergy` bundle;
+- `roi_basin_retention`: score-form diagnostic for basin retention;
 - `prototype_basin_geometry`: graph agreement among class prototypes, current
   sample prototypes, optional classifier weights, and optional basin leakage;
-- `simplex_energy`: diagnostic deviation from an equiangular class prototype
-  layout;
-- `roi_structure_signature`: one bundle for logging the basic-style detection
-  structure transition.
+- `simplex_energy`: optional diagnostic deviation from an equiangular class
+  prototype layout.
 
 The older cone primitives remain available:
 
@@ -98,18 +119,20 @@ the main claim.
 
 The next local/remote experiments should answer two separate questions.
 
-First, representation question:
+First, dual-energy representation question:
 
 ```text
-Does the post-training window produce a basic-style ROI structure transition?
+Does the post-training window reduce E_intra without damaging E_inter?
 ```
 
 Track at least:
 
-- `roi_compactness_energy` lower is better;
-- `roi_basin_retention` higher is better;
-- `roi_pbg` higher is better;
-- `roi_simplex_energy` lower is usually better, but only diagnostic;
+- `e_compact` lower is better;
+- `e_basin` lower is better;
+- `e_intra` lower is better;
+- `e_inter` lower is better when a valid relation anchor exists;
+- `dual_energy` lower is better only if both halves are interpretable;
+- `roi_basin_retention` higher is a score-form diagnostic;
 - RoI-DPOG and action energy as local residual diagnostics.
 
 Second, detector question:
