@@ -55,6 +55,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rollout-score-threshold", type=float, default=0.001)
     parser.add_argument("--rollout-nms-threshold", type=float, default=None)
     parser.add_argument("--detections-per-img", type=int, default=300)
+    parser.add_argument(
+        "--prediction-base",
+        default="rollout",
+        choices=("rollout", "default_plus_selected"),
+        help="Evaluate actions on rollout predictions or insert selected rollout candidates into default predictions.",
+    )
     parser.add_argument("--per-class", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--per-size", action="store_true", default=False)
     return parser.parse_args()
@@ -157,7 +163,7 @@ def best_iou_and_gt(
 
 
 def build_unmatched_candidate_mask(
-    prediction: dict,
+    reference_prediction: dict,
     target: dict,
     gt_indices: torch.Tensor,
     *,
@@ -170,7 +176,7 @@ def build_unmatched_candidate_mask(
         return candidate
 
     matched = matched_gt_indices(
-        prediction,
+        reference_prediction,
         target,
         iou_threshold=float(target_iou),
         score_threshold=float(score_threshold),
@@ -182,6 +188,43 @@ def build_unmatched_candidate_mask(
     return candidate & (~already_matched)
 
 
+def append_selected_actions_to_base_prediction(
+    base_prediction: dict,
+    source_prediction: dict,
+    score_delta: torch.Tensor,
+    rescue_mask: torch.Tensor,
+    *,
+    labels: torch.Tensor | None = None,
+    relabel_mask: torch.Tensor | None = None,
+) -> dict:
+    output = {
+        key: value.clone() if torch.is_tensor(value) else value
+        for key, value in base_prediction.items()
+    }
+    selected = rescue_mask.bool()
+    if selected.sum().item() == 0:
+        return output
+
+    source_scores = source_prediction.get("scores", torch.empty((0,), dtype=torch.float32))
+    if score_delta.shape != source_scores.shape:
+        raise ValueError("score_delta must share shape with source prediction scores")
+    selected_scores = (source_scores + score_delta.to(source_scores.device, dtype=source_scores.dtype)).clamp(0.0, 1.0)[
+        selected
+    ]
+    selected_labels = source_prediction["labels"][selected].clone()
+    if labels is not None:
+        if relabel_mask is None:
+            raise ValueError("relabel_mask is required when labels are provided")
+        if labels.shape != source_scores.shape or relabel_mask.shape != source_scores.shape:
+            raise ValueError("labels and relabel_mask must share shape with source scores")
+        selected_labels = labels.to(selected_labels.device, dtype=selected_labels.dtype)[selected]
+
+    output["boxes"] = torch.cat([output["boxes"], source_prediction["boxes"][selected].clone()], dim=0)
+    output["scores"] = torch.cat([output["scores"], selected_scores.to(output["scores"].dtype)], dim=0)
+    output["labels"] = torch.cat([output["labels"], selected_labels.to(output["labels"].dtype)], dim=0)
+    return output
+
+
 def apply_action_search(
     predictions: list[dict],
     targets: list[dict],
@@ -189,7 +232,13 @@ def apply_action_search(
     config: ActionSearchConfig,
     oracle_relabel: bool,
     only_unmatched_gt: bool,
+    base_predictions: list[dict] | None = None,
 ) -> tuple[list[dict], dict[str, float | int]]:
+    if base_predictions is not None and config.demote_low_quality:
+        raise ValueError("default_plus_selected mode only supports rescue actions, not demotions")
+    if base_predictions is not None and len(base_predictions) != len(predictions):
+        raise ValueError("base_predictions must match predictions length")
+
     adjusted: list[dict] = []
     totals: dict[str, float | int] = {
         "num_images": len(predictions),
@@ -205,40 +254,49 @@ def apply_action_search(
     }
 
     for image_idx, (prediction, target) in enumerate(zip(predictions, targets)):
-        class_aware = not oracle_relabel
+        reference_prediction = base_predictions[image_idx] if base_predictions is not None else prediction
         ious, gt_indices, oracle_labels = best_iou_and_gt(
             prediction,
             target,
-            class_aware=class_aware,
+            class_aware=not oracle_relabel,
         )
         scores = prediction.get("scores", torch.empty((0,), dtype=torch.float32)).float()
         image_indices = torch.full((scores.numel(),), image_idx, dtype=torch.long)
         candidate_mask = build_unmatched_candidate_mask(
-            prediction,
+            reference_prediction,
             target,
             gt_indices,
             target_iou=float(config.target_iou),
             score_threshold=float(config.score_threshold),
             only_unmatched_gt=only_unmatched_gt,
         )
-        low_quality_mask = ious <= float(config.low_quality_iou)
         result = select_min_energy_score_actions(
             scores,
             ious,
             image_indices,
             gt_indices=gt_indices,
             rescue_candidate_mask=candidate_mask,
-            low_quality_mask=low_quality_mask,
+            low_quality_mask=ious <= float(config.low_quality_iou),
             config=config,
         )
-        adjusted.append(
-            apply_score_action_to_prediction(
+
+        if base_predictions is None:
+            adjusted_prediction = apply_score_action_to_prediction(
                 prediction,
                 result.score_delta,
                 labels=oracle_labels if oracle_relabel else None,
                 relabel_mask=result.rescue_mask if oracle_relabel else None,
             )
-        )
+        else:
+            adjusted_prediction = append_selected_actions_to_base_prediction(
+                base_predictions[image_idx],
+                prediction,
+                result.score_delta,
+                result.rescue_mask,
+                labels=oracle_labels if oracle_relabel else None,
+                relabel_mask=result.rescue_mask if oracle_relabel else None,
+            )
+        adjusted.append(adjusted_prediction)
 
         for key in (
             "num_candidates",
@@ -313,13 +371,12 @@ def main() -> None:
         if args.score_threshold is not None
         else float(config.get("matching", {}).get("score_threshold", 0.05))
     )
-    num_classes = int(config["model"]["num_classes"])
     metric_kwargs = {
         "iou_threshold": float(config.get("matching", {}).get("iou_threshold", 0.5)),
         "score_threshold": score_threshold,
         "high_conf_threshold": float(config.get("eval", {}).get("high_conf_threshold", 0.7)),
         "per_class": bool(args.per_class),
-        "num_classes": num_classes,
+        "num_classes": int(config["model"]["num_classes"]),
         "per_size": bool(args.per_size),
     }
 
@@ -356,12 +413,14 @@ def main() -> None:
         demote_low_quality=bool(args.demote_low_quality),
         demote_target_score=args.demote_target_score,
     )
+    base_predictions = default_predictions if args.prediction_base == "default_plus_selected" else None
     action_predictions, action_summary = apply_action_search(
         rollout_predictions,
         rollout_targets,
         config=search_config,
         oracle_relabel=bool(args.oracle_relabel),
         only_unmatched_gt=bool(args.only_unmatched_gt),
+        base_predictions=base_predictions,
     )
     action_metrics = evaluate_detection_predictions(action_predictions, rollout_targets, **metric_kwargs)
 
@@ -381,6 +440,7 @@ def main() -> None:
             "rollout_score_threshold": float(args.rollout_score_threshold),
             "rollout_nms_threshold": args.rollout_nms_threshold,
             "detections_per_img": int(args.detections_per_img),
+            "prediction_base": args.prediction_base,
             "limit_val": args.limit_val,
         },
         "default_metrics": default_metrics,
