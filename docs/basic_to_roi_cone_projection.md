@@ -1,71 +1,126 @@
-# Basic Project Mapping: ROI Cone-Internal Manifold Optimization
+# Basic Project Mapping: ROI Structure Transition, Not Just Cone Projection
 
-## What Basic Adds
+## Corrected Reading
 
-The `basic/nc-rf-scsi` project is not mainly an RL score-rescue line. Its useful idea for this repository is the cone-internal projection view:
+The useful lesson from `basic/nc-rf-scsi` is not that a single new loss, a
+one-dimensional class order, or a cone-residual endpoint is the whole story.
+Its strongest CIFAR evidence is a transition signature:
 
-- Neural Collapse or class prototypes describe whether a feature enters the correct class cone.
-- They do not determine the feature's tangential residual direction inside that cone.
-- Generalization can depend on whether that residual direction is stable, low-energy, and globally consistent.
+- class features become more compact relative to class spacing;
+- the decision basin becomes more stable under small perturbations;
+- prototype, probe-sample, classifier-weight, and basin graphs become more
+  compatible;
+- the effect depends on the training/reset/schedule window, not on an isolated
+  RF-style regularizer alone.
 
-In basic's language:
-
-- DPA measures whether residual directions are aligned across augmentations or references.
-- DPOG measures whether the current residual direction is close to a locally lower-energy residual direction.
-
-This is the missing manifold-structure piece in the detector project.
+The important warning is also inherited from `basic`: a geometry metric can
+improve while task accuracy gets worse.  Therefore detection structure metrics
+are diagnostics and gating signals first.  They should only become losses after
+they correlate with clean AP, AP75, precision, recall, false positives, ECE,
+and prediction count.
 
 ## Detection Translation
 
-For an ROI feature `z` and class prototype `mu_y`, decompose:
+For detection, the unknown endpoint is not simply:
 
 ```text
-z = a * mu_y + r
+ROI feature -> class prototype
 ```
 
-where `a * mu_y` is the class-axis projection and `r` is the cone-internal residual.
-
-The endpoint is therefore not simply a class prototype. The endpoint is:
+and it is not only:
 
 ```text
-z* = normalize(a * mu_y + r*)
+ROI feature -> lower-energy cone residual endpoint
 ```
 
-where `r*` is a low-energy tangent residual found under detector classifier energy while preserving the class-axis coefficient and residual norm.
-
-## Two Complementary Loops
-
-Outer detection-action loop:
+The endpoint we can defend is a verifiable foreground ROI state:
 
 ```text
-default detection state -> dense candidate endpoint -> score/box action
+proposal-aligned ROI feature
+  -> compact within its class
+  -> retained in the correct class basin under small perturbations
+  -> compatible with class prototype / sample / classifier / leakage graphs
+  -> still improves detector behavior after score thresholding, bbox regression, and NMS
 ```
 
-This is implemented by the energy action search and `default_replace_or_insert` evaluation mode.
+This keeps the project aligned with the active energy-guided ROI transport
+story: local actions are allowed, but only when they preserve threshold behavior,
+respect rescue budgets, and do not create false positives.
 
-Inner ROI-manifold loop:
+## What DPOG Means Here
+
+The cone-projection module remains useful, but its role is narrower than the
+previous version of this note implied.
+
+It asks a local question:
 
 ```text
-ROI feature -> class cone decomposition -> low-energy residual endpoint
+after an ROI has entered a class cone, is its tangential residual already close
+to a lower-energy residual direction?
 ```
 
-This is implemented in `spectral_detection_posttrain.methods.energy_transport.cone_projection`.
+That is a residual stability diagnostic.  It is not the whole manifold
+optimization target.  A detector can have low RoI-DPOG and still be badly
+calibrated, unstable near threshold, or full of false positives.
 
-## New Maintained Primitives
+## Maintained Structure Metrics
+
+The detection-side structure signature now starts from:
+
+```text
+spectral_detection_posttrain/methods/energy_transport/structure_metrics.py
+```
+
+Maintained primitives:
+
+- `roi_compactness_energy`: normalized distance from foreground ROI features to
+  their class prototypes;
+- `roi_basin_retention`: prototype-margin retention under small feature
+  perturbations;
+- `prototype_basin_geometry`: graph agreement among class prototypes, current
+  sample prototypes, optional classifier weights, and optional basin leakage;
+- `simplex_energy`: diagnostic deviation from an equiangular class prototype
+  layout;
+- `roi_structure_signature`: one bundle for logging the basic-style detection
+  structure transition.
+
+The older cone primitives remain available:
 
 - `decompose_cone_features`
 - `cone_residual_alignment_loss`
 - `local_tangent_energy_endpoint`
 - `cone_dpog_regularizer`
-- `cross_entropy_energy`
 
-These are intentionally independent of the legacy prototype attraction head. They can be used as diagnostics first, then added as a small regularizer during ROI post-training.
+but they should be treated as auxiliary diagnostics or small ablations, not as
+the main claim.
 
-## Next Experiment
+## Revised Experiment Logic
 
-When remote data is available again:
+The next local/remote experiments should answer two separate questions.
 
-1. Measure RoI-DPOG for TP, localization-error, classification-error, and background-FP groups.
-2. Check whether AP75 failures have higher RoI-DPOG than AP50-only successes.
-3. Add a small `lambda_roi_dpog` regularizer only on foreground proposal-aligned ROI features.
-4. Compare against the action-only endpoint search to see whether feature manifold correction reduces the need for post-hoc score/box actions.
+First, representation question:
+
+```text
+Does the post-training window produce a basic-style ROI structure transition?
+```
+
+Track at least:
+
+- `roi_compactness_energy` lower is better;
+- `roi_basin_retention` higher is better;
+- `roi_pbg` higher is better;
+- `roi_simplex_energy` lower is usually better, but only diagnostic;
+- RoI-DPOG and action energy as local residual diagnostics.
+
+Second, detector question:
+
+```text
+Does that transition survive the detector's real output pipeline?
+```
+
+Track AP50, AP75, precision, recall, false-positive rate, ECE, prediction
+count, and full-val versus smoke status.
+
+Only if both move in the right direction should the structure signature become
+a training objective.  Otherwise it stays a diagnostic telling us where the ROI
+head or action policy is failing.
