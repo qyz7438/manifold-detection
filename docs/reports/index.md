@@ -14,6 +14,8 @@ Obsolete round artifacts are archived in `docs/reports/archive/`.
 
 ## NWPU VHR-10
 
+- `nwpu_c0_native_parity_review_2026-07-10.md` - active baseline-convergence and native-parity decision record.
+
 - `nwpu_matrix_analysis.md` / `nwpu_matrix_summary.txt` — NWPU 主矩阵分析。
 - `nwpu_mob_480x800_analysis.md` / `nwpu_mob_480x800_summary.txt` — MobileNet 480×800 分辨率矩阵分析。
 
