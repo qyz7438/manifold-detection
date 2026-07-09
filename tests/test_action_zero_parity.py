@@ -14,6 +14,12 @@ PARITY_LAUNCHER = (
     / "experiments"
     / "run_action_zero_parity_control.sh"
 )
+STRONG_ACTION_MATRIX = (
+    Path(__file__).resolve().parents[1]
+    / "scripts"
+    / "experiments"
+    / "run_nwpu_strong_native_action_matrix_s42.sh"
+)
 
 
 def _metrics(*, ap50: float, ap75: float, predictions: int) -> dict:
@@ -114,3 +120,17 @@ def test_strict_output_parity_requires_per_image_identity() -> None:
     assert passed["mismatched_images"] == 0
     assert failed["passed"] is False
     assert failed["max_box_abs_error"] == pytest.approx(0.01)
+
+
+def test_strong_action_matrix_requires_strict_parity_gate() -> None:
+    assert STRONG_ACTION_MATRIX.exists()
+    launcher = STRONG_ACTION_MATRIX.read_text(encoding="utf-8")
+
+    assert "nwpu_mob_strong_cosine_s42_bs8_36ep" in launcher
+    assert "det_action_zero_parity_nativefix_fullft18best_s42" in launcher
+    assert 'strict_zero_action_parity' in launcher
+    assert '"passed"' in launcher
+    assert "ctrl_strong_full_ft4_nwpu_s42" in launcher
+    assert 'run_action "${strong_checkpoint}" "boxonly" 0.0' in launcher
+    assert 'run_action "${strong_checkpoint}" "preserve2" 2.0' in launcher
+    assert '--postprocess-mode native' in launcher
