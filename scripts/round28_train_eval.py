@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -51,6 +52,41 @@ def _selection_value(metrics: dict, selection_metric: str) -> float:
 def _checkpoint_provenance(path: str | Path) -> dict[str, str]:
     resolved = Path(path).resolve()
     return {"path": str(resolved), "sha256": sha256_file(resolved)}
+
+
+def _build_lr_scheduler(
+    optimizer: torch.optim.Optimizer,
+    *,
+    name: str,
+    epochs: int,
+    warmup_epochs: int,
+    min_lr: float,
+):
+    if name == "none":
+        return None
+    if name != "cosine":
+        raise ValueError(f"Unsupported lr scheduler: {name}")
+    if epochs <= 0:
+        raise ValueError("epochs must be positive for cosine scheduling")
+    if warmup_epochs < 0 or warmup_epochs >= epochs:
+        raise ValueError("warmup_epochs must be in [0, epochs)")
+    if min_lr < 0.0:
+        raise ValueError("min_lr must be non-negative")
+
+    base_lr = float(optimizer.param_groups[0]["lr"])
+    if min_lr > base_lr:
+        raise ValueError("min_lr cannot exceed the optimizer base learning rate")
+    min_factor = float(min_lr) / base_lr if base_lr > 0.0 else 0.0
+    cosine_epochs = max(1, epochs - warmup_epochs)
+
+    def factor(step: int) -> float:
+        if warmup_epochs > 0 and step < warmup_epochs:
+            return 0.1 + 0.9 * (step / warmup_epochs)
+        progress = min(1.0, max(0.0, (step - warmup_epochs) / cosine_epochs))
+        cosine_factor = 0.5 * (1.0 + math.cos(math.pi * progress))
+        return min_factor + (1.0 - min_factor) * cosine_factor
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=factor)
 
 
 def _format_metric(value: float | int | None) -> str:
@@ -228,6 +264,9 @@ def main() -> None:
     parser.add_argument("--max-size", type=int, default=None, help="Model max_size (default: dataset-specific)")
     parser.add_argument("--batch-size", type=int, default=None, help="Training/eval batch size (default 16)")
     parser.add_argument("--lr", type=float, default=None, help="SGD learning rate (default dataset-specific)")
+    parser.add_argument("--lr-scheduler", default="none", choices=["none", "cosine"])
+    parser.add_argument("--warmup-epochs", type=int, default=0)
+    parser.add_argument("--min-lr", type=float, default=0.0)
     parser.add_argument("--num-workers", type=int, default=0, help="DataLoader num_workers")
     parser.add_argument("--model-name", default="fasterrcnn_mobilenet_v3_large_320_fpn",
                         choices=["fasterrcnn_mobilenet_v3_large_320_fpn", "fasterrcnn_resnet50_fpn"])
@@ -334,7 +373,15 @@ def main() -> None:
                   "roi_sm_gate_activation": args.roi_sm_gate_activation,
                   "roi_sm_suppress_dc": args.roi_sm_suppress_dc,
                   "roi_sm_init_alpha": args.roi_sm_init_alpha},
-        "train": {"batch_size": args.batch_size if args.batch_size is not None else 16, "lr": args.lr if args.lr is not None else 0.024, "momentum": 0.9, "weight_decay": 0.0005},
+        "train": {
+            "batch_size": args.batch_size if args.batch_size is not None else 16,
+            "lr": args.lr if args.lr is not None else 0.024,
+            "momentum": 0.9,
+            "weight_decay": 0.0005,
+            "lr_scheduler": args.lr_scheduler,
+            "warmup_epochs": args.warmup_epochs,
+            "min_lr": args.min_lr,
+        },
         "matching": {"iou_threshold": 0.5, "score_threshold": 0.05},
         "eval": {"batch_size": 16, "high_conf_threshold": 0.7},
     }
@@ -450,6 +497,13 @@ def main() -> None:
     optimizer = torch.optim.SGD(trainable_params, lr=float(config["train"]["lr"]),
                                 momentum=float(config["train"]["momentum"]),
                                 weight_decay=float(config["train"]["weight_decay"]))
+    scheduler = _build_lr_scheduler(
+        optimizer,
+        name=args.lr_scheduler,
+        epochs=args.epochs,
+        warmup_epochs=args.warmup_epochs,
+        min_lr=args.min_lr,
+    )
 
     history = []
     best_ap50 = -1.0
@@ -457,6 +511,7 @@ def main() -> None:
     best_selection_value = -1.0
     best_epoch = None
     for epoch in range(1, args.epochs + 1):
+        learning_rate = float(optimizer.param_groups[0]["lr"])
         model.train()
         _reset_spectral_stats(model)
         total_loss = 0.0
@@ -527,6 +582,7 @@ def main() -> None:
         spectral_stats = _epoch_spectral_stats(model)
         row = {
             **_epoch_metric_row(epoch=epoch, train_loss=avg_loss, metrics=ep_metrics),
+            "learning_rate": learning_rate,
             **_read_afm_scales(model),
             **spectral_stats,
         }
@@ -561,6 +617,9 @@ def main() -> None:
                     "ap75": float(ep_metrics["ap75"]),
                 },
             )
+
+        if scheduler is not None:
+            scheduler.step()
 
     metrics = ep_metrics
     metrics.update({"run_name": args.run_name, "afm_type": args.afm_type,

@@ -4,6 +4,9 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+import torch
+
 from scripts import round28_train_eval
 
 
@@ -18,6 +21,12 @@ REFINE_LAUNCHER = (
     / "scripts"
     / "experiments"
     / "run_nwpu_full_refine_stage2_s42.sh"
+)
+STRONG_BASELINE_LAUNCHER = (
+    Path(__file__).resolve().parents[1]
+    / "scripts"
+    / "experiments"
+    / "run_nwpu_strong_baseline_cosine_s42.sh"
 )
 
 
@@ -120,14 +129,48 @@ def test_data_split_manifest_is_order_stable() -> None:
     assert manifest["val"] == {"count": 3, "image_ids_sha256": expected_hash}
 
 
-def test_stage2_refine_waits_for_parity_and_uses_lower_lr() -> None:
+def test_stage2_refine_waits_for_strong_baseline_and_uses_lower_lr() -> None:
     assert REFINE_LAUNCHER.exists()
     launcher = REFINE_LAUNCHER.read_text(encoding="utf-8")
 
     assert 'GPU_ID="${GPU_ID:-2}"' in launcher
     assert 'MIN_FREE_MB="${MIN_FREE_MB:-8192}"' in launcher
     assert '"${free_mb}" -gt "${MIN_FREE_MB}"' in launcher
-    assert "det_action_zero_parity_fullft18best_s42" in launcher
+    assert "nwpu_mob_strong_cosine_s42_bs8_36ep" in launcher
     assert "checkpoint_last.pth" in launcher
     assert 'LR="${LR:-0.0003}"' in launcher
     assert 'EPOCHS="${EPOCHS:-8}"' in launcher
+
+
+def test_cosine_scheduler_warms_up_and_reaches_min_lr() -> None:
+    assert hasattr(round28_train_eval, "_build_lr_scheduler")
+    parameter = torch.nn.Parameter(torch.ones(()))
+    optimizer = torch.optim.SGD([parameter], lr=0.01)
+
+    scheduler = round28_train_eval._build_lr_scheduler(
+        optimizer,
+        name="cosine",
+        epochs=6,
+        warmup_epochs=1,
+        min_lr=0.001,
+    )
+
+    assert scheduler is not None
+    assert optimizer.param_groups[0]["lr"] == pytest.approx(0.001)
+    for _ in range(6):
+        optimizer.step()
+        scheduler.step()
+    assert optimizer.param_groups[0]["lr"] == pytest.approx(0.001)
+
+
+def test_strong_baseline_launcher_is_serialized_after_parity() -> None:
+    assert STRONG_BASELINE_LAUNCHER.exists()
+    launcher = STRONG_BASELINE_LAUNCHER.read_text(encoding="utf-8")
+
+    assert "det_action_zero_parity_fullft18best_s42" in launcher
+    assert 'GPU_ID="${GPU_ID:-2}"' in launcher
+    assert '"${free_mb}" -gt "${MIN_FREE_MB}"' in launcher
+    assert '--lr-scheduler cosine' in launcher
+    assert '--warmup-epochs 2' in launcher
+    assert '--epochs "${EPOCHS}"' in launcher
+    assert 'EPOCHS="${EPOCHS:-36}"' in launcher
