@@ -14,6 +14,14 @@ from spectral_detection_posttrain.methods.energy_transport.actions import (
     threshold_preservation_loss,
     transport_action_energy,
 )
+from spectral_detection_posttrain.methods.energy_transport.benefit_energy import (
+    ActionBenefitEnergyHead,
+    ActionBenefitTargets,
+    BenefitEnergyLossConfig,
+    action_benefit_energy_loss,
+    apply_action_benefit_gate,
+    build_action_benefit_targets,
+)
 from spectral_detection_posttrain.methods.energy_transport.cone_projection import (
     ConeDecomposition,
     ConeProjectionEndpoint,
@@ -86,11 +94,14 @@ from spectral_detection_posttrain.methods.energy_transport.structure_metrics imp
 
 __all__ = [
     "ActionLocalTransportHead",
+    "ActionBenefitEnergyHead",
+    "ActionBenefitTargets",
     "ActionOutcome",
     "ActionSearchConfig",
     "ConeDecomposition",
     "ConeProjectionEndpoint",
     "ConstraintConfig",
+    "BenefitEnergyLossConfig",
     "GeometricConstraintConfig",
     "HighWaterMarkLossConfig",
     "HighWaterMarkModuleSnapshot",
@@ -102,11 +113,13 @@ __all__ = [
     "ROITransportActions",
     "ScoreActionSearchResult",
     "apply_bounded_score_delta",
+    "apply_action_benefit_gate",
     "apply_box_delta",
     "apply_score_action_to_prediction",
     "ap75_boundary_weights",
     "basin_leakage_graph",
     "build_top_bottom_preferences",
+    "build_action_benefit_targets",
     "capture_high_water_mark_module",
     "centered_relation_matrix",
     "class_topk_adjacency",
@@ -145,4 +158,5 @@ __all__ = [
     "summarize_score_actions",
     "threshold_preservation_loss",
     "transport_action_energy",
+    "action_benefit_energy_loss",
 ]
