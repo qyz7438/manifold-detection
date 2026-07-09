@@ -90,6 +90,8 @@ def test_parity_launcher_waits_for_c0_and_uses_gpu2_memory_gate() -> None:
     assert '--epochs 0' in launcher
     assert '--action-score-threshold 0.05' in launcher
     assert '--detections-per-img 100' in launcher
+    assert 'RUN_TAG="${RUN_TAG:-nativefix}"' in launcher
+    assert '--postprocess-mode native' in launcher
 
 
 def test_strict_output_parity_requires_per_image_identity() -> None:

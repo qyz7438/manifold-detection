@@ -9,6 +9,7 @@ MIN_FREE_MB="${MIN_FREE_MB:-8192}"
 POLL_SECONDS="${POLL_SECONDS:-60}"
 SEED="${SEED:-42}"
 BATCH_SIZE="${BATCH_SIZE:-4}"
+RUN_TAG="${RUN_TAG:-nativefix}"
 C0_RUN="ctrl_full_ft18_from12best_fullnw0_nwpu_s42_bs8_ep18"
 
 if [[ "${GPU_ID}" != "2" ]]; then
@@ -90,6 +91,7 @@ run_parity() {
     --action-score-threshold 0.05 \
     --nms-threshold 0.50 \
     --detections-per-img 100 \
+    --postprocess-mode native \
     --per-class \
     --per-size \
     --require-clean-git
@@ -97,10 +99,10 @@ run_parity() {
 
 wait_for_c0
 run_parity \
-  "det_action_zero_parity_baseline_s${SEED}" \
+  "det_action_zero_parity_${RUN_TAG}_baseline_s${SEED}" \
   "${SOURCE_RUN_ROOT}/nwpu_mob_baseline_s${SEED}_12ep/checkpoint_best.pth"
 run_parity \
-  "det_action_zero_parity_fullft18best_s${SEED}" \
+  "det_action_zero_parity_${RUN_TAG}_fullft18best_s${SEED}" \
   "runs/${C0_RUN}/checkpoint_best.pth"
 
 echo "$(date -Is) action zero-parity controls complete"
