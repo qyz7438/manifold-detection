@@ -307,3 +307,49 @@ Recommended next priorities:
    `rlvr_random_fulltrain_10ep`.
 2. Test calibration or threshold-preservation losses directly on `box_head_only`
    training before redesigning the independent action head.
+
+## Review 8: completed `box_head_only_10ep`
+
+Reviewed group:
+
+- `ctrl_boxhead_ft10_fullnw0_nwpu_s42_bs8_ep10`
+- `ctrl_boxhead_ft10_fullnw0_nwpu_s2024_bs8_ep10`
+- `ctrl_boxhead_ft10_fullnw0_nwpu_s999_bs8_ep10`
+
+Compared against:
+
+- `remote_boxrlvr_full_ms_random_s42_fulltrain_fullval_10ep`
+- `remote_boxrlvr_full_ms_random_s2024_fulltrain_fullval_10ep`
+- `remote_boxrlvr_full_ms_random_s999_fulltrain_fullval_10ep`
+- `remote_boxdirect_full_ms_zero_s42_fulltrain_fullval_10ep`
+- `remote_boxdirect_full_ms_zero_s2024_fulltrain_fullval_10ep`
+- `remote_boxdirect_full_ms_zero_s999_fulltrain_fullval_10ep`
+
+Mean deltas over seeds 42, 2024, and 999:
+
+| Group | AP50 delta | AP75 delta | Best AP75 delta | Precision delta | Recall delta | FPR delta | ECE delta | Prediction delta | Best epoch |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `direct_zero_fulltrain_10ep` | +0.0047 | +0.0304 | +0.0308 | +0.0023 | +0.0039 | -0.0023 | -0.0014 | -3.0 | 9.3 |
+| `rlvr_random_fulltrain_10ep` | +0.0063 | +0.0350 | +0.0359 | +0.0042 | +0.0051 | -0.0042 | -0.0031 | -11.3 | 9.0 |
+| `box_head_only_10ep` | +0.0426 | +0.0792 | +0.0858 | +0.0641 | +0.0205 | -0.0641 | +0.0160 | -354.0 | 7.3 |
+
+DeepSeek's judgment:
+
+- `box_head_only_10ep` decisively closes independent action-head and RLVR as
+  the main AP-improving path.
+- The likely explanation is that the ROI box head or the 12-epoch baseline
+  training schedule is under-trained.
+- RLVR still has weak real signal, but its signal strength is too low for the
+  current main path unless the objective is changed to a no-supervision or
+  preference-learning setting.
+- The ECE increase in `box_head_only_10ep` must be tracked, but the per-seed
+  ECE deltas are mixed, so it is not yet a proven systematic calibration
+  failure.
+- Do not promote `box_head_only` as a method contribution; it is an attribution
+  control that reveals baseline insufficiency or box-head under-training.
+
+Recommended next priorities:
+
+1. Run full-model 10-epoch continuation from the same 12-epoch checkpoints.
+2. Only after that, test minimal calibration interventions such as label
+   smoothing or threshold preservation on the stronger fine-tune path.
