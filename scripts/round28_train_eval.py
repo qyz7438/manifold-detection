@@ -21,6 +21,36 @@ from spectral_detection_posttrain.utils.model_cost import count_flops, count_par
 from spectral_detection_posttrain.utils.seed import resolve_device, set_seed
 
 
+_DECISION_METRIC_KEYS = (
+    "ap50",
+    "ap75",
+    "precision",
+    "recall",
+    "false_positive_rate",
+    "ece",
+    "num_predictions",
+)
+
+
+def _epoch_metric_row(*, epoch: int, train_loss: float, metrics: dict) -> dict:
+    row = {"epoch": epoch, "train_loss": train_loss}
+    for key in _DECISION_METRIC_KEYS:
+        if key in metrics:
+            row[f"val_{key}"] = metrics[key]
+    return row
+
+
+def _selection_value(metrics: dict, selection_metric: str) -> float:
+    if selection_metric not in {"ap50", "ap75"}:
+        raise ValueError(f"Unsupported selection metric: {selection_metric}")
+    return float(metrics[selection_metric])
+
+
+def _checkpoint_provenance(path: str | Path) -> dict[str, str]:
+    resolved = Path(path).resolve()
+    return {"path": str(resolved), "sha256": sha256_file(resolved)}
+
+
 def _to_device(targets: list[dict], device: torch.device) -> list[dict]:
     return [{k: v.to(device) if torch.is_tensor(v) else v for k, v in t.items()} for t in targets]
 
@@ -147,7 +177,11 @@ def main() -> None:
     parser.add_argument("--trainable-mode", default="full", choices=["full", "box_head_only", "afm_only", "afm_box_head", "rpn_box_head", "all_except_backbone", "all_except_rpn", "all_except_box", "image_sm_only", "roi_sm_only"])
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--data-seed", type=int, default=None,
+                        help="Dataset split seed (default: --seed)")
     parser.add_argument("--checkpoint", default=None)
+    parser.add_argument("--selection-metric", default="ap50", choices=["ap50", "ap75"],
+                        help="Validation metric used for checkpoint_best.pth")
     parser.add_argument("--edge-mix", action="store_true", default=False)
     parser.add_argument("--limit-train", type=int, default=None)
     parser.add_argument("--limit-val", type=int, default=None)
@@ -218,7 +252,9 @@ def main() -> None:
     args = parser.parse_args()
 
     config = {
-        "seed": args.seed, "device": "cuda" if torch.cuda.is_available() else "cpu",
+        "seed": args.seed,
+        "data_seed": args.data_seed if args.data_seed is not None else args.seed,
+        "device": "cuda" if torch.cuda.is_available() else "cpu",
         "data": {"root": "./data", "dataset": args.dataset, "download": True, "max_size": 320, "train_fraction": 0.8, "num_workers": 0},
         "model": {"name": args.model_name, "pretrained": True,
                   "model_name": args.model_name,
@@ -317,6 +353,9 @@ def main() -> None:
     device = resolve_device(config)
     run_dir = ensure_run_dir(args.run_name)
     config["git_state"] = get_git_state()
+    config["selection_metric"] = args.selection_metric
+    if args.checkpoint:
+        config["source_checkpoint"] = _checkpoint_provenance(args.checkpoint)
     if args.require_clean_git and config["git_state"]["dirty"]:
         raise RuntimeError(
             f"Git working tree is dirty (commit {config['git_state']['commit']}). "
@@ -360,6 +399,9 @@ def main() -> None:
         metrics.update({"run_name": args.run_name, "afm_type": args.afm_type,
                         "afm_residual_mode": args.afm_residual_mode,
                         "trainable_mode": args.trainable_mode, "epochs": 0, "seed": args.seed,
+                        "data_seed": config["data_seed"],
+                        "selection_metric": args.selection_metric,
+                        "source_checkpoint": config.get("source_checkpoint"),
                         "history": []})
         save_json(metrics, run_dir / "eval_metrics.json")
         print(metrics)
@@ -376,6 +418,9 @@ def main() -> None:
 
     history = []
     best_ap50 = -1.0
+    best_ap75 = -1.0
+    best_selection_value = -1.0
+    best_epoch = None
     for epoch in range(1, args.epochs + 1):
         model.train()
         _reset_spectral_stats(model)
@@ -444,22 +489,50 @@ def main() -> None:
             per_size=args.per_size_ap,
         )
         spectral_stats = _epoch_spectral_stats(model)
-        row = {"epoch": epoch, "train_loss": avg_loss,
-               "val_ap50": ep_metrics["ap50"], "val_ap75": ep_metrics["ap75"],
-               **_read_afm_scales(model), **spectral_stats}
+        row = {
+            **_epoch_metric_row(epoch=epoch, train_loss=avg_loss, metrics=ep_metrics),
+            **_read_afm_scales(model),
+            **spectral_stats,
+        }
         history.append(row)
-        print(f"  epoch {epoch}: loss={avg_loss:.4f} AP50={ep_metrics['ap50']:.4f} AP75={ep_metrics['ap75']:.4f}")
+        print(
+            f"  epoch {epoch}: loss={avg_loss:.4f} "
+            f"AP50={ep_metrics['ap50']:.4f} AP75={ep_metrics['ap75']:.4f} "
+            f"precision={ep_metrics['precision']:.4f} recall={ep_metrics['recall']:.4f} "
+            f"FPR={ep_metrics['false_positive_rate']:.4f} ECE={ep_metrics['ece']:.4f} "
+            f"preds={ep_metrics['num_predictions']}"
+        )
 
         save_checkpoint(model, run_dir / "checkpoint_last.pth", {"epoch": epoch})
-        if ep_metrics["ap50"] > best_ap50:
-            best_ap50 = ep_metrics["ap50"]
-            save_checkpoint(model, run_dir / "checkpoint_best.pth", {"epoch": epoch, "ap50": best_ap50})
+        best_ap50 = max(best_ap50, float(ep_metrics["ap50"]))
+        best_ap75 = max(best_ap75, float(ep_metrics["ap75"]))
+        selection_value = _selection_value(ep_metrics, args.selection_metric)
+        if selection_value > best_selection_value:
+            best_selection_value = selection_value
+            best_epoch = epoch
+            save_checkpoint(
+                model,
+                run_dir / "checkpoint_best.pth",
+                {
+                    "epoch": epoch,
+                    "selection_metric": args.selection_metric,
+                    "selection_value": selection_value,
+                    "ap50": float(ep_metrics["ap50"]),
+                    "ap75": float(ep_metrics["ap75"]),
+                },
+            )
 
     metrics = ep_metrics
     metrics.update({"run_name": args.run_name, "afm_type": args.afm_type,
                     "afm_residual_mode": args.afm_residual_mode,
                     "trainable_mode": args.trainable_mode, "epochs": args.epochs,
-                    "seed": args.seed, "best_ap50": best_ap50, "history": history})
+                    "seed": args.seed, "data_seed": config["data_seed"],
+                    "best_ap50": best_ap50, "best_ap75": best_ap75,
+                    "selection_metric": args.selection_metric,
+                    "best_selection_value": best_selection_value,
+                    "best_epoch": best_epoch,
+                    "source_checkpoint": config.get("source_checkpoint"),
+                    "history": history})
 
     last_ckpt = run_dir / "checkpoint_last.pth"
     best_ckpt = run_dir / "checkpoint_best.pth"

@@ -169,7 +169,7 @@ def build_nwpu_vhr10_loaders(
     )
     max_size = data_cfg.get("max_size")
     ids = nwpu_positive_image_ids(root, annotation)
-    rng = np.random.RandomState(int(config.get("seed", 42)))
+    rng = np.random.RandomState(int(config.get("data_seed", config.get("seed", 42))))
     rng.shuffle(ids)
     split = int(len(ids) * float(data_cfg.get("train_fraction", 0.7)))
     train_ids = ids[:split]

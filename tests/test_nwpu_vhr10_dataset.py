@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -134,3 +135,27 @@ def test_nwpu_loader_uses_legacy_round2129_split_membership(tmp_path: Path) -> N
 
     assert set(train_loader.dataset.img_ids) == {9, 2, 6, 1, 8, 3, 10}
     assert set(val_loader.dataset.img_ids) == {5, 4, 7}
+
+
+def test_nwpu_loader_uses_data_seed_independently_of_model_seed(tmp_path: Path) -> None:
+    annotation_path = _write_tiny_nwpu(tmp_path, image_count=10)
+    config = {
+        "seed": 42,
+        "data_seed": 2024,
+        "data": {
+            "dataset": "nwpu_vhr10",
+            "root": str(tmp_path / "NWPU VHR-10 dataset"),
+            "annotation": str(annotation_path),
+            "train_fraction": 0.7,
+            "max_size": 10,
+            "num_workers": 0,
+        },
+        "train": {"batch_size": 1},
+    }
+    expected_ids = list(range(1, 11))
+    np.random.RandomState(2024).shuffle(expected_ids)
+
+    train_loader, val_loader = build_detection_loaders(config)
+
+    assert set(train_loader.dataset.img_ids) == set(expected_ids[:7])
+    assert set(val_loader.dataset.img_ids) == set(expected_ids[7:])
