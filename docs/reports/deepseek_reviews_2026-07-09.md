@@ -353,3 +353,44 @@ Recommended next priorities:
 1. Run full-model 10-epoch continuation from the same 12-epoch checkpoints.
 2. Only after that, test minimal calibration interventions such as label
    smoothing or threshold preservation on the stronger fine-tune path.
+
+## Review 9: completed `full_model_10ep`
+
+Reviewed group:
+
+- `ctrl_full_ft10_fullnw0_nwpu_s42_bs8_ep10`
+- `ctrl_full_ft10_fullnw0_nwpu_s2024_bs8_ep10`
+- `ctrl_full_ft10_fullnw0_nwpu_s999_bs8_ep10`
+
+Mean deltas over seeds 42, 2024, and 999:
+
+| Group | AP50 delta | AP75 delta | Best AP75 delta | Precision delta | Recall delta | FPR delta | ECE delta | Prediction delta | Best epoch |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `direct_zero_fulltrain_10ep` | +0.0047 | +0.0304 | +0.0308 | +0.0023 | +0.0039 | -0.0023 | -0.0014 | -3.0 | 9.3 |
+| `rlvr_random_fulltrain_10ep` | +0.0063 | +0.0350 | +0.0359 | +0.0042 | +0.0051 | -0.0042 | -0.0031 | -11.3 | 9.0 |
+| `box_head_only_10ep` | +0.0426 | +0.0792 | +0.0858 | +0.0641 | +0.0205 | -0.0641 | +0.0160 | -354.0 | 7.3 |
+| `full_model_10ep` | +0.0688 | +0.1058 | +0.1133 | +0.0927 | +0.0437 | -0.0927 | +0.0313 | -426.3 | 7.7 |
+
+DeepSeek's judgment:
+
+- The 12-epoch baseline is the dominant confound behind earlier AP gains.
+- `box_head_only_10ep` captures much of the full-model improvement, but the full
+  detector continuation is stronger.
+- RLVR and independent action-local heads should not remain the main
+  AP-improvement path under the current evidence.
+- The next benchmark must use a stronger, better-converged baseline before any
+  transport, calibration, or residual-adapter claim is tested.
+
+Codex note:
+
+- DeepSeek mentioned AFM as a possible architecture direction, but the active
+  project guide keeps AFM/FPN-SM out of the current action-local line unless the
+  user explicitly asks for it. The adopted conclusion here is the baseline
+  adequacy warning, not a switch back to AFM.
+
+Recommended next priorities:
+
+1. Establish a NWPU convergence curve or stronger baseline beyond the 12-epoch
+   checkpoint.
+2. Re-test calibration or local residual correction only against that stronger
+   baseline.

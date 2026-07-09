@@ -70,13 +70,18 @@ DeepSeek's next priorities:
 
 ## Next Action
 
-Queue the full-model continuation control with:
+The full-model continuation control was queued with:
 
 ```bash
 scripts/experiments/run_full_model_finetune_10ep_control.sh
 ```
 
-The queue uses the same seeds, epoch count, learning rate, and batch size as the
-`box_head_only_10ep` control, but trains the detector with `--trainable-mode
-full`. It waits for existing `round28_train_eval.py` jobs and for enough free
-GPU2 memory before starting.
+It completed on GPU2 and is now recorded in:
+
+```bash
+docs/reports/full_model_finetune_10ep_control_2026-07-09.md
+```
+
+The result further weakens the independent action-head story: full-model
+continuation reaches `+0.1058` mean AP75, above `box_head_only_10ep` at
+`+0.0792`.
