@@ -22,6 +22,14 @@ from spectral_detection_posttrain.methods.energy_transport.benefit_energy import
     apply_action_benefit_gate,
     build_action_benefit_targets,
 )
+from spectral_detection_posttrain.methods.energy_transport.candidate_energy import (
+    CandidateEnergyLossConfig,
+    CandidateQualityTargets,
+    build_candidate_quality_targets,
+    build_symmetric_box_candidates,
+    candidate_action_energy_loss,
+    select_min_energy_box_actions,
+)
 from spectral_detection_posttrain.methods.energy_transport.cone_projection import (
     ConeDecomposition,
     ConeProjectionEndpoint,
@@ -102,6 +110,8 @@ __all__ = [
     "ConeProjectionEndpoint",
     "ConstraintConfig",
     "BenefitEnergyLossConfig",
+    "CandidateEnergyLossConfig",
+    "CandidateQualityTargets",
     "GeometricConstraintConfig",
     "HighWaterMarkLossConfig",
     "HighWaterMarkModuleSnapshot",
@@ -120,7 +130,10 @@ __all__ = [
     "basin_leakage_graph",
     "build_top_bottom_preferences",
     "build_action_benefit_targets",
+    "build_candidate_quality_targets",
+    "build_symmetric_box_candidates",
     "capture_high_water_mark_module",
+    "candidate_action_energy_loss",
     "centered_relation_matrix",
     "class_topk_adjacency",
     "classify_error_modes",
@@ -152,6 +165,7 @@ __all__ = [
     "roi_structure_signature",
     "rescue_budget_loss",
     "select_min_energy_score_actions",
+    "select_min_energy_box_actions",
     "should_update_high_water_mark",
     "simplex_energy",
     "stop_high_water_mark_loss",
