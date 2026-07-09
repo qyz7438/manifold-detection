@@ -267,3 +267,43 @@ Action taken:
 - The existing 4-epoch two-seed `box_head_only` control remains queued.
 - A new 10-epoch three-seed `box_head_only` control is queued after the 4-epoch
   control, to match the RLVR fulltrain 10-epoch budget.
+
+## Review 7: same-budget `box_head_only` fine-tune control
+
+Reviewed group:
+
+- `ctrl_boxhead_ft_fullnw0_nwpu_s42_bs8_ep4`
+- `ctrl_boxhead_ft_fullnw0_nwpu_s2024_bs8_ep4`
+
+Compared against:
+
+- `abl_match_class_aware_boxonly_e0_fullnw0_nwpu_s42_bs8_ep4`
+- `abl_match_class_aware_boxonly_e0_fullnw0_nwpu_s2024_bs8_ep4`
+- `abl_match_class_aware_box_preserve2_e0_fullnw0_nwpu_s42_bs8_ep4`
+- `abl_match_class_aware_box_preserve2_e0_fullnw0_nwpu_s2024_bs8_ep4`
+
+Mean deltas over seeds 42 and 2024:
+
+| Group | AP50 delta | AP75 delta | Best AP75 delta | Precision delta | Recall delta | FPR delta | ECE delta | Prediction delta |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `action class_aware boxonly` | +0.0146 | +0.0431 | +0.0460 | +0.0593 | -0.0013 | -0.0593 | -0.0092 | -407.5 |
+| `action class_aware box+preserve` | +0.0132 | +0.0507 | +0.0507 | +0.0584 | -0.0005 | -0.0584 | -0.0093 | -401.5 |
+| `box_head_only` fine-tune | +0.0376 | +0.0696 | +0.0698 | +0.0505 | +0.0200 | -0.0505 | +0.0076 | -316.0 |
+
+DeepSeek's judgment:
+
+- The current action-local `box+preserve` configuration has no evidence of
+  information gain beyond ordinary `box_head_only` fine-tuning.
+- The action-local heads mainly keep a precision/ECE/conservative-prediction
+  behavior, while losing to `box_head_only` on AP50, AP75, and recall.
+- That conservative behavior can remain a calibration diagnostic, but it is not
+  enough to keep the independent action head as the active main route.
+- The main unresolved risk is that `box_head_only` improves AP while worsening
+  ECE; a longer control must check whether this calibration debt grows.
+
+Recommended next priorities:
+
+1. Complete the 10-epoch, three-seed `box_head_only` control and compare it with
+   `rlvr_random_fulltrain_10ep`.
+2. Test calibration or threshold-preservation losses directly on `box_head_only`
+   training before redesigning the independent action head.

@@ -79,21 +79,33 @@ If RLVR is revisited after the box-head control, the minimum repair path is:
 2. Enable score actions, for example `score_scale=0.05`.
 3. Add a small move penalty, for example `move_penalty=0.01`.
 
-## Current Queue
+## Updated Control Status
 
-The same-budget `box_head_only` control is queued on the remote server via:
+The 4-epoch same-budget `box_head_only` control has completed for seeds 42 and
+2024. It outperformed the action-local `class_aware box+preserve` candidate on
+AP50 and AP75:
+
+| Group | AP50 delta | AP75 delta | Best AP75 delta | Precision delta | Recall delta | FPR delta | ECE delta | Prediction delta |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `action class_aware box+preserve` | +0.0132 | +0.0507 | +0.0507 | +0.0584 | -0.0005 | -0.0584 | -0.0093 | -401.5 |
+| `box_head_only` fine-tune | +0.0376 | +0.0696 | +0.0698 | +0.0505 | +0.0200 | -0.0505 | +0.0076 | -316.0 |
+
+This weakens the independent action-head story. The remaining possible value of
+action-local training is its more conservative precision/ECE profile, not a
+stronger AP-improving transport mechanism.
+
+The 4-epoch control launcher was:
 
 ```bash
 runs/ctrl_boxhead_ft_20260709_launcher.log
 ```
 
-It waits for currently running `round28_train_eval.py` jobs before starting.
-
-A longer 10-epoch, three-seed box-head control is also queued:
+A longer 10-epoch, three-seed box-head control remains queued:
 
 ```bash
 runs/ctrl_boxhead_ft10_20260709_launcher.log
 ```
 
 It waits for the 4-epoch box-head control outputs before starting, then runs
-seeds 42, 2024, and 999.
+seeds 42, 2024, and 999. This is now the next key comparison against
+`rlvr_random_fulltrain_10ep`.
