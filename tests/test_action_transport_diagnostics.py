@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from spectral_detection_posttrain.eval.action_transport_diagnostics import (
     box_only_actions,
+    oracle_accept_improving_box_actions,
     permute_box_actions_within_images,
     proposal_transition_tensors,
     summarize_proposal_transitions,
@@ -140,3 +142,48 @@ def test_transition_summary_reports_promotion_from_below_threshold() -> None:
     assert summary["all"]["promoted_75"] == 1
     assert summary["all"]["post_iou_mean"] == 1.0
     assert summary["iou_0.5_0.75"]["count"] == 1
+
+
+def test_oracle_acceptance_keeps_only_class_correct_iou_improvements() -> None:
+    boxes = torch.tensor(
+        [
+            [0.0, 0.0, 10.0, 10.0],
+            [0.0, 0.0, 10.0, 10.0],
+            [0.0, 0.0, 10.0, 10.0],
+        ]
+    )
+    state = ROIActionState(
+        features=torch.zeros((3, 2)),
+        boxes=boxes,
+        scores=torch.ones(3),
+        labels=torch.tensor([1, 1, 2]),
+        image_indices=torch.zeros(3, dtype=torch.long),
+        proposal_indices=torch.arange(3),
+        matched_gt_indices=torch.arange(3),
+    )
+    actions = _actions(
+        torch.tensor(
+            [
+                [0.1, 0.0, 0.0, 0.0],
+                [-0.1, 0.0, 0.0, 0.0],
+                [0.1, 0.0, 0.0, 0.0],
+            ]
+        )
+    )
+
+    accepted = oracle_accept_improving_box_actions(
+        state,
+        actions,
+        matched_gt_boxes=torch.tensor(
+            [
+                [1.0, 0.0, 11.0, 10.0],
+                [1.0, 0.0, 11.0, 10.0],
+                [1.0, 0.0, 11.0, 10.0],
+            ]
+        ),
+        matched_gt_labels=torch.tensor([1, 1, 1]),
+        image_sizes=[(20, 20)],
+    )
+
+    assert accepted.box_delta[0, 0].item() == pytest.approx(0.1)
+    assert accepted.box_delta[1:].count_nonzero().item() == 0

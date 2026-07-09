@@ -56,6 +56,43 @@ def permute_box_actions_within_images(
     )
 
 
+def oracle_accept_improving_box_actions(
+    state: ROIActionState,
+    actions: ROITransportActions,
+    *,
+    matched_gt_boxes: torch.Tensor,
+    matched_gt_labels: torch.Tensor,
+    image_sizes: list[tuple[int, int]],
+    min_iou_gain: float = 0.0,
+) -> ROITransportActions:
+    """Diagnostic upper bound that keeps an action only when true IoU improves."""
+
+    if min_iou_gain < 0.0:
+        raise ValueError("min_iou_gain must be non-negative")
+    if state.matched_gt_indices is None:
+        raise ValueError("state must include matched_gt_indices")
+    post_boxes = _apply_box_actions_by_image(
+        state.boxes,
+        actions.box_delta,
+        state.image_indices,
+        image_sizes,
+    )
+    base_iou = _elementwise_iou(state.boxes, matched_gt_boxes)
+    post_iou = _elementwise_iou(post_boxes, matched_gt_boxes)
+    accept = (
+        state.matched_gt_indices.ge(0)
+        & state.labels.eq(matched_gt_labels)
+        & ((post_iou - base_iou) > float(min_iou_gain))
+    )
+    delta = torch.where(accept[:, None], actions.box_delta, torch.zeros_like(actions.box_delta))
+    return ROITransportActions(
+        feature_delta=torch.zeros_like(actions.feature_delta),
+        score_delta=torch.zeros_like(actions.score_delta),
+        box_delta=delta,
+        keep_logit=torch.zeros_like(actions.keep_logit),
+    )
+
+
 def proposal_transition_tensors(
     state: ROIActionState,
     *,
@@ -76,15 +113,12 @@ def proposal_transition_tensors(
     if state.matched_gt_indices is None:
         raise ValueError("state must include matched_gt_indices")
 
-    post_boxes = state.boxes.clone()
-    for image_idx, image_size in enumerate(image_sizes):
-        mask = state.image_indices == image_idx
-        if mask.any():
-            post_boxes[mask] = apply_box_delta(
-                state.boxes[mask],
-                box_delta[mask],
-                image_size=image_size,
-            )
+    post_boxes = _apply_box_actions_by_image(
+        state.boxes,
+        box_delta,
+        state.image_indices,
+        image_sizes,
+    )
 
     matched = state.matched_gt_indices >= 0
     base_iou = _elementwise_iou(state.boxes, matched_gt_boxes)
@@ -254,6 +288,24 @@ def _elementwise_iou(boxes: torch.Tensor, targets: torch.Tensor) -> torch.Tensor
     target_area = (targets[:, 2:] - targets[:, :2]).clamp_min(0.0).prod(dim=1)
     union = box_area + target_area - intersection
     return intersection / union.clamp_min(1e-8)
+
+
+def _apply_box_actions_by_image(
+    boxes: torch.Tensor,
+    box_delta: torch.Tensor,
+    image_indices: torch.Tensor,
+    image_sizes: list[tuple[int, int]],
+) -> torch.Tensor:
+    post_boxes = boxes.clone()
+    for image_idx, image_size in enumerate(image_sizes):
+        mask = image_indices == image_idx
+        if mask.any():
+            post_boxes[mask] = apply_box_delta(
+                boxes[mask],
+                box_delta[mask],
+                image_size=image_size,
+            )
+    return post_boxes
 
 
 def _normalized_geometry_error(

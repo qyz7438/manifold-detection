@@ -17,6 +17,7 @@ from spectral_detection_posttrain.datasets import build_detection_loaders
 from spectral_detection_posttrain.eval.action_transport_diagnostics import (
     box_only_actions,
     concatenate_transition_batches,
+    oracle_accept_improving_box_actions,
     permute_box_actions_within_images,
     proposal_transition_tensors,
     summarize_proposal_transitions,
@@ -197,9 +198,17 @@ def _mode_actions(
     modes: dict[str, ROITransportActions] = {}
     for scale in scales:
         suffix = _scale_name(scale)
-        modes[f"learned_s{suffix}"] = box_only_actions(learned, scale=scale)
+        scaled = box_only_actions(learned, scale=scale)
+        modes[f"learned_s{suffix}"] = scaled
         if scale > 0.0:
             modes[f"permuted_s{suffix}"] = box_only_actions(permuted, scale=scale)
+            modes[f"oracle_accept_s{suffix}"] = oracle_accept_improving_box_actions(
+                batch.state,
+                scaled,
+                matched_gt_boxes=batch.matched_gt_boxes,
+                matched_gt_labels=batch.matched_gt_labels,
+                image_sizes=batch.image_sizes,
+            )
     modes["oracle_local"] = oracle_box_actions(
         batch,
         max_box_delta=max_box_delta,
@@ -378,6 +387,7 @@ def summarize_direction_decision(
         suffix = _scale_name(scale)
         learned = float(modes[f"learned_s{suffix}"]["metrics"]["ap75"])
         permuted = float(modes[f"permuted_s{suffix}"]["metrics"]["ap75"])
+        oracle_accept = float(modes[f"oracle_accept_s{suffix}"]["metrics"]["ap75"])
         candidates.append(
             {
                 "scale": float(scale),
@@ -385,10 +395,16 @@ def summarize_direction_decision(
                 "permuted_ap75": permuted,
                 "gain_vs_zero": learned - zero_ap75,
                 "alignment_gap": learned - permuted,
+                "oracle_accept_ap75": oracle_accept,
+                "oracle_accept_headroom": oracle_accept - zero_ap75,
             }
         )
     best = max(candidates, key=lambda row: float(row["learned_ap75"]))
     best_gap = max(candidates, key=lambda row: float(row["alignment_gap"]))
+    best_oracle_accept = max(
+        candidates,
+        key=lambda row: float(row["oracle_accept_ap75"]),
+    )
     oracle_mid = float(modes["oracle_mid_preserve"]["metrics"]["ap75"])
     has_signal = any(
         float(row["gain_vs_zero"]) >= 0.003
@@ -406,6 +422,10 @@ def summarize_direction_decision(
         "scale_rows": candidates,
         "best_learned_scale": best,
         "best_alignment_gap": best_gap,
+        "best_oracle_accept": best_oracle_accept,
+        "benefit_gate_has_upper_bound": bool(
+            float(best_oracle_accept["oracle_accept_headroom"]) >= 0.005
+        ),
         "oracle_mid_ap75": oracle_mid,
         "oracle_mid_headroom": oracle_mid - zero_ap75,
         "directional_signal": has_signal,

@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="/home/ps/lzz/manifold-detection-energy-transport"
 PYTHON="/home/ps/anaconda3/envs/RLimage/bin/python"
-RUN_NAME="diag_action_direction_strong_s42_fullval"
+RUN_NAME="diag_action_direction_gatebound_strong_s42_fullval"
 RESULT="${ROOT}/runs/${RUN_NAME}/diagnostics.json"
 
 cd "${ROOT}"

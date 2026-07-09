@@ -41,8 +41,10 @@ def test_direction_decision_requires_gain_and_same_scale_shuffle_gap() -> None:
         "learned_s0": _mode(0.30),
         "learned_s0p1": _mode(0.304),
         "permuted_s0p1": _mode(0.303),
+        "oracle_accept_s0p1": _mode(0.31),
         "learned_s1": _mode(0.29),
         "permuted_s1": _mode(0.28),
+        "oracle_accept_s1": _mode(0.32),
         "oracle_mid_preserve": _mode(0.35),
     }
 
@@ -50,6 +52,7 @@ def test_direction_decision_requires_gain_and_same_scale_shuffle_gap() -> None:
 
     assert result["directional_signal"] is False
     assert result["oracle_mid_headroom"] == pytest.approx(0.05)
+    assert result["benefit_gate_has_upper_bound"] is True
 
 
 def test_direction_decision_accepts_aligned_small_step() -> None:
@@ -58,8 +61,10 @@ def test_direction_decision_accepts_aligned_small_step() -> None:
         "learned_s0": _mode(0.30),
         "learned_s0p1": _mode(0.306),
         "permuted_s0p1": _mode(0.301),
+        "oracle_accept_s0p1": _mode(0.312),
         "learned_s1": _mode(0.27),
         "permuted_s1": _mode(0.26),
+        "oracle_accept_s1": _mode(0.315),
         "oracle_mid_preserve": _mode(0.34),
     }
 
