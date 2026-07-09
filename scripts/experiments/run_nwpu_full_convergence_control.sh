@@ -44,14 +44,19 @@ run_one() {
   local seed="$1"
   local checkpoint="${SOURCE_RUN_ROOT}/nwpu_mob_baseline_s${seed}_12ep/checkpoint_best.pth"
   local run_name="ctrl_full_ft18_from12best_fullnw0_nwpu_s${seed}_bs${BATCH_SIZE}_ep${EPOCHS}"
+  local metrics_path="runs/${run_name}/eval_metrics.json"
 
   if [[ ! -f "${checkpoint}" ]]; then
     echo "Missing source checkpoint: ${checkpoint}" >&2
     exit 3
   fi
-  if [[ -f "runs/${run_name}/eval_metrics.json" ]]; then
-    echo "$(date -Is) ${run_name} already complete; skipping"
-    return 0
+  if [[ -f "${metrics_path}" ]]; then
+    if grep -q '"completed": true' "${metrics_path}"; then
+      echo "$(date -Is) ${run_name} already complete; skipping"
+      return 0
+    fi
+    echo "Incomplete or failed run requires review: ${metrics_path}" >&2
+    exit 4
   fi
 
   wait_for_gpu_memory

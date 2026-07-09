@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 from scripts import round28_train_eval
@@ -75,3 +76,37 @@ def test_convergence_launcher_is_gpu2_and_memory_gated() -> None:
     assert '"${free_mb}" -gt "${MIN_FREE_MB}"' in launcher
     assert "pgrep" not in launcher
     assert '--selection-metric ap75' in launcher
+    assert 'grep -q \'"completed": true\'' in launcher
+
+
+def test_format_metric_handles_missing_ece() -> None:
+    assert hasattr(round28_train_eval, "_format_metric")
+
+    assert round28_train_eval._format_metric(None) == "NA"
+    assert round28_train_eval._format_metric(0.01234) == "0.0123"
+
+
+def test_save_epoch_history_writes_incomplete_progress(tmp_path: Path) -> None:
+    assert hasattr(round28_train_eval, "_save_epoch_history")
+    history = [{"epoch": 1, "val_ap75": 0.31}]
+
+    round28_train_eval._save_epoch_history(tmp_path, "run-a", history)
+
+    payload = json.loads((tmp_path / "metrics_history.json").read_text(encoding="utf-8"))
+    assert payload == {"run_name": "run-a", "completed": False, "history": history}
+
+
+def test_data_split_manifest_is_order_stable() -> None:
+    assert hasattr(round28_train_eval, "_data_split_manifest")
+
+    class Dataset:
+        img_ids = [3, 1, 2]
+
+    class Loader:
+        dataset = Dataset()
+
+    manifest = round28_train_eval._data_split_manifest(Loader(), Loader())
+    expected_hash = hashlib.sha256(b"[1,2,3]").hexdigest()
+
+    assert manifest["train"] == {"count": 3, "image_ids_sha256": expected_hash}
+    assert manifest["val"] == {"count": 3, "image_ids_sha256": expected_hash}

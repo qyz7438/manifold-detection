@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import sys
 from pathlib import Path
 
@@ -49,6 +51,33 @@ def _selection_value(metrics: dict, selection_metric: str) -> float:
 def _checkpoint_provenance(path: str | Path) -> dict[str, str]:
     resolved = Path(path).resolve()
     return {"path": str(resolved), "sha256": sha256_file(resolved)}
+
+
+def _format_metric(value: float | int | None) -> str:
+    return "NA" if value is None else f"{float(value):.4f}"
+
+
+def _save_epoch_history(run_dir: Path, run_name: str, history: list[dict]) -> None:
+    save_json(
+        {"run_name": run_name, "completed": False, "history": history},
+        run_dir / "metrics_history.json",
+    )
+
+
+def _data_split_manifest(train_loader, val_loader) -> dict[str, dict[str, int | str]]:
+    def summarize(loader) -> dict[str, int | str]:
+        dataset = loader.dataset
+        image_ids = getattr(dataset, "img_ids", None)
+        if image_ids is None:
+            return {"count": len(dataset)}
+        normalized = sorted(int(image_id) for image_id in image_ids)
+        encoded = json.dumps(normalized, separators=(",", ":")).encode("ascii")
+        return {
+            "count": len(normalized),
+            "image_ids_sha256": hashlib.sha256(encoded).hexdigest(),
+        }
+
+    return {"train": summarize(train_loader), "val": summarize(val_loader)}
 
 
 def _to_device(targets: list[dict], device: torch.device) -> list[dict]:
@@ -341,6 +370,9 @@ def main() -> None:
         config["model"]["num_classes"] = 11
         config["model"]["min_size"] = 480
         config["model"]["max_size"] = 480
+        annotation_path = Path(config["data"]["annotation"])
+        if annotation_path.exists():
+            config["data"]["annotation_sha256"] = sha256_file(annotation_path)
 
     if args.min_size is not None:
         config["data"]["min_size"] = args.min_size
@@ -373,6 +405,8 @@ def main() -> None:
         train_loader, val_loader = build_coco_detection_loaders(config, limit_train=args.limit_train, limit_val=args.limit_val)
     else:
         train_loader, val_loader = build_penn_fudan_loaders(config, limit_train=args.limit_train, limit_val=args.limit_val)
+    config["data_split_manifest"] = _data_split_manifest(train_loader, val_loader)
+    save_json(config, run_dir / "config.json")
     model = build_detector(config).to(device)
 
     if args.checkpoint:
@@ -402,6 +436,7 @@ def main() -> None:
                         "data_seed": config["data_seed"],
                         "selection_metric": args.selection_metric,
                         "source_checkpoint": config.get("source_checkpoint"),
+                        "completed": True,
                         "history": []})
         save_json(metrics, run_dir / "eval_metrics.json")
         print(metrics)
@@ -462,6 +497,7 @@ def main() -> None:
                     "best_ap50": -1.0,
                     "num_predictions": 0,
                     "ece": 0.0,
+                    "completed": False,
                     "history": history,
                 }
                 save_json(failed_metrics, run_dir / "eval_metrics.json")
@@ -495,11 +531,15 @@ def main() -> None:
             **spectral_stats,
         }
         history.append(row)
+        _save_epoch_history(run_dir, args.run_name, history)
         print(
             f"  epoch {epoch}: loss={avg_loss:.4f} "
-            f"AP50={ep_metrics['ap50']:.4f} AP75={ep_metrics['ap75']:.4f} "
-            f"precision={ep_metrics['precision']:.4f} recall={ep_metrics['recall']:.4f} "
-            f"FPR={ep_metrics['false_positive_rate']:.4f} ECE={ep_metrics['ece']:.4f} "
+            f"AP50={_format_metric(ep_metrics['ap50'])} "
+            f"AP75={_format_metric(ep_metrics['ap75'])} "
+            f"precision={_format_metric(ep_metrics['precision'])} "
+            f"recall={_format_metric(ep_metrics['recall'])} "
+            f"FPR={_format_metric(ep_metrics['false_positive_rate'])} "
+            f"ECE={_format_metric(ep_metrics['ece'])} "
             f"preds={ep_metrics['num_predictions']}"
         )
 
@@ -532,6 +572,7 @@ def main() -> None:
                     "best_selection_value": best_selection_value,
                     "best_epoch": best_epoch,
                     "source_checkpoint": config.get("source_checkpoint"),
+                    "completed": True,
                     "history": history})
 
     last_ckpt = run_dir / "checkpoint_last.pth"

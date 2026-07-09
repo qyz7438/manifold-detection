@@ -144,7 +144,7 @@ class NWPUVHR10DetectionDataset(Dataset):
 def nwpu_positive_image_ids(root: str | Path, coco_json: str | Path) -> list[int]:
     root_path = Path(root)
     coco = _load_coco(coco_json)
-    return list(
+    return sorted(
         set(
             int(img["id"])
             for img in coco.get("images", [])
