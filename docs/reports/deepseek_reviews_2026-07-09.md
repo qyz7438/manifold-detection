@@ -187,3 +187,47 @@ DeepSeek's summary:
 > The method delivers consistent AP75 improvements under class-aware matching,
 > ruling out agnostic-relaxation confounds; causal attribution against an
 > equal-budget fine-tune control is the next necessary experiment.
+
+## Review 5: boxRLVR/direct box action matrix
+
+Reviewed completed groups:
+
+- `rlvr_zero_ltr256_3ep`
+- `rlvr_random_ltr256_3ep`
+- `rlvr_spectral_ltr256_3ep`
+- `rlvr_spectral_shuffled_ltr256_3ep`
+- `rlvr_random_ltr256_10ep`
+- `direct_zero_ltr256_3ep`
+- `direct_zero_fulltrain_3ep`
+- `direct_zero_fulltrain_10ep`
+- `rlvr_random_fulltrain_3ep`
+
+Key mean AP75 deltas:
+
+- real RLVR contexts: about +0.026 to +0.032
+- shuffled spectral control: about +0.002
+- direct zero fulltrain 10ep: about +0.030
+- supervised `class_aware box+preserve`: about +0.0507
+
+DeepSeek's judgment:
+
+- RLVR has weak but real signal, because real contexts outperform the shuffled
+  spectral control.
+- The signal is not clearly RLVR-specific; it mostly comes from the IoU reward
+  structure.
+- Spectral context does not add value over random or zero context and should not
+  remain in the active method path.
+- Direct box action and RLVR appear to converge toward a similar +0.03 AP75
+  ceiling, still below supervised `box+preserve`.
+- The equal-budget standard `box_head_only` fine-tune control remains the next
+  required causal experiment.
+
+If RLVR is revisited later, DeepSeek recommended:
+
+1. an offline reward-landscape scan around proposals
+2. enabling score actions, such as `score_scale=0.05`
+3. adding a small move penalty, such as `move_penalty=0.01`
+
+Do not run another broad RLVR matrix before the box-head control clarifies
+whether the supervised action-local gain is more than standard fine-tuning
+capacity.
