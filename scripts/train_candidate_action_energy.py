@@ -44,6 +44,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-name", required=True)
     parser.add_argument("--detector-checkpoint", required=True)
+    parser.add_argument("--energy-checkpoint", default=None)
+    parser.add_argument("--eval-only", action="store_true", default=False)
     parser.add_argument("--model-name", default="fasterrcnn_mobilenet_v3_large_320_fpn")
     parser.add_argument("--nwpu-root", default="./data/NWPU VHR-10 dataset")
     parser.add_argument("--nwpu-annotation", default="./data/NWPU_VHR10_coco.json")
@@ -127,6 +129,7 @@ def candidate_energies(
     candidates: torch.Tensor,
     *,
     rows: torch.Tensor | None = None,
+    feature_values: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if state.logits is None:
         raise ValueError("candidate energy requires class logits")
@@ -138,7 +141,10 @@ def candidate_energies(
     if count == 0:
         return state.features.new_empty((0, candidate_count))
     candidate_values = candidates.to(device=state.features.device, dtype=state.features.dtype)
-    features = state.features[rows][:, None, :].expand(count, candidate_count, -1).reshape(
+    selected_features = state.features[rows] if feature_values is None else feature_values
+    if selected_features.shape != (count, state.features.shape[1]):
+        raise ValueError("feature_values must contain one feature row per selected proposal")
+    features = selected_features[:, None, :].expand(count, candidate_count, -1).reshape(
         count * candidate_count, -1
     )
     logits = state.logits[rows][:, None, :].expand(count, candidate_count, -1).reshape(
@@ -155,12 +161,21 @@ def full_candidate_energies(
     state,
     candidates: torch.Tensor,
     eligible: torch.Tensor,
+    *,
+    feature_values: torch.Tensor | None = None,
 ) -> torch.Tensor:
     energies = state.scores.new_full((state.batch_size, candidates.shape[0]), 1.0)
     energies[:, 0] = 0.0
     rows = torch.nonzero(eligible, as_tuple=False).flatten()
     if rows.numel() > 0:
-        energies[rows] = candidate_energies(head, state, candidates, rows=rows)
+        selected_features = None if feature_values is None else feature_values[rows]
+        energies[rows] = candidate_energies(
+            head,
+            state,
+            candidates,
+            rows=rows,
+            feature_values=selected_features,
+        )
     return energies
 
 
@@ -246,14 +261,27 @@ def evaluate_candidate_energy(
 ) -> dict[str, Any]:
     model.eval()
     energy_head.eval()
-    predictions = {name: [] for name in ("identity", "learned", "shuffled_energy", "oracle_budget", "oracle_unlimited")}
+    predictions = {
+        name: []
+        for name in (
+            "identity",
+            "learned",
+            "shuffled_energy",
+            "shuffled_roi_feature",
+            "oracle_budget",
+            "oracle_unlimited",
+        )
+    }
     targets_out: list[dict[str, torch.Tensor]] = []
     selected_rows: list[torch.Tensor] = []
+    raw_selected_rows: list[torch.Tensor] = []
     target_rows: list[torch.Tensor] = []
     eligible_rows: list[torch.Tensor] = []
     oracle_gain_rows: list[torch.Tensor] = []
     realized_gain_rows: list[torch.Tensor] = []
     selected_energy_drop_rows: list[torch.Tensor] = []
+    raw_energy_drop_rows: list[torch.Tensor] = []
+    shuffled_feature_rows: list[torch.Tensor] = []
     transition_batches: list[dict[str, torch.Tensor]] = []
     generator = torch.Generator(device="cpu").manual_seed(int(shuffle_seed))
 
@@ -280,6 +308,8 @@ def evaluate_candidate_energy(
             require_foreground=require_foreground,
         )
         energies = full_candidate_energies(energy_head, batch.state, candidates, eligible)
+        raw_energy_drop_rows.append((energies[:, 0] - energies.min(dim=1).values).detach().cpu())
+        raw_selected_rows.append(energies.argmin(dim=1).detach().cpu())
         learned, selected, _ = select_min_energy_box_actions(
             batch.state,
             candidates,
@@ -299,6 +329,27 @@ def evaluate_candidate_energy(
             batch.state,
             candidates,
             shuffled,
+            min_energy_drop=min_energy_drop,
+            min_score=min_score,
+            require_foreground_dominant=require_foreground,
+            max_actions_per_image=max_actions_per_image,
+        )
+        shuffled_features, shuffled_feature_mask = _permute_roi_features_within_context(
+            batch.state,
+            eligible,
+            generator=generator,
+        )
+        shuffled_feature_energies = full_candidate_energies(
+            energy_head,
+            batch.state,
+            candidates,
+            eligible,
+            feature_values=shuffled_features,
+        )
+        shuffled_feature_actions, _, _ = select_min_energy_box_actions(
+            batch.state,
+            candidates,
+            shuffled_feature_energies,
             min_energy_drop=min_energy_drop,
             min_score=min_score,
             require_foreground_dominant=require_foreground,
@@ -333,6 +384,7 @@ def evaluate_candidate_energy(
             "identity": identity,
             "learned": learned,
             "shuffled_energy": shuffled_actions,
+            "shuffled_roi_feature": shuffled_feature_actions,
             "oracle_budget": oracle_budget,
             "oracle_unlimited": oracle_unlimited,
         }
@@ -358,6 +410,7 @@ def evaluate_candidate_energy(
             )
         )
         selected_rows.append(selected.detach().cpu())
+        shuffled_feature_rows.append(shuffled_feature_mask.detach().cpu())
         target_rows.append(target.target_indices.detach().cpu())
         eligible_rows.append(eligible.detach().cpu())
         oracle_gain_rows.append(target.oracle_gain.detach().cpu())
@@ -381,12 +434,16 @@ def evaluate_candidate_energy(
         "per_size": True,
     }
     selected = torch.cat(selected_rows)
+    raw_selected = torch.cat(raw_selected_rows)
     target_indices = torch.cat(target_rows)
     eligible = torch.cat(eligible_rows).bool()
     oracle_gain = torch.cat(oracle_gain_rows)
     realized_gain = torch.cat(realized_gain_rows)
     selected_energy_drop = torch.cat(selected_energy_drop_rows)
+    raw_energy_drop = torch.cat(raw_energy_drop_rows)
+    shuffled_feature_mask = torch.cat(shuffled_feature_rows).bool()
     predicted_move = selected.ne(0) & eligible
+    raw_predicted_move = raw_selected.ne(0) & eligible
     oracle_move = target_indices.ne(0) & eligible
     correct_action = selected.eq(target_indices) & eligible
     beneficial_move = predicted_move & realized_gain.gt(0.0)
@@ -400,6 +457,15 @@ def evaluate_candidate_energy(
             "eligible": int(eligible.sum().item()),
             "predicted_moves": int(predicted_move.sum().item()),
             "oracle_moves": int(oracle_move.sum().item()),
+            "energy_argmin_moves": int(raw_predicted_move.sum().item()),
+            "energy_top1_accuracy_eligible": float(
+                (raw_selected[eligible] == target_indices[eligible]).float().mean().item()
+            ),
+            "energy_top1_accuracy_oracle_moves": float(
+                (raw_selected[oracle_move] == target_indices[oracle_move]).float().mean().item()
+            )
+            if oracle_move.any()
+            else None,
             "top1_accuracy_eligible": float((selected[eligible] == target_indices[eligible]).float().mean().item()),
             "top1_accuracy_oracle_moves": float(correct_action[oracle_move].float().mean().item())
             if oracle_move.any()
@@ -423,12 +489,49 @@ def evaluate_candidate_energy(
             "energy_drop_mean": float(selected_energy_drop[predicted_move].mean().item())
             if predicted_move.any()
             else None,
+            "raw_positive_energy_drop_rate": float(raw_energy_drop[eligible].gt(0.0).float().mean().item()),
+            "raw_energy_drop_quantiles": _quantiles(raw_energy_drop[eligible]),
+            "roi_feature_shuffle_rows": int(shuffled_feature_mask.sum().item()),
+            "roi_feature_shuffle_rate_eligible": float(
+                shuffled_feature_mask[eligible].float().mean().item()
+            ),
         },
         "learned_transitions": summarize_proposal_transitions(
             concatenate_transition_batches(transition_batches),
             threshold=0.75,
         ),
     }
+
+
+def _permute_roi_features_within_context(
+    state,
+    eligible: torch.Tensor,
+    *,
+    generator: torch.Generator,
+    score_bins: int = 5,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    if eligible.shape != state.scores.shape:
+        raise ValueError("eligible must contain one value per proposal")
+    if score_bins <= 0:
+        raise ValueError("score_bins must be positive")
+    output = state.features.clone()
+    changed = torch.zeros_like(eligible)
+    bins = (state.scores.clamp(0.0, 1.0) * score_bins).long().clamp(max=score_bins - 1)
+    labels = torch.unique(state.labels[eligible].detach().cpu(), sorted=True).tolist()
+    for label in labels:
+        for score_bin in range(score_bins):
+            rows = torch.nonzero(
+                eligible & state.labels.eq(int(label)) & bins.eq(score_bin),
+                as_tuple=False,
+            ).flatten()
+            if rows.numel() <= 1:
+                continue
+            order = torch.randperm(int(rows.numel()), generator=generator, device="cpu").to(rows.device)
+            ordered_rows = rows[order]
+            source_rows = torch.roll(ordered_rows, shifts=1)
+            output[ordered_rows] = state.features[source_rows]
+            changed[ordered_rows] = True
+    return output, changed
 
 
 def _permute_energy_rows(
@@ -453,6 +556,21 @@ def _permute_energy_rows(
     return output
 
 
+def _quantiles(values: torch.Tensor) -> dict[str, float]:
+    if values.numel() == 0:
+        return {}
+    probabilities = torch.tensor(
+        [0.0, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1.0],
+        dtype=values.dtype,
+        device=values.device,
+    )
+    quantiles = torch.quantile(values.float(), probabilities.float())
+    return {
+        name: float(value.item())
+        for name, value in zip(("q0", "q25", "q50", "q75", "q90", "q95", "q99", "q100"), quantiles)
+    }
+
+
 def _to_device(targets: list[dict[str, Any]], device: torch.device) -> list[dict[str, Any]]:
     return [
         {key: value.to(device) if torch.is_tensor(value) else value for key, value in target.items()}
@@ -462,6 +580,8 @@ def _to_device(targets: list[dict[str, Any]], device: torch.device) -> list[dict
 
 def main() -> None:
     args = parse_args()
+    if args.eval_only and not args.energy_checkpoint:
+        raise ValueError("--eval-only requires --energy-checkpoint")
     set_seed(int(args.seed))
     git_state = get_git_state()
     if args.require_clean_git and git_state["dirty"]:
@@ -489,6 +609,14 @@ def main() -> None:
         num_classes=11,
         hidden_dim=int(args.hidden_dim),
     ).to(device)
+    energy_checkpoint = None
+    if args.energy_checkpoint:
+        energy_path = Path(args.energy_checkpoint).resolve()
+        load_checkpoint(energy_head, energy_path, device)
+        energy_checkpoint = {
+            "path": str(energy_path),
+            "sha256": sha256_file(energy_path),
+        }
     loss_config = CandidateEnergyLossConfig(
         temperature=float(args.temperature),
         energy_weight=float(args.energy_weight),
@@ -523,11 +651,27 @@ def main() -> None:
         "run_name": args.run_name,
         "config": {**config, "git_state": git_state, "args": vars(args)},
         "detector_checkpoint": {"path": str(detector_path), "sha256": detector_hash},
+        "energy_checkpoint": energy_checkpoint,
         "candidates": candidates.detach().cpu().tolist(),
         "candidate_count": int(candidates.shape[0]),
         "loss_config": loss_config.__dict__,
+        "oracle_interpretation": (
+            "greedy per-proposal GT policy under the action budget; "
+            "not a global AP upper bound"
+        ),
         "initial": initial,
     }
+    if args.eval_only:
+        result = {
+            **base_result,
+            "completed": True,
+            "status": "eval_only",
+            "oracle_ap75": oracle_ap75,
+            "history": [],
+        }
+        save_json(result, run_dir / "eval_metrics.json")
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
     if oracle_ap75 < float(args.min_oracle_ap75):
         result = {
             **base_result,

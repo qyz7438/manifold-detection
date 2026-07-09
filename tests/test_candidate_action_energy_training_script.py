@@ -77,3 +77,22 @@ def test_energy_shuffle_only_reassigns_eligible_rows_within_each_image() -> None
 
     assert sorted(map(tuple, shuffled[:2].tolist())) == [(1.0, 2.0), (3.0, 4.0)]
     assert torch.equal(shuffled[2:], energies[2:])
+
+
+def test_roi_feature_shuffle_preserves_label_and_score_context_groups() -> None:
+    module = _load_module()
+    state = _state()
+    state.features.copy_(torch.arange(24, dtype=torch.float32).reshape(4, 6))
+
+    shuffled, changed = module._permute_roi_features_within_context(
+        state,
+        torch.ones(4, dtype=torch.bool),
+        generator=torch.Generator().manual_seed(7),
+        score_bins=5,
+    )
+
+    assert changed.tolist() == [True, True, True, True]
+    assert torch.equal(shuffled[0], state.features[1])
+    assert torch.equal(shuffled[1], state.features[0])
+    assert torch.equal(shuffled[2], state.features[3])
+    assert torch.equal(shuffled[3], state.features[2])
