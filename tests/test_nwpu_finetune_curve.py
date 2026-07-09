@@ -30,36 +30,43 @@ def _row(epoch: int, ap50: float, ap75: float) -> dict:
     }
 
 
-def test_detect_saturation_after_three_epochs_without_new_best() -> None:
+def test_detect_saturation_requires_robust_late_plateau() -> None:
     module = _load_module()
-    history = [
-        _row(1, 0.55, 0.25),
-        _row(2, 0.58, 0.30),
-        _row(3, 0.581, 0.302),
-        _row(4, 0.579, 0.299),
-        _row(5, 0.580, 0.301),
-    ]
+    history = []
+    for epoch in range(1, 17):
+        if epoch <= 4:
+            history.append(_row(epoch, 0.54 + 0.01 * epoch, 0.24 + 0.015 * epoch))
+        else:
+            jitter = (epoch % 3 - 1) * 0.0005
+            history.append(_row(epoch, 0.580 + jitter, 0.300 + jitter))
 
     status = module.detect_saturation(history, window=3, ap50_gain=0.003, ap75_gain=0.005)
 
     assert status["saturated"] is True
-    assert status["epochs_checked"] == [3, 4, 5]
+    assert status["status"] == "SATURATED"
+    assert status["epochs_checked"] == list(range(5, 17))
 
 
 def test_detect_saturation_rejects_late_material_gain() -> None:
     module = _load_module()
-    history = [
-        _row(1, 0.55, 0.25),
-        _row(2, 0.56, 0.27),
-        _row(3, 0.561, 0.271),
-        _row(4, 0.562, 0.272),
-        _row(5, 0.570, 0.281),
-    ]
+    history = [_row(epoch, 0.56, 0.28) for epoch in range(1, 16)]
+    history.append(_row(16, 0.57, 0.291))
 
     status = module.detect_saturation(history, window=3, ap50_gain=0.003, ap75_gain=0.005)
 
     assert status["saturated"] is False
+    assert status["status"] == "CONTINUE"
     assert status["latest_material_gain"] is True
+
+
+def test_detect_saturation_never_stops_before_epoch_16() -> None:
+    module = _load_module()
+    history = [_row(epoch, 0.56, 0.28) for epoch in range(1, 10)]
+
+    status = module.detect_saturation(history)
+
+    assert status["saturated"] is False
+    assert status["status"] == "INSUFFICIENT_HISTORY"
 
 
 def test_summarize_curve_reports_best_final_and_source_deltas() -> None:
@@ -74,6 +81,7 @@ def test_summarize_curve_reports_best_final_and_source_deltas() -> None:
     assert summary["epochs_observed"] == 3
     assert summary["best_ap75"]["epoch"] == 2
     assert summary["best_ap75"]["value"] == 0.31
+    assert summary["robust_best_ap75"] == {"epoch": 2, "value": 0.29, "window": 3}
     assert summary["final"]["ap75"] == 0.29
     assert summary["best_final_ap75_gap"] == 0.02
     assert summary["delta_vs_source"]["final_ap75"] == 0.09

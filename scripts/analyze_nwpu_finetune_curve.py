@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 from pathlib import Path
 from typing import Any
 
@@ -82,17 +83,119 @@ def detect_saturation(
         raise ValueError("window must be positive")
     trace = _material_gain_trace(history, ap50_gain=ap50_gain, ap75_gain=ap75_gain)
     recent = trace[-window:]
-    enough_history = len(history) >= window + 1
     latest_material_gain = any(item["material_gain"] for item in recent)
-    return {
-        "saturated": bool(enough_history and not latest_material_gain),
+    min_epochs = 16
+    block_size = 4
+    checked_rows = history[-(block_size * 3):]
+    base = {
         "window": window,
+        "minimum_epochs": min_epochs,
         "ap50_gain_threshold": ap50_gain,
         "ap75_gain_threshold": ap75_gain,
-        "epochs_checked": [item["epoch"] for item in recent],
+        "epochs_checked": [int(row.get("epoch", 0)) for row in checked_rows],
         "latest_material_gain": latest_material_gain,
         "gain_trace": trace,
     }
+    if len(history) < min_epochs:
+        return {
+            **base,
+            "status": "INSUFFICIENT_HISTORY",
+            "saturated": False,
+            "safe_to_expand": False,
+        }
+
+    blocks = [checked_rows[index:index + block_size] for index in range(0, 12, block_size)]
+
+    def block_median(rows: list[dict[str, Any]], key: str) -> float:
+        values = [_metric(row, key) for row in rows]
+        return float(statistics.median(value for value in values if value is not None))
+
+    ap75_medians = [block_median(block, "ap75") for block in blocks]
+    ap50_medians = [block_median(block, "ap50") for block in blocks]
+    ap75_deltas = [ap75_medians[1] - ap75_medians[0], ap75_medians[2] - ap75_medians[1]]
+    ap50_deltas = [ap50_medians[1] - ap50_medians[0], ap50_medians[2] - ap50_medians[1]]
+
+    last_eight = history[-8:]
+    slopes = []
+    for left_index, left in enumerate(last_eight):
+        left_value = _metric(left, "ap75")
+        left_epoch = int(left.get("epoch", left_index + 1))
+        if left_value is None:
+            continue
+        for right in last_eight[left_index + 1:]:
+            right_value = _metric(right, "ap75")
+            right_epoch = int(right.get("epoch", left_epoch + 1))
+            if right_value is not None and right_epoch != left_epoch:
+                slopes.append((right_value - left_value) / (right_epoch - left_epoch))
+    ap75_slope = float(statistics.median(slopes)) if slopes else 0.0
+
+    final_ap75 = sorted(_metric(row, "ap75") for row in blocks[-1])
+    lower = statistics.median(final_ap75[:2])
+    upper = statistics.median(final_ap75[2:])
+    final_ap75_iqr = float(upper - lower)
+
+    plateau = bool(
+        all(delta <= ap75_gain for delta in ap75_deltas)
+        and all(delta <= ap50_gain for delta in ap50_deltas)
+        and abs(ap75_slope) <= 0.001
+        and final_ap75_iqr <= 0.004
+        and not latest_material_gain
+    )
+
+    first_block = blocks[0]
+    final_block = blocks[-1]
+    first_precision = block_median(first_block, "precision")
+    final_precision = block_median(final_block, "precision")
+    first_recall = block_median(first_block, "recall")
+    final_recall = block_median(final_block, "recall")
+    first_ece = block_median(first_block, "ece")
+    final_ece = block_median(final_block, "ece")
+    first_predictions = block_median(first_block, "num_predictions")
+    final_predictions = block_median(final_block, "num_predictions")
+    risks = {
+        "precision_drop": first_precision - final_precision > 0.02,
+        "recall_drop": first_recall - final_recall > 0.02,
+        "ece_increase": final_ece - first_ece > 0.01,
+        "prediction_increase": (
+            final_predictions - first_predictions
+        ) / max(1.0, first_predictions) > 0.05,
+    }
+    has_risk = any(risks.values())
+    status = "CONTINUE"
+    if plateau:
+        status = "SATURATED_WITH_RISK" if has_risk else "SATURATED"
+    return {
+        **base,
+        "status": status,
+        "saturated": plateau,
+        "safe_to_expand": bool(plateau and not has_risk),
+        "ap75_block_medians": ap75_medians,
+        "ap50_block_medians": ap50_medians,
+        "ap75_block_deltas": ap75_deltas,
+        "ap50_block_deltas": ap50_deltas,
+        "ap75_theil_sen_slope_last8": ap75_slope,
+        "final_ap75_iqr": final_ap75_iqr,
+        "risks": risks,
+    }
+
+
+def _robust_best_ap75(history: list[dict[str, Any]], window: int = 3) -> dict[str, Any] | None:
+    if len(history) < window:
+        return None
+    candidates = []
+    offset = window // 2
+    for start in range(0, len(history) - window + 1):
+        rows = history[start:start + window]
+        values = [_metric(row, "ap75") for row in rows]
+        value = float(statistics.median(item for item in values if item is not None))
+        candidates.append(
+            {
+                "epoch": int(rows[offset].get("epoch", start + offset + 1)),
+                "value": value,
+                "window": window,
+            }
+        )
+    return max(candidates, key=lambda item: item["value"])
 
 
 def _decision_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -129,6 +232,7 @@ def summarize_curve(
     final = _decision_row(history[-1])
     best_ap75 = {"epoch": int(best75_row["epoch"]), "value": _metric(best75_row, "ap75")}
     best_ap50 = {"epoch": int(best50_row["epoch"]), "value": _metric(best50_row, "ap50")}
+    robust_best_ap75 = _robust_best_ap75(history)
     baseline = baseline or {}
     return {
         "completed": bool(run.get("completed", False)),
@@ -137,6 +241,7 @@ def summarize_curve(
         "final": final,
         "best_ap75": best_ap75,
         "best_ap50": best_ap50,
+        "robust_best_ap75": robust_best_ap75,
         "best_final_ap75_gap": _rounded_delta(best_ap75["value"], final["ap75"]),
         "delta_vs_source": {
             "final_ap50": _rounded_delta(final["ap50"], baseline.get("ap50")),

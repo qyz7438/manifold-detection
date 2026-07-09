@@ -26,6 +26,7 @@ from spectral_detection_posttrain.trainers.detection.action_local_transport impo
     extract_proposal_action_batch,
     supervised_action_transport_loss,
 )
+from spectral_detection_posttrain.utils.checkpoint_hash import sha256_file
 from spectral_detection_posttrain.utils.git_state import get_git_state
 from spectral_detection_posttrain.utils.io import ensure_run_dir, load_checkpoint, save_checkpoint, save_json
 from spectral_detection_posttrain.utils.seed import resolve_device, set_seed
@@ -40,7 +41,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint", default=None, help="Frozen detector checkpoint")
     parser.add_argument("--epochs", type=int, default=2)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--data-seed", type=int, default=None)
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--require-clean-git", action="store_true", default=False)
     parser.add_argument("--limit-train", type=int, default=None)
     parser.add_argument("--limit-val", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=2)
@@ -89,6 +92,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--per-class", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--per-size", action="store_true", default=False)
     parser.add_argument("--skip-default-eval", action="store_true", default=False)
+    parser.add_argument("--parity-ap-tolerance", type=float, default=0.001)
+    parser.add_argument("--parity-prediction-relative-tolerance", type=float, default=0.005)
     return parser.parse_args()
 
 
@@ -137,6 +142,7 @@ def build_config(args: argparse.Namespace) -> dict[str, Any]:
 
     return {
         "seed": args.seed,
+        "data_seed": args.data_seed if args.data_seed is not None else args.seed,
         "device": "cuda" if args.device == "auto" else args.device,
         "data": data,
         "model": {
@@ -161,6 +167,45 @@ def freeze_detector(model: torch.nn.Module) -> None:
     for param in model.parameters():
         param.requires_grad = False
     model.eval()
+
+
+def summarize_zero_action_parity(
+    default_metrics: dict[str, Any],
+    initial_metrics: dict[str, Any],
+    *,
+    ap_tolerance: float = 0.001,
+    prediction_relative_tolerance: float = 0.005,
+) -> dict[str, Any]:
+    keys = ("ap50", "ap75", "precision", "recall", "false_positive_rate", "ece")
+    deltas = {
+        key: round(float(initial_metrics[key]) - float(default_metrics[key]), 12)
+        for key in keys
+        if isinstance(default_metrics.get(key), (int, float))
+        and isinstance(initial_metrics.get(key), (int, float))
+    }
+    default_predictions = int(default_metrics.get("num_predictions", 0))
+    initial_predictions = int(initial_metrics.get("num_predictions", 0))
+    denominator = max(1, default_predictions)
+    prediction_relative_delta = round(
+        (initial_predictions - default_predictions) / denominator,
+        12,
+    )
+    failed_checks = []
+    for key in ("ap50", "ap75"):
+        if abs(deltas.get(key, float("inf"))) > float(ap_tolerance):
+            failed_checks.append(key)
+    if abs(prediction_relative_delta) > float(prediction_relative_tolerance):
+        failed_checks.append("num_predictions")
+    return {
+        "passed": not failed_checks,
+        "aggregate_only": True,
+        "ap_tolerance": float(ap_tolerance),
+        "prediction_relative_tolerance": float(prediction_relative_tolerance),
+        "deltas": deltas,
+        "prediction_delta": initial_predictions - default_predictions,
+        "prediction_relative_delta": prediction_relative_delta,
+        "failed_checks": failed_checks,
+    }
 
 
 def infer_action_feature_dim(model: torch.nn.Module) -> int:
@@ -314,6 +359,14 @@ def main() -> None:
     device = resolve_device(config)
     run_dir = ensure_run_dir(args.run_name)
     config["git_state"] = get_git_state()
+    if args.require_clean_git and config["git_state"]["dirty"]:
+        raise RuntimeError(
+            f"Git working tree is dirty (commit {config['git_state']['commit']})"
+        )
+    source_checkpoint = None
+    if args.checkpoint:
+        resolved = Path(args.checkpoint).resolve()
+        source_checkpoint = {"path": str(resolved), "sha256": sha256_file(resolved)}
 
     train_loader, val_loader = build_detection_loaders(
         config,
@@ -403,6 +456,14 @@ def main() -> None:
         f"initial: AP50={initial_metrics['ap50']:.4f} "
         f"AP75={initial_metrics['ap75']:.4f}"
     )
+    aggregate_parity = None
+    if default_metrics is not None:
+        aggregate_parity = summarize_zero_action_parity(
+            default_metrics,
+            initial_metrics,
+            ap_tolerance=float(args.parity_ap_tolerance),
+            prediction_relative_tolerance=float(args.parity_prediction_relative_tolerance),
+        )
 
     for epoch in range(1, int(args.epochs) + 1):
         train_loss = train_one_epoch(
@@ -476,6 +537,9 @@ def main() -> None:
         },
         "initial_metrics": initial_metrics,
         "default_metrics": default_metrics,
+        "aggregate_zero_action_parity": aggregate_parity,
+        "source_checkpoint": source_checkpoint,
+        "completed": True,
         "best_ap75": best_ap75,
         "best_epoch": best_snapshot.epoch if best_snapshot is not None else None,
         "history": history,
