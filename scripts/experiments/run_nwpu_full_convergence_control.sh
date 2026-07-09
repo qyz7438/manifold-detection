@@ -12,6 +12,7 @@ NUM_WORKERS="${NUM_WORKERS:-0}"
 LR="${LR:-0.001}"
 MIN_FREE_MB="${MIN_FREE_MB:-8192}"
 POLL_SECONDS="${POLL_SECONDS:-60}"
+RUN_PREFLIGHT="${RUN_PREFLIGHT:-1}"
 
 if [[ "${GPU_ID}" != "2" ]]; then
   echo "This experiment is restricted to GPU2; got GPU_ID=${GPU_ID}." >&2
@@ -43,6 +44,8 @@ wait_for_gpu_memory() {
 run_one() {
   local seed="$1"
   local checkpoint="${SOURCE_RUN_ROOT}/nwpu_mob_baseline_s${seed}_12ep/checkpoint_best.pth"
+  local preflight_name="preflight_full_from12best_fullnw0_nwpu_s${seed}"
+  local preflight_metrics="runs/${preflight_name}/eval_metrics.json"
   local run_name="ctrl_full_ft18_from12best_fullnw0_nwpu_s${seed}_bs${BATCH_SIZE}_ep${EPOCHS}"
   local metrics_path="runs/${run_name}/eval_metrics.json"
 
@@ -50,6 +53,34 @@ run_one() {
     echo "Missing source checkpoint: ${checkpoint}" >&2
     exit 3
   fi
+
+  if [[ "${RUN_PREFLIGHT}" == "1" ]]; then
+    if [[ -f "${preflight_metrics}" ]]; then
+      if ! grep -q '"completed": true' "${preflight_metrics}"; then
+        echo "Incomplete preflight requires review: ${preflight_metrics}" >&2
+        exit 4
+      fi
+      echo "$(date -Is) ${preflight_name} already complete; skipping"
+    else
+      wait_for_gpu_memory
+      echo "$(date -Is) starting ${preflight_name}"
+      "${PYTHON_BIN}" scripts/round28_train_eval.py \
+        --run-name "${preflight_name}" \
+        --dataset nwpu \
+        --model-name fasterrcnn_mobilenet_v3_large_320_fpn \
+        --checkpoint "${checkpoint}" \
+        --trainable-mode full \
+        --selection-metric ap75 \
+        --epochs 0 \
+        --seed "${seed}" \
+        --data-seed "${seed}" \
+        --batch-size "${BATCH_SIZE}" \
+        --num-workers "${NUM_WORKERS}" \
+        --per-size-ap \
+        --require-clean-git
+    fi
+  fi
+
   if [[ -f "${metrics_path}" ]]; then
     if grep -q '"completed": true' "${metrics_path}"; then
       echo "$(date -Is) ${run_name} already complete; skipping"

@@ -77,6 +77,8 @@ def test_convergence_launcher_is_gpu2_and_memory_gated() -> None:
     assert "pgrep" not in launcher
     assert '--selection-metric ap75' in launcher
     assert 'grep -q \'"completed": true\'' in launcher
+    assert 'RUN_PREFLIGHT="${RUN_PREFLIGHT:-1}"' in launcher
+    assert '--epochs 0' in launcher
 
 
 def test_format_metric_handles_missing_ece() -> None:
