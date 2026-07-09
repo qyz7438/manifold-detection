@@ -231,3 +231,39 @@ If RLVR is revisited later, DeepSeek recommended:
 Do not run another broad RLVR matrix before the box-head control clarifies
 whether the supervised action-local gain is more than standard fine-tuning
 capacity.
+
+## Review 6: completed `rlvr_random_fulltrain_10ep`
+
+Reviewed group:
+
+- `remote_boxrlvr_full_ms_random_s42_fulltrain_fullval_10ep`
+- `remote_boxrlvr_full_ms_random_s2024_fulltrain_fullval_10ep`
+- `remote_boxrlvr_full_ms_random_s999_fulltrain_fullval_10ep`
+
+Mean deltas:
+
+- AP50: +0.0063
+- AP75: +0.0350
+- Best AP75: +0.0359
+- Precision: +0.0042
+- Recall: +0.0051
+- False-positive rate: -0.0042
+- Prediction count: -11.3
+- ECE: -0.0031
+- Mean best epoch: 9.0
+
+DeepSeek's updated judgment:
+
+- The completed 10-epoch group confirms RLVR has weak but real positive signal:
+  all three seeds improve AP75.
+- The conclusion does not change: the improvement still looks like localization
+  micro-adjustment rather than detector-level decision improvement.
+- RLVR remains much weaker than supervised `class_aware box+preserve` on
+  precision, false-positive-rate reduction, prediction suppression, and ECE.
+- The next required causal control is still `box_head_only`.
+
+Action taken:
+
+- The existing 4-epoch two-seed `box_head_only` control remains queued.
+- A new 10-epoch three-seed `box_head_only` control is queued after the 4-epoch
+  control, to match the RLVR fulltrain 10-epoch budget.

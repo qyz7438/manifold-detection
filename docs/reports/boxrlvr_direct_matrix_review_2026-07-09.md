@@ -37,10 +37,7 @@ All rows are mean deltas versus the corresponding seed baseline.
 | `direct_zero_fulltrain_3ep` | +0.0017 | +0.0185 | +0.0185 | +0.0008 | +0.0011 | -0.0008 | -1.7 | -0.0005 |
 | `direct_zero_fulltrain_10ep` | +0.0047 | +0.0304 | +0.0308 | +0.0023 | +0.0039 | -0.0023 | -3.0 | -0.0014 |
 | `rlvr_random_fulltrain_3ep` | +0.0059 | +0.0257 | +0.0287 | +0.0032 | +0.0051 | -0.0032 | -4.7 | -0.0021 |
-
-One group remains incomplete and is not used for conclusions:
-
-- `remote_boxrlvr_full_ms_random_s999_fulltrain_fullval_10ep`
+| `rlvr_random_fulltrain_10ep` | +0.0063 | +0.0350 | +0.0359 | +0.0042 | +0.0051 | -0.0042 | -11.3 | -0.0031 |
 
 ## Interpretation
 
@@ -91,3 +88,12 @@ runs/ctrl_boxhead_ft_20260709_launcher.log
 ```
 
 It waits for currently running `round28_train_eval.py` jobs before starting.
+
+A longer 10-epoch, three-seed box-head control is also queued:
+
+```bash
+runs/ctrl_boxhead_ft10_20260709_launcher.log
+```
+
+It waits for the 4-epoch box-head control outputs before starting, then runs
+seeds 42, 2024, and 999.
