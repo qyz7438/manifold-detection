@@ -23,11 +23,13 @@ from spectral_detection_posttrain.eval.detection_metrics import evaluate_detecti
 from spectral_detection_posttrain.methods.energy_transport import (
     ActionBenefitEnergyHead,
     CandidateEnergyLossConfig,
+    CandidateGainLossConfig,
     ROITransportActions,
     SpatialCandidateEnergyHead,
     build_candidate_quality_targets,
     build_symmetric_box_candidates,
     candidate_action_energy_loss,
+    candidate_action_gain_loss,
     select_min_energy_box_actions,
 )
 from spectral_detection_posttrain.models import build_detector
@@ -66,6 +68,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-iou-gain", type=float, default=0.002)
     parser.add_argument("--temperature", type=float, default=0.10)
     parser.add_argument("--energy-weight", type=float, default=0.001)
+    parser.add_argument("--loss-mode", choices=("listwise", "dense_gain"), default="listwise")
+    parser.add_argument("--gain-beta", type=float, default=0.02)
+    parser.add_argument("--gain-impact-boost", type=float, default=10.0)
+    parser.add_argument("--gain-boundary-boost", type=float, default=2.0)
     parser.add_argument("--min-energy-drop", type=float, default=0.0)
     parser.add_argument("--min-score", type=float, default=0.05)
     parser.add_argument("--require-foreground-dominant", action=argparse.BooleanOptionalAction, default=True)
@@ -201,13 +207,14 @@ def train_one_epoch(
     loader,
     optimizer: torch.optim.Optimizer,
     device: torch.device,
-    loss_config: CandidateEnergyLossConfig,
+    loss_config: CandidateEnergyLossConfig | CandidateGainLossConfig,
     *,
     epoch: int,
     min_iou_gain: float,
     min_score: float,
     require_foreground: bool,
     feature_source: str,
+    loss_mode: str,
 ) -> dict[str, float]:
     model.eval()
     energy_head.train()
@@ -247,13 +254,27 @@ def train_one_epoch(
             rows=rows,
             feature_values=feature_values[rows],
         )
-        losses = candidate_action_energy_loss(
-            energies,
-            candidate_quality=target.candidate_quality[rows],
-            target_indices=target.target_indices[rows],
-            scores=batch.state.scores[rows],
-            config=loss_config,
-        )
+        if loss_mode == "listwise":
+            if not isinstance(loss_config, CandidateEnergyLossConfig):
+                raise TypeError("listwise mode requires CandidateEnergyLossConfig")
+            losses = candidate_action_energy_loss(
+                energies,
+                candidate_quality=target.candidate_quality[rows],
+                target_indices=target.target_indices[rows],
+                scores=batch.state.scores[rows],
+                config=loss_config,
+            )
+        elif loss_mode == "dense_gain":
+            if not isinstance(loss_config, CandidateGainLossConfig):
+                raise TypeError("dense_gain mode requires CandidateGainLossConfig")
+            losses = candidate_action_gain_loss(
+                energies,
+                candidate_quality=target.candidate_quality[rows],
+                scores=batch.state.scores[rows],
+                config=loss_config,
+            )
+        else:
+            raise ValueError(f"unsupported loss mode: {loss_mode}")
         optimizer.zero_grad(set_to_none=True)
         losses["loss_total"].backward()
         optimizer.step()
@@ -664,10 +685,19 @@ def main() -> None:
             "path": str(energy_path),
             "sha256": sha256_file(energy_path),
         }
-    loss_config = CandidateEnergyLossConfig(
-        temperature=float(args.temperature),
-        energy_weight=float(args.energy_weight),
-    )
+    if args.loss_mode == "listwise":
+        loss_config: CandidateEnergyLossConfig | CandidateGainLossConfig = CandidateEnergyLossConfig(
+            temperature=float(args.temperature),
+            energy_weight=float(args.energy_weight),
+        )
+    else:
+        loss_config = CandidateGainLossConfig(
+            beta=float(args.gain_beta),
+            energy_weight=float(args.energy_weight),
+            impact_boost=float(args.gain_impact_boost),
+            boundary_boost=float(args.gain_boundary_boost),
+            sign_epsilon=float(args.min_iou_gain),
+        )
     optimizer = torch.optim.AdamW(
         energy_head.parameters(),
         lr=float(args.lr),
@@ -749,6 +779,7 @@ def main() -> None:
             min_score=float(args.min_score),
             require_foreground=bool(args.require_foreground_dominant),
             feature_source=str(args.feature_source),
+            loss_mode=str(args.loss_mode),
         )
         evaluation = evaluate_candidate_energy(
             model,

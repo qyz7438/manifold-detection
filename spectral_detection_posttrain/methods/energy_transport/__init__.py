@@ -24,11 +24,13 @@ from spectral_detection_posttrain.methods.energy_transport.benefit_energy import
 )
 from spectral_detection_posttrain.methods.energy_transport.candidate_energy import (
     CandidateEnergyLossConfig,
+    CandidateGainLossConfig,
     CandidateQualityTargets,
     SpatialCandidateEnergyHead,
     build_candidate_quality_targets,
     build_symmetric_box_candidates,
     candidate_action_energy_loss,
+    candidate_action_gain_loss,
     select_min_energy_box_actions,
 )
 from spectral_detection_posttrain.methods.energy_transport.cone_projection import (
@@ -112,6 +114,7 @@ __all__ = [
     "ConstraintConfig",
     "BenefitEnergyLossConfig",
     "CandidateEnergyLossConfig",
+    "CandidateGainLossConfig",
     "CandidateQualityTargets",
     "SpatialCandidateEnergyHead",
     "GeometricConstraintConfig",
@@ -136,6 +139,7 @@ __all__ = [
     "build_symmetric_box_candidates",
     "capture_high_water_mark_module",
     "candidate_action_energy_loss",
+    "candidate_action_gain_loss",
     "centered_relation_matrix",
     "class_topk_adjacency",
     "classify_error_modes",

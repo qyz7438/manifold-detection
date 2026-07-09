@@ -27,6 +27,26 @@ class CandidateEnergyLossConfig:
 
 
 @dataclass(frozen=True)
+class CandidateGainLossConfig:
+    beta: float = 0.02
+    energy_weight: float = 1e-3
+    impact_boost: float = 10.0
+    boundary_iou: float = 0.75
+    boundary_band: float = 0.15
+    boundary_boost: float = 2.0
+    sign_epsilon: float = 0.002
+
+    def __post_init__(self) -> None:
+        if self.beta <= 0.0 or self.boundary_band <= 0.0:
+            raise ValueError("beta and boundary_band must be positive")
+        if not 0.0 <= self.boundary_iou <= 1.0:
+            raise ValueError("boundary_iou must be in [0, 1]")
+        for name in ("energy_weight", "impact_boost", "boundary_boost", "sign_epsilon"):
+            if getattr(self, name) < 0.0:
+                raise ValueError(f"{name} must be non-negative")
+
+
+@dataclass(frozen=True)
 class CandidateQualityTargets:
     candidate_quality: torch.Tensor
     target_indices: torch.Tensor
@@ -247,6 +267,62 @@ def candidate_action_energy_loss(
         "loss_energy": energy.detach(),
         "oracle_move_rate": target_indices.ne(0).float().mean().detach(),
         "oracle_gain_mean": oracle_gain.mean().detach(),
+    }
+
+
+def candidate_action_gain_loss(
+    energies: torch.Tensor,
+    *,
+    candidate_quality: torch.Tensor,
+    scores: torch.Tensor,
+    config: CandidateGainLossConfig | None = None,
+) -> dict[str, torch.Tensor]:
+    """Fit identity-relative energy gaps to every candidate's true IoU gain."""
+
+    cfg = config or CandidateGainLossConfig()
+    if energies.ndim != 2:
+        raise ValueError("energies must have shape (B, K)")
+    if candidate_quality.shape != energies.shape:
+        raise ValueError("candidate_quality must share energies shape")
+    if scores.shape != (energies.shape[0],):
+        raise ValueError("scores must have shape (B,)")
+
+    predicted_gain = energies[:, :1] - energies
+    target_gain = candidate_quality - candidate_quality[:, :1]
+    per_candidate = F.smooth_l1_loss(
+        predicted_gain,
+        target_gain,
+        reduction="none",
+        beta=float(cfg.beta),
+    )
+    base_iou = candidate_quality[:, 0]
+    boundary = torch.exp(
+        -0.5 * ((base_iou - float(cfg.boundary_iou)) / float(cfg.boundary_band)).pow(2)
+    )
+    sample_weight = (0.5 + scores.detach().clamp(0.0, 1.0)) * (
+        1.0 + float(cfg.boundary_boost) * boundary.detach()
+    )
+    candidate_weight = 1.0 + float(cfg.impact_boost) * target_gain.detach().abs()
+    weights = sample_weight[:, None] * candidate_weight
+    gain_loss = (per_candidate * weights).sum() / weights.sum().clamp_min(1e-8)
+
+    centered_energy = energies - energies.mean(dim=1, keepdim=True)
+    energy = centered_energy.pow(2).mean()
+    total = gain_loss + float(cfg.energy_weight) * energy
+    active = target_gain.detach().abs() > float(cfg.sign_epsilon)
+    if active.any():
+        sign_accuracy = (
+            predicted_gain.detach()[active].sign() == target_gain.detach()[active].sign()
+        ).float().mean()
+    else:
+        sign_accuracy = total.detach().new_tensor(1.0)
+    return {
+        "loss_total": total,
+        "loss_gain": gain_loss.detach(),
+        "loss_energy": energy.detach(),
+        "gain_mae": (predicted_gain.detach() - target_gain.detach()).abs().mean(),
+        "gain_sign_accuracy": sign_accuracy.detach(),
+        "target_gain_abs_mean": target_gain.detach().abs().mean(),
     }
 
 

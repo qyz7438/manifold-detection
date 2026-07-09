@@ -5,11 +5,13 @@ import torch
 
 from spectral_detection_posttrain.methods.energy_transport import (
     CandidateEnergyLossConfig,
+    CandidateGainLossConfig,
     ROIActionState,
     SpatialCandidateEnergyHead,
     build_candidate_quality_targets,
     build_symmetric_box_candidates,
     candidate_action_energy_loss,
+    candidate_action_gain_loss,
     select_min_energy_box_actions,
 )
 
@@ -103,6 +105,37 @@ def test_candidate_loss_prefers_low_energy_on_oracle_index() -> None:
     )
 
     assert aligned["loss_total"].item() < inverted["loss_total"].item()
+
+
+def test_dense_gain_loss_fits_identity_relative_candidate_quality() -> None:
+    quality = torch.tensor([[0.5, 0.7, 0.3], [0.8, 0.75, 0.85]])
+    scores = torch.tensor([0.9, 0.8])
+    target_gain = quality - quality[:, :1]
+    aligned_energy = -target_gain
+
+    aligned = candidate_action_gain_loss(
+        aligned_energy,
+        candidate_quality=quality,
+        scores=scores,
+        config=CandidateGainLossConfig(energy_weight=0.0),
+    )
+    inverted = candidate_action_gain_loss(
+        target_gain,
+        candidate_quality=quality,
+        scores=scores,
+        config=CandidateGainLossConfig(energy_weight=0.0),
+    )
+    shifted = candidate_action_gain_loss(
+        aligned_energy + 7.0,
+        candidate_quality=quality,
+        scores=scores,
+        config=CandidateGainLossConfig(energy_weight=0.0),
+    )
+
+    assert aligned["loss_total"].item() == pytest.approx(0.0, abs=1e-8)
+    assert aligned["loss_total"].item() < inverted["loss_total"].item()
+    assert shifted["loss_total"].item() == pytest.approx(aligned["loss_total"].item(), abs=1e-8)
+    assert aligned["gain_sign_accuracy"].item() == pytest.approx(1.0)
 
 
 def test_spatial_candidate_head_preserves_batch_shape_and_zero_init() -> None:
