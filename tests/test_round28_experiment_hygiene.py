@@ -13,6 +13,12 @@ CONVERGENCE_LAUNCHER = (
     / "experiments"
     / "run_nwpu_full_convergence_control.sh"
 )
+REFINE_LAUNCHER = (
+    Path(__file__).resolve().parents[1]
+    / "scripts"
+    / "experiments"
+    / "run_nwpu_full_refine_stage2_s42.sh"
+)
 
 
 def test_epoch_metric_row_keeps_decision_metrics() -> None:
@@ -112,3 +118,16 @@ def test_data_split_manifest_is_order_stable() -> None:
 
     assert manifest["train"] == {"count": 3, "image_ids_sha256": expected_hash}
     assert manifest["val"] == {"count": 3, "image_ids_sha256": expected_hash}
+
+
+def test_stage2_refine_waits_for_parity_and_uses_lower_lr() -> None:
+    assert REFINE_LAUNCHER.exists()
+    launcher = REFINE_LAUNCHER.read_text(encoding="utf-8")
+
+    assert 'GPU_ID="${GPU_ID:-2}"' in launcher
+    assert 'MIN_FREE_MB="${MIN_FREE_MB:-8192}"' in launcher
+    assert '"${free_mb}" -gt "${MIN_FREE_MB}"' in launcher
+    assert "det_action_zero_parity_fullft18best_s42" in launcher
+    assert "checkpoint_last.pth" in launcher
+    assert 'LR="${LR:-0.0003}"' in launcher
+    assert 'EPOCHS="${EPOCHS:-8}"' in launcher
