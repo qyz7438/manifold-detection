@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn.functional as F
 from torchvision.ops import batched_nms
+from torchvision.ops import boxes as box_ops
 
 from spectral_detection_posttrain.core.matching.box_iou import box_iou
 from spectral_detection_posttrain.methods.energy_transport import (
@@ -32,6 +33,10 @@ class ProposalActionBatch:
     matched_gt_boxes: torch.Tensor
     matched_gt_labels: torch.Tensor
     image_sizes: list[tuple[int, int]]
+    original_image_sizes: list[tuple[int, int]] | None = None
+    proposals: list[torch.Tensor] | None = None
+    class_logits: torch.Tensor | None = None
+    box_regression: torch.Tensor | None = None
 
 
 @dataclass(frozen=True)
@@ -131,6 +136,9 @@ def extract_proposal_action_batch(
     if box_base not in {"decoded", "proposal"}:
         raise ValueError("box_base must be 'decoded' or 'proposal'")
 
+    original_image_sizes = [
+        (int(image.shape[-2]), int(image.shape[-1])) for image in images
+    ]
     transformed, transformed_targets = model.transform(images, targets)
     features = model.backbone(transformed.tensors)
     if isinstance(features, torch.Tensor):
@@ -180,6 +188,10 @@ def extract_proposal_action_batch(
         matched_gt_boxes=matched_boxes,
         matched_gt_labels=matched_labels,
         image_sizes=list(transformed.image_sizes),
+        original_image_sizes=original_image_sizes,
+        proposals=proposals,
+        class_logits=logits,
+        box_regression=box_regression,
     )
 
 
@@ -375,6 +387,91 @@ def supervised_action_transport_loss(
 
 
 @torch.no_grad()
+def postprocess_action_detections(
+    *,
+    box_coder,
+    class_logits: torch.Tensor,
+    box_regression: torch.Tensor,
+    proposals: list[torch.Tensor],
+    image_shapes: list[tuple[int, int]],
+    action_labels: torch.Tensor,
+    actions: ROITransportActions,
+    score_threshold: float,
+    nms_threshold: float,
+    detections_per_img: int,
+) -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:
+    """Apply proposal-local actions before torchvision-equivalent postprocessing."""
+
+    boxes_per_image = [proposal.shape[0] for proposal in proposals]
+    pred_boxes = box_coder.decode(box_regression, proposals).clone()
+    pred_scores = F.softmax(class_logits, dim=-1).clone()
+    total_proposals = int(sum(boxes_per_image))
+    if action_labels.shape != (total_proposals,):
+        raise ValueError("action_labels must contain one label per proposal")
+    if actions.box_delta.shape != (total_proposals, 4):
+        raise ValueError("actions.box_delta must have shape (N, 4)")
+    if actions.score_delta.shape != (total_proposals,):
+        raise ValueError("actions.score_delta must have shape (N,)")
+
+    rows = torch.arange(total_proposals, device=class_logits.device)
+    labels = action_labels.to(device=class_logits.device, dtype=torch.long)
+    labels = labels.clamp(0, class_logits.shape[1] - 1)
+
+    active_boxes = actions.box_delta.abs().amax(dim=1) > 0.0
+    if active_boxes.any():
+        active_rows = rows[active_boxes]
+        active_labels = labels[active_boxes]
+        selected = pred_boxes[active_rows, active_labels]
+        pred_boxes[active_rows, active_labels] = apply_box_delta(
+            selected,
+            actions.box_delta[active_boxes],
+        )
+
+    active_scores = actions.score_delta != 0.0
+    if active_scores.any():
+        active_rows = rows[active_scores]
+        active_labels = labels[active_scores]
+        pred_scores[active_rows, active_labels] = (
+            pred_scores[active_rows, active_labels] + actions.score_delta[active_scores]
+        ).clamp(0.0, 1.0)
+
+    pred_boxes_list = pred_boxes.split(boxes_per_image, 0)
+    pred_scores_list = pred_scores.split(boxes_per_image, 0)
+    all_boxes: list[torch.Tensor] = []
+    all_scores: list[torch.Tensor] = []
+    all_labels: list[torch.Tensor] = []
+    num_classes = class_logits.shape[-1]
+    for boxes, scores, image_shape in zip(pred_boxes_list, pred_scores_list, image_shapes):
+        boxes = box_ops.clip_boxes_to_image(boxes, image_shape)
+        labels_per_image = torch.arange(num_classes, device=class_logits.device)
+        labels_per_image = labels_per_image.view(1, -1).expand_as(scores)
+
+        boxes = boxes[:, 1:].reshape(-1, 4)
+        scores = scores[:, 1:].reshape(-1)
+        labels_per_image = labels_per_image[:, 1:].reshape(-1)
+
+        keep = torch.where(scores > float(score_threshold))[0]
+        boxes = boxes[keep]
+        scores = scores[keep]
+        labels_per_image = labels_per_image[keep]
+        keep = box_ops.remove_small_boxes(boxes, min_size=1e-2)
+        boxes = boxes[keep]
+        scores = scores[keep]
+        labels_per_image = labels_per_image[keep]
+        keep = box_ops.batched_nms(
+            boxes,
+            scores,
+            labels_per_image,
+            float(nms_threshold),
+        )[: int(detections_per_img)]
+        all_boxes.append(boxes[keep])
+        all_scores.append(scores[keep])
+        all_labels.append(labels_per_image[keep])
+
+    return all_boxes, all_scores, all_labels
+
+
+@torch.no_grad()
 def action_batch_to_predictions(
     batch: ProposalActionBatch,
     actions: ROITransportActions | None = None,
@@ -383,6 +480,7 @@ def action_batch_to_predictions(
     score_threshold: float = 0.001,
     nms_threshold: float = 0.50,
     detections_per_img: int = 300,
+    native_model: torch.nn.Module | None = None,
 ) -> list[dict[str, torch.Tensor]]:
     """Convert proposal state and optional actions into detection predictions."""
 
@@ -390,6 +488,41 @@ def action_batch_to_predictions(
     if actions is None:
         actions = _zero_actions(state)
     actions = effective_actions(actions, gate_actions=gate_actions)
+
+    if native_model is not None:
+        if (
+            batch.proposals is None
+            or batch.class_logits is None
+            or batch.box_regression is None
+        ):
+            raise ValueError("native postprocessing requires proposals, logits, and box regression")
+        boxes, scores, labels = postprocess_action_detections(
+            box_coder=native_model.roi_heads.box_coder,
+            class_logits=batch.class_logits,
+            box_regression=batch.box_regression,
+            proposals=batch.proposals,
+            image_shapes=batch.image_sizes,
+            action_labels=state.labels,
+            actions=actions,
+            score_threshold=score_threshold,
+            nms_threshold=nms_threshold,
+            detections_per_img=detections_per_img,
+        )
+        outputs = [
+            {"boxes": box, "scores": score, "labels": label}
+            for box, score, label in zip(boxes, scores, labels)
+        ]
+        original_sizes = batch.original_image_sizes or batch.image_sizes
+        outputs = native_model.transform.postprocess(
+            outputs,
+            batch.image_sizes,
+            original_sizes,
+        )
+        return [
+            {key: value.detach().cpu() for key, value in output.items()}
+            for output in outputs
+        ]
+
     outputs: list[dict[str, torch.Tensor]] = []
 
     for image_idx, image_size in enumerate(batch.image_sizes):

@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from scripts import train_energy_transport_action
 
 
@@ -73,6 +75,7 @@ def test_action_cli_accepts_reproducible_parity_controls(monkeypatch) -> None:
     assert args.require_clean_git is True
     assert args.parity_ap_tolerance == 0.002
     assert args.parity_prediction_relative_tolerance == 0.01
+    assert args.postprocess_mode == "native"
 
 
 def test_parity_launcher_waits_for_c0_and_uses_gpu2_memory_gate() -> None:
@@ -87,3 +90,25 @@ def test_parity_launcher_waits_for_c0_and_uses_gpu2_memory_gate() -> None:
     assert '--epochs 0' in launcher
     assert '--action-score-threshold 0.05' in launcher
     assert '--detections-per-img 100' in launcher
+
+
+def test_strict_output_parity_requires_per_image_identity() -> None:
+    assert hasattr(train_energy_transport_action, "summarize_strict_output_parity")
+    native = [
+        {
+            "boxes": train_energy_transport_action.torch.tensor([[1.0, 2.0, 3.0, 4.0]]),
+            "scores": train_energy_transport_action.torch.tensor([0.8]),
+            "labels": train_energy_transport_action.torch.tensor([2]),
+        }
+    ]
+    equal = [{key: value.clone() for key, value in native[0].items()}]
+    shifted = [{key: value.clone() for key, value in native[0].items()}]
+    shifted[0]["boxes"][0, 0] += 0.01
+
+    passed = train_energy_transport_action.summarize_strict_output_parity(native, equal)
+    failed = train_energy_transport_action.summarize_strict_output_parity(native, shifted)
+
+    assert passed["passed"] is True
+    assert passed["mismatched_images"] == 0
+    assert failed["passed"] is False
+    assert failed["max_box_abs_error"] == pytest.approx(0.01)

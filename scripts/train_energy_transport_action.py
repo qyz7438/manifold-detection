@@ -86,9 +86,15 @@ def parse_args() -> argparse.Namespace:
                         help="Base boxes corrected by action head")
 
     parser.add_argument("--score-threshold", type=float, default=0.05)
-    parser.add_argument("--action-score-threshold", type=float, default=0.001)
+    parser.add_argument("--action-score-threshold", type=float, default=0.05)
     parser.add_argument("--nms-threshold", type=float, default=0.50)
-    parser.add_argument("--detections-per-img", type=int, default=300)
+    parser.add_argument("--detections-per-img", type=int, default=100)
+    parser.add_argument(
+        "--postprocess-mode",
+        default="native",
+        choices=["native", "legacy"],
+        help="Use native full-class Faster R-CNN postprocessing or the historical argmax path",
+    )
     parser.add_argument("--per-class", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--per-size", action="store_true", default=False)
     parser.add_argument("--skip-default-eval", action="store_true", default=False)
@@ -208,6 +214,55 @@ def summarize_zero_action_parity(
     }
 
 
+def summarize_strict_output_parity(
+    native_outputs: list[dict[str, torch.Tensor]],
+    action_outputs: list[dict[str, torch.Tensor]],
+    *,
+    box_atol: float = 1e-4,
+    score_atol: float = 2e-6,
+) -> dict[str, Any]:
+    mismatched_images = abs(len(native_outputs) - len(action_outputs))
+    count_mismatches = 0
+    label_mismatches = 0
+    max_box_error = 0.0
+    max_score_error = 0.0
+    for native, action in zip(native_outputs, action_outputs):
+        native_count = int(native["scores"].numel())
+        action_count = int(action["scores"].numel())
+        image_mismatch = native_count != action_count
+        if image_mismatch:
+            count_mismatches += 1
+        if native["labels"].shape != action["labels"].shape or not torch.equal(
+            native["labels"].cpu(), action["labels"].cpu()
+        ):
+            label_mismatches += 1
+            image_mismatch = True
+        if native["boxes"].shape == action["boxes"].shape and native["boxes"].numel() > 0:
+            error = float((native["boxes"].cpu() - action["boxes"].cpu()).abs().max().item())
+            max_box_error = max(max_box_error, error)
+            image_mismatch = image_mismatch or error > float(box_atol)
+        elif native["boxes"].shape != action["boxes"].shape:
+            image_mismatch = True
+        if native["scores"].shape == action["scores"].shape and native["scores"].numel() > 0:
+            error = float((native["scores"].cpu() - action["scores"].cpu()).abs().max().item())
+            max_score_error = max(max_score_error, error)
+            image_mismatch = image_mismatch or error > float(score_atol)
+        elif native["scores"].shape != action["scores"].shape:
+            image_mismatch = True
+        mismatched_images += int(image_mismatch)
+    return {
+        "passed": mismatched_images == 0,
+        "images": len(native_outputs),
+        "mismatched_images": mismatched_images,
+        "count_mismatches": count_mismatches,
+        "label_mismatches": label_mismatches,
+        "max_box_abs_error": round(max_box_error, 12),
+        "max_score_abs_error": round(max_score_error, 12),
+        "box_atol": float(box_atol),
+        "score_atol": float(score_atol),
+    }
+
+
 def infer_action_feature_dim(model: torch.nn.Module) -> int:
     predictor = model.roi_heads.box_predictor
     cls_score = getattr(predictor, "cls_score", None)
@@ -256,8 +311,11 @@ def evaluate_action_head(
     action_score_threshold: float,
     nms_threshold: float,
     detections_per_img: int,
+    postprocess_mode: str,
     desc: str,
 ) -> dict[str, Any]:
+    if postprocess_mode == "native" and box_base != "decoded":
+        raise ValueError("native postprocessing currently requires --box-base decoded")
     model.eval()
     action_head.eval()
     predictions: list[dict[str, torch.Tensor]] = []
@@ -281,6 +339,7 @@ def evaluate_action_head(
                 score_threshold=action_score_threshold,
                 nms_threshold=nms_threshold,
                 detections_per_img=detections_per_img,
+                native_model=model if postprocess_mode == "native" else None,
             )
         )
         targets_out.extend(
@@ -290,6 +349,68 @@ def evaluate_action_head(
             ]
         )
     return evaluate_detection_predictions(predictions, targets_out, **metric_kwargs)
+
+
+@torch.no_grad()
+def evaluate_strict_zero_action_parity(
+    model: torch.nn.Module,
+    action_head: ActionLocalTransportHead,
+    loader,
+    device: torch.device,
+    loss_config: SupervisedActionLossConfig,
+    *,
+    match_mode: str,
+    box_base: str,
+    action_score_threshold: float,
+    nms_threshold: float,
+    detections_per_img: int,
+) -> dict[str, Any]:
+    model.eval()
+    action_head.eval()
+    native_outputs: list[dict[str, torch.Tensor]] = []
+    action_outputs: list[dict[str, torch.Tensor]] = []
+    max_score_action = 0.0
+    max_box_action = 0.0
+    for images, targets in tqdm(loader, desc="strict zero-action parity"):
+        images_device = [image.to(device) for image in images]
+        native_batch = model(images_device)
+        native_outputs.extend(
+            [{key: value.detach().cpu() for key, value in output.items()} for output in native_batch]
+        )
+        batch = extract_proposal_action_batch(
+            model,
+            images_device,
+            _to_device(targets, device),
+            match_mode=match_mode,
+            box_base=box_base,
+        )
+        actions = action_head(batch.state.features)
+        if actions.score_delta.numel() > 0:
+            max_score_action = max(
+                max_score_action,
+                float(actions.score_delta.abs().max().item()),
+            )
+        if actions.box_delta.numel() > 0:
+            max_box_action = max(
+                max_box_action,
+                float(actions.box_delta.abs().max().item()),
+            )
+        action_outputs.extend(
+            action_batch_to_predictions(
+                batch,
+                actions,
+                gate_actions=loss_config.gate_actions,
+                score_threshold=action_score_threshold,
+                nms_threshold=nms_threshold,
+                detections_per_img=detections_per_img,
+                native_model=model,
+            )
+        )
+    result = summarize_strict_output_parity(native_outputs, action_outputs)
+    result["max_score_action"] = max_score_action
+    result["max_box_action"] = max_box_action
+    result["actions_are_exact_zero"] = max_score_action == 0.0 and max_box_action == 0.0
+    return result
 
 
 def train_one_epoch(
@@ -450,6 +571,7 @@ def main() -> None:
         action_score_threshold=float(args.action_score_threshold),
         nms_threshold=float(args.nms_threshold),
         detections_per_img=int(args.detections_per_img),
+        postprocess_mode=str(args.postprocess_mode),
         desc="initial action eval",
     )
     print(
@@ -463,6 +585,20 @@ def main() -> None:
             initial_metrics,
             ap_tolerance=float(args.parity_ap_tolerance),
             prediction_relative_tolerance=float(args.parity_prediction_relative_tolerance),
+        )
+    strict_parity = None
+    if int(args.epochs) == 0 and args.postprocess_mode == "native":
+        strict_parity = evaluate_strict_zero_action_parity(
+            model,
+            action_head,
+            val_loader,
+            device,
+            loss_config,
+            match_mode=str(args.match_mode),
+            box_base=str(args.box_base),
+            action_score_threshold=float(args.action_score_threshold),
+            nms_threshold=float(args.nms_threshold),
+            detections_per_img=int(args.detections_per_img),
         )
 
     for epoch in range(1, int(args.epochs) + 1):
@@ -490,6 +626,7 @@ def main() -> None:
             action_score_threshold=float(args.action_score_threshold),
             nms_threshold=float(args.nms_threshold),
             detections_per_img=int(args.detections_per_img),
+            postprocess_mode=str(args.postprocess_mode),
             desc=f"eval epoch {epoch}",
         )
         row = {"epoch": epoch, **train_loss, **{f"val_{k}": v for k, v in metrics.items() if _is_scalar(v)}}
@@ -534,10 +671,12 @@ def main() -> None:
             "action_score_threshold": args.action_score_threshold,
             "nms_threshold": args.nms_threshold,
             "detections_per_img": args.detections_per_img,
+            "postprocess_mode": args.postprocess_mode,
         },
         "initial_metrics": initial_metrics,
         "default_metrics": default_metrics,
         "aggregate_zero_action_parity": aggregate_parity,
+        "strict_zero_action_parity": strict_parity,
         "source_checkpoint": source_checkpoint,
         "completed": True,
         "best_ap75": best_ap75,
