@@ -24,6 +24,7 @@ from spectral_detection_posttrain.methods.energy_transport import (
     ActionBenefitEnergyHead,
     CandidateEnergyLossConfig,
     ROITransportActions,
+    SpatialCandidateEnergyHead,
     build_candidate_quality_targets,
     build_symmetric_box_candidates,
     candidate_action_energy_loss,
@@ -58,6 +59,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-seed", type=int, default=42)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--hidden-dim", type=int, default=256)
+    parser.add_argument("--feature-source", choices=("box", "spatial"), default="box")
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--step-sizes", default="0.05,0.1,0.2")
@@ -123,8 +125,18 @@ def observable_action_mask(state, *, min_score: float, require_foreground: bool)
     return mask
 
 
+def action_feature_values(batch, feature_source: str) -> torch.Tensor:
+    if feature_source == "box":
+        return batch.state.features
+    if feature_source == "spatial":
+        if batch.spatial_features is None:
+            raise ValueError("spatial ROI features were not captured")
+        return batch.spatial_features
+    raise ValueError(f"unsupported feature source: {feature_source}")
+
+
 def candidate_energies(
-    head: ActionBenefitEnergyHead,
+    head: torch.nn.Module,
     state,
     candidates: torch.Tensor,
     *,
@@ -142,9 +154,10 @@ def candidate_energies(
         return state.features.new_empty((0, candidate_count))
     candidate_values = candidates.to(device=state.features.device, dtype=state.features.dtype)
     selected_features = state.features[rows] if feature_values is None else feature_values
-    if selected_features.shape != (count, state.features.shape[1]):
+    if selected_features.shape[0] != count:
         raise ValueError("feature_values must contain one feature row per selected proposal")
-    features = selected_features[:, None, :].expand(count, candidate_count, -1).reshape(
+    feature_code = head.encode_features(selected_features)
+    encoded = feature_code[:, None, :].expand(count, candidate_count, -1).reshape(
         count * candidate_count, -1
     )
     logits = state.logits[rows][:, None, :].expand(count, candidate_count, -1).reshape(
@@ -153,11 +166,13 @@ def candidate_energies(
     labels = state.labels[rows][:, None].expand(count, candidate_count).reshape(-1)
     scores = state.scores[rows][:, None].expand(count, candidate_count).reshape(-1)
     deltas = candidate_values[None, :, :].expand(count, candidate_count, 4).reshape(-1, 4)
-    return head(features, logits, labels, scores, deltas).reshape(count, candidate_count)
+    return head.energy_from_code(encoded, logits, labels, scores, deltas).reshape(
+        count, candidate_count
+    )
 
 
 def full_candidate_energies(
-    head: ActionBenefitEnergyHead,
+    head: torch.nn.Module,
     state,
     candidates: torch.Tensor,
     eligible: torch.Tensor,
@@ -181,7 +196,7 @@ def full_candidate_energies(
 
 def train_one_epoch(
     model: torch.nn.Module,
-    energy_head: ActionBenefitEnergyHead,
+    energy_head: torch.nn.Module,
     candidates: torch.Tensor,
     loader,
     optimizer: torch.optim.Optimizer,
@@ -192,6 +207,7 @@ def train_one_epoch(
     min_iou_gain: float,
     min_score: float,
     require_foreground: bool,
+    feature_source: str,
 ) -> dict[str, float]:
     model.eval()
     energy_head.train()
@@ -214,6 +230,7 @@ def train_one_epoch(
         rows = torch.nonzero(eligible, as_tuple=False).flatten()
         if rows.numel() == 0:
             continue
+        feature_values = action_feature_values(batch, feature_source)
         with torch.no_grad():
             target = build_candidate_quality_targets(
                 batch.state,
@@ -223,7 +240,13 @@ def train_one_epoch(
                 image_sizes=batch.image_sizes,
                 min_iou_gain=min_iou_gain,
             )
-        energies = candidate_energies(energy_head, batch.state, candidates, rows=rows)
+        energies = candidate_energies(
+            energy_head,
+            batch.state,
+            candidates,
+            rows=rows,
+            feature_values=feature_values[rows],
+        )
         losses = candidate_action_energy_loss(
             energies,
             candidate_quality=target.candidate_quality[rows],
@@ -243,7 +266,7 @@ def train_one_epoch(
 @torch.no_grad()
 def evaluate_candidate_energy(
     model: torch.nn.Module,
-    energy_head: ActionBenefitEnergyHead,
+    energy_head: torch.nn.Module,
     candidates: torch.Tensor,
     loader,
     device: torch.device,
@@ -258,6 +281,7 @@ def evaluate_candidate_energy(
     detections_per_img: int,
     shuffle_seed: int,
     desc: str,
+    feature_source: str,
 ) -> dict[str, Any]:
     model.eval()
     energy_head.eval()
@@ -307,7 +331,14 @@ def evaluate_candidate_energy(
             min_score=min_score,
             require_foreground=require_foreground,
         )
-        energies = full_candidate_energies(energy_head, batch.state, candidates, eligible)
+        feature_values = action_feature_values(batch, feature_source)
+        energies = full_candidate_energies(
+            energy_head,
+            batch.state,
+            candidates,
+            eligible,
+            feature_values=feature_values,
+        )
         raw_energy_drop_rows.append((energies[:, 0] - energies.min(dim=1).values).detach().cpu())
         raw_selected_rows.append(energies.argmin(dim=1).detach().cpu())
         learned, selected, _ = select_min_energy_box_actions(
@@ -338,6 +369,7 @@ def evaluate_candidate_energy(
             batch.state,
             eligible,
             generator=generator,
+            feature_values=feature_values,
         )
         shuffled_feature_energies = full_candidate_energies(
             energy_head,
@@ -509,12 +541,16 @@ def _permute_roi_features_within_context(
     *,
     generator: torch.Generator,
     score_bins: int = 5,
+    feature_values: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     if eligible.shape != state.scores.shape:
         raise ValueError("eligible must contain one value per proposal")
     if score_bins <= 0:
         raise ValueError("score_bins must be positive")
-    output = state.features.clone()
+    source = state.features if feature_values is None else feature_values
+    if source.shape[0] != state.batch_size:
+        raise ValueError("feature_values must contain one row per proposal")
+    output = source.clone()
     changed = torch.zeros_like(eligible)
     bins = (state.scores.clamp(0.0, 1.0) * score_bins).long().clamp(max=score_bins - 1)
     labels = torch.unique(state.labels[eligible].detach().cpu(), sorted=True).tolist()
@@ -529,7 +565,7 @@ def _permute_roi_features_within_context(
             order = torch.randperm(int(rows.numel()), generator=generator, device="cpu").to(rows.device)
             ordered_rows = rows[order]
             source_rows = torch.roll(ordered_rows, shifts=1)
-            output[ordered_rows] = state.features[source_rows]
+            output[ordered_rows] = source[source_rows]
             changed[ordered_rows] = True
     return output, changed
 
@@ -603,12 +639,23 @@ def main() -> None:
         parameter.requires_grad = False
     model.eval()
     candidates = build_symmetric_box_candidates(parse_step_sizes(args.step_sizes)).to(device)
-    feature_dim = int(model.roi_heads.box_predictor.cls_score.in_features)
-    energy_head = ActionBenefitEnergyHead(
-        feature_dim=feature_dim,
-        num_classes=11,
-        hidden_dim=int(args.hidden_dim),
-    ).to(device)
+    if args.feature_source == "box":
+        feature_dim = int(model.roi_heads.box_predictor.cls_score.in_features)
+        energy_head = ActionBenefitEnergyHead(
+            feature_dim=feature_dim,
+            num_classes=11,
+            hidden_dim=int(args.hidden_dim),
+        ).to(device)
+    else:
+        output_size = tuple(int(value) for value in model.roi_heads.box_roi_pool.output_size)
+        if len(output_size) != 2 or output_size[0] != output_size[1]:
+            raise ValueError(f"spatial candidate head requires square ROI pooling, got {output_size}")
+        energy_head = SpatialCandidateEnergyHead(
+            in_channels=int(model.backbone.out_channels),
+            num_classes=11,
+            hidden_dim=int(args.hidden_dim),
+            spatial_size=output_size[0],
+        ).to(device)
     energy_checkpoint = None
     if args.energy_checkpoint:
         energy_path = Path(args.energy_checkpoint).resolve()
@@ -636,6 +683,7 @@ def main() -> None:
         "nms_threshold": float(args.nms_threshold),
         "detections_per_img": int(args.detections_per_img),
         "shuffle_seed": int(args.shuffle_seed),
+        "feature_source": str(args.feature_source),
     }
     initial = evaluate_candidate_energy(
         model,
@@ -700,6 +748,7 @@ def main() -> None:
             min_iou_gain=float(args.min_iou_gain),
             min_score=float(args.min_score),
             require_foreground=bool(args.require_foreground_dominant),
+            feature_source=str(args.feature_source),
         )
         evaluation = evaluate_candidate_energy(
             model,

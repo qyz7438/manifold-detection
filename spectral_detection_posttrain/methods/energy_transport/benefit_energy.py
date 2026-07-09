@@ -106,21 +106,46 @@ class ActionBenefitEnergyHead(nn.Module):
         if box_delta.shape != (batch, 4):
             raise ValueError("box_delta must have shape (B, 4)")
 
+        feature_code = self.encode_features(features)
+        return self.energy_from_code(feature_code, class_logits, labels, scores, box_delta)
+
+    def encode_features(self, features: torch.Tensor) -> torch.Tensor:
+        if features.ndim != 2 or features.shape[1] != self.feature_dim:
+            raise ValueError(f"features must have shape (B, {self.feature_dim})")
+        return self.feature_encoder(features)
+
+    def energy_from_code(
+        self,
+        feature_code: torch.Tensor,
+        class_logits: torch.Tensor,
+        labels: torch.Tensor,
+        scores: torch.Tensor,
+        box_delta: torch.Tensor,
+    ) -> torch.Tensor:
+        batch = feature_code.shape[0]
+        if feature_code.shape != (batch, self.hidden_dim):
+            raise ValueError(f"feature_code must have shape (B, {self.hidden_dim})")
+        if class_logits.shape != (batch, self.num_classes):
+            raise ValueError(f"class_logits must have shape (B, {self.num_classes})")
+        if labels.shape != (batch,) or scores.shape != (batch,):
+            raise ValueError("labels and scores must have shape (B,)")
+        if box_delta.shape != (batch, 4):
+            raise ValueError("box_delta must have shape (B, 4)")
+
         probabilities = torch.softmax(class_logits, dim=-1)
         one_hot = F.one_hot(
             labels.long().clamp(0, self.num_classes - 1),
             num_classes=self.num_classes,
-        ).to(dtype=features.dtype)
+        ).to(dtype=feature_code.dtype)
         context = torch.cat(
             (
-                probabilities.to(dtype=features.dtype),
+                probabilities.to(dtype=feature_code.dtype),
                 one_hot,
-                scores[:, None].to(dtype=features.dtype),
-                box_delta.to(dtype=features.dtype),
+                scores[:, None].to(dtype=feature_code.dtype),
+                box_delta.to(dtype=feature_code.dtype),
             ),
             dim=1,
         )
-        feature_code = self.feature_encoder(features)
         context_code = self.context_encoder(context)
         return self.energy_head(torch.cat((feature_code, context_code), dim=1)).squeeze(1)
 

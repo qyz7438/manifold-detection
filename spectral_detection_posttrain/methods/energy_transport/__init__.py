@@ -25,6 +25,7 @@ from spectral_detection_posttrain.methods.energy_transport.benefit_energy import
 from spectral_detection_posttrain.methods.energy_transport.candidate_energy import (
     CandidateEnergyLossConfig,
     CandidateQualityTargets,
+    SpatialCandidateEnergyHead,
     build_candidate_quality_targets,
     build_symmetric_box_candidates,
     candidate_action_energy_loss,
@@ -112,6 +113,7 @@ __all__ = [
     "BenefitEnergyLossConfig",
     "CandidateEnergyLossConfig",
     "CandidateQualityTargets",
+    "SpatialCandidateEnergyHead",
     "GeometricConstraintConfig",
     "HighWaterMarkLossConfig",
     "HighWaterMarkModuleSnapshot",

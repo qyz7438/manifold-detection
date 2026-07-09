@@ -6,6 +6,7 @@ import torch
 from spectral_detection_posttrain.methods.energy_transport import (
     CandidateEnergyLossConfig,
     ROIActionState,
+    SpatialCandidateEnergyHead,
     build_candidate_quality_targets,
     build_symmetric_box_candidates,
     candidate_action_energy_loss,
@@ -102,6 +103,41 @@ def test_candidate_loss_prefers_low_energy_on_oracle_index() -> None:
     )
 
     assert aligned["loss_total"].item() < inverted["loss_total"].item()
+
+
+def test_spatial_candidate_head_preserves_batch_shape_and_zero_init() -> None:
+    head = SpatialCandidateEnergyHead(
+        in_channels=4,
+        num_classes=3,
+        hidden_dim=8,
+        spatial_size=3,
+    )
+    energies = head(
+        torch.randn(2, 4, 3, 3),
+        torch.randn(2, 3),
+        torch.tensor([1, 2]),
+        torch.tensor([0.8, 0.7]),
+        torch.randn(2, 4),
+    )
+
+    assert energies.shape == (2,)
+    assert energies.count_nonzero().item() == 0
+
+
+def test_spatial_and_box_candidate_heads_have_comparable_capacity() -> None:
+    from spectral_detection_posttrain.methods.energy_transport import ActionBenefitEnergyHead
+
+    box_head = ActionBenefitEnergyHead(feature_dim=1024, num_classes=11, hidden_dim=256)
+    spatial_head = SpatialCandidateEnergyHead(
+        in_channels=256,
+        num_classes=11,
+        hidden_dim=256,
+        spatial_size=7,
+    )
+    box_parameters = sum(parameter.numel() for parameter in box_head.parameters())
+    spatial_parameters = sum(parameter.numel() for parameter in spatial_head.parameters())
+
+    assert spatial_parameters / box_parameters == pytest.approx(1.0372, rel=0.01)
 
 
 def test_selector_keeps_identity_without_energy_drop_and_respects_topk() -> None:

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from itertools import product
 
 import torch
+from torch import nn
 import torch.nn.functional as F
 
 from spectral_detection_posttrain.methods.energy_transport.actions import ROITransportActions
@@ -33,6 +34,103 @@ class CandidateQualityTargets:
     oracle_gain: torch.Tensor
     matched: torch.Tensor
     class_correct: torch.Tensor
+
+
+class SpatialCandidateEnergyHead(nn.Module):
+    """Score box actions from spatial ROI evidence before the detector box head."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        num_classes: int,
+        hidden_dim: int = 256,
+        spatial_size: int = 7,
+    ) -> None:
+        super().__init__()
+        if min(in_channels, num_classes, hidden_dim, spatial_size) <= 0 or num_classes <= 1:
+            raise ValueError("head dimensions must be positive and num_classes must exceed one")
+        self.in_channels = int(in_channels)
+        self.num_classes = int(num_classes)
+        self.hidden_dim = int(hidden_dim)
+        self.spatial_size = int(spatial_size)
+
+        self.feature_encoder = nn.Sequential(
+            nn.Conv2d(self.in_channels, 32, kernel_size=3, padding=1),
+            nn.GroupNorm(8, 32),
+            nn.SiLU(),
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            nn.GroupNorm(4, 16),
+            nn.SiLU(),
+            nn.Flatten(),
+            nn.Linear(16 * self.spatial_size * self.spatial_size, self.hidden_dim),
+            nn.SiLU(),
+        )
+        context_dim = 2 * self.num_classes + 1 + 4
+        self.context_encoder = nn.Sequential(
+            nn.Linear(context_dim, self.hidden_dim),
+            nn.SiLU(),
+        )
+        self.energy_head = nn.Sequential(
+            nn.Linear(2 * self.hidden_dim, self.hidden_dim),
+            nn.SiLU(),
+            nn.Linear(self.hidden_dim, 1),
+        )
+        output = self.energy_head[-1]
+        assert isinstance(output, nn.Linear)
+        nn.init.zeros_(output.weight)
+        nn.init.zeros_(output.bias)
+
+    def encode_features(self, features: torch.Tensor) -> torch.Tensor:
+        expected = (self.in_channels, self.spatial_size, self.spatial_size)
+        if features.ndim != 4 or tuple(features.shape[1:]) != expected:
+            raise ValueError(f"features must have shape (B, {expected[0]}, {expected[1]}, {expected[2]})")
+        return self.feature_encoder(features)
+
+    def energy_from_code(
+        self,
+        feature_code: torch.Tensor,
+        class_logits: torch.Tensor,
+        labels: torch.Tensor,
+        scores: torch.Tensor,
+        box_delta: torch.Tensor,
+    ) -> torch.Tensor:
+        batch = feature_code.shape[0]
+        if feature_code.shape != (batch, self.hidden_dim):
+            raise ValueError(f"feature_code must have shape (B, {self.hidden_dim})")
+        if class_logits.shape != (batch, self.num_classes):
+            raise ValueError(f"class_logits must have shape (B, {self.num_classes})")
+        if labels.shape != (batch,) or scores.shape != (batch,):
+            raise ValueError("labels and scores must have shape (B,)")
+        if box_delta.shape != (batch, 4):
+            raise ValueError("box_delta must have shape (B, 4)")
+
+        probabilities = torch.softmax(class_logits, dim=-1)
+        one_hot = F.one_hot(
+            labels.long().clamp(0, self.num_classes - 1),
+            num_classes=self.num_classes,
+        ).to(dtype=feature_code.dtype)
+        context = torch.cat(
+            (
+                probabilities.to(dtype=feature_code.dtype),
+                one_hot,
+                scores[:, None].to(dtype=feature_code.dtype),
+                box_delta.to(dtype=feature_code.dtype),
+            ),
+            dim=1,
+        )
+        context_code = self.context_encoder(context)
+        return self.energy_head(torch.cat((feature_code, context_code), dim=1)).squeeze(1)
+
+    def forward(
+        self,
+        features: torch.Tensor,
+        class_logits: torch.Tensor,
+        labels: torch.Tensor,
+        scores: torch.Tensor,
+        box_delta: torch.Tensor,
+    ) -> torch.Tensor:
+        feature_code = self.encode_features(features)
+        return self.energy_from_code(feature_code, class_logits, labels, scores, box_delta)
 
 
 def build_symmetric_box_candidates(

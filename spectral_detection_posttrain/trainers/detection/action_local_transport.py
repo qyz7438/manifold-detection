@@ -37,6 +37,7 @@ class ProposalActionBatch:
     proposals: list[torch.Tensor] | None = None
     class_logits: torch.Tensor | None = None
     box_regression: torch.Tensor | None = None
+    spatial_features: torch.Tensor | None = None
 
 
 @dataclass(frozen=True)
@@ -145,10 +146,10 @@ def extract_proposal_action_batch(
         features = OrderedDict([("0", features)])
 
     proposals, _ = model.rpn(transformed, features, transformed_targets)
-    roi_features = model.roi_heads.box_roi_pool(
+    spatial_features = model.roi_heads.box_roi_pool(
         features, proposals, transformed.image_sizes
     )
-    roi_features = model.roi_heads.box_head(roi_features)
+    roi_features = model.roi_heads.box_head(spatial_features)
     logits, box_regression = model.roi_heads.box_predictor(roi_features)
     scores, labels = _foreground_scores_and_labels(logits)
     base_boxes = (
@@ -192,6 +193,7 @@ def extract_proposal_action_batch(
         proposals=proposals,
         class_logits=logits,
         box_regression=box_regression,
+        spatial_features=spatial_features.detach(),
     )
 
 

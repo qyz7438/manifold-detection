@@ -8,6 +8,7 @@ import torch
 from spectral_detection_posttrain.methods.energy_transport import (
     ActionBenefitEnergyHead,
     ROIActionState,
+    SpatialCandidateEnergyHead,
     build_symmetric_box_candidates,
 )
 
@@ -51,6 +52,48 @@ def test_step_parser_and_zero_initialized_candidate_energy_shape() -> None:
     energies = module.candidate_energies(head, state, candidates)
 
     assert module.parse_step_sizes(".2,.05,.1,.1") == (0.05, 0.1, 0.2)
+    assert energies.shape == (4, 25)
+    assert energies.count_nonzero().item() == 0
+
+
+def test_candidate_energy_encode_once_matches_direct_vector_scoring() -> None:
+    module = _load_module()
+    state = _state()
+    candidates = build_symmetric_box_candidates((0.1,))
+    head = ActionBenefitEnergyHead(feature_dim=6, num_classes=3, hidden_dim=8)
+    torch.nn.init.normal_(head.energy_head[-1].weight)
+
+    encoded_once = module.candidate_energies(head, state, candidates)
+    count, candidate_count = encoded_once.shape
+    direct = head(
+        state.features[:, None, :].expand(count, candidate_count, -1).reshape(-1, 6),
+        state.logits[:, None, :].expand(count, candidate_count, -1).reshape(-1, 3),
+        state.labels[:, None].expand(count, candidate_count).reshape(-1),
+        state.scores[:, None].expand(count, candidate_count).reshape(-1),
+        candidates[None, :, :].expand(count, candidate_count, 4).reshape(-1, 4),
+    ).reshape(count, candidate_count)
+
+    assert torch.allclose(encoded_once, direct, atol=1e-6)
+
+
+def test_candidate_energy_encodes_spatial_roi_once_per_proposal() -> None:
+    module = _load_module()
+    state = _state()
+    candidates = build_symmetric_box_candidates((0.1,))
+    head = SpatialCandidateEnergyHead(
+        in_channels=4,
+        num_classes=3,
+        hidden_dim=8,
+        spatial_size=3,
+    )
+
+    energies = module.candidate_energies(
+        head,
+        state,
+        candidates,
+        feature_values=torch.randn(4, 4, 3, 3),
+    )
+
     assert energies.shape == (4, 25)
     assert energies.count_nonzero().item() == 0
 
