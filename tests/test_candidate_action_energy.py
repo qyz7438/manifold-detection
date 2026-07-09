@@ -138,6 +138,29 @@ def test_dense_gain_loss_fits_identity_relative_candidate_quality() -> None:
     assert aligned["gain_sign_accuracy"].item() == pytest.approx(1.0)
 
 
+def test_ap75_utility_gain_loss_emphasizes_threshold_crossing() -> None:
+    quality = torch.tensor([[0.74, 0.76, 0.70, 0.80]])
+    config = CandidateGainLossConfig(
+        target_mode="ap75_utility",
+        utility_temperature=0.05,
+        energy_weight=0.0,
+    )
+    utility = torch.sigmoid((quality - 0.75) / 0.05)
+    target_gain = utility - utility[:, :1]
+
+    aligned = candidate_action_gain_loss(
+        -target_gain,
+        candidate_quality=quality,
+        scores=torch.tensor([0.9]),
+        config=config,
+    )
+
+    assert target_gain[0, 1].item() > 0.0
+    assert target_gain[0, 2].item() < 0.0
+    assert aligned["loss_total"].item() == pytest.approx(0.0, abs=1e-8)
+    assert aligned["gain_sign_accuracy"].item() == pytest.approx(1.0)
+
+
 def test_spatial_candidate_head_preserves_batch_shape_and_zero_init() -> None:
     head = SpatialCandidateEnergyHead(
         in_channels=4,

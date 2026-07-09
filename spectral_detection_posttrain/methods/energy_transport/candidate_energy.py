@@ -28,6 +28,7 @@ class CandidateEnergyLossConfig:
 
 @dataclass(frozen=True)
 class CandidateGainLossConfig:
+    target_mode: str = "iou_gain"
     beta: float = 0.02
     energy_weight: float = 1e-3
     impact_boost: float = 10.0
@@ -35,10 +36,13 @@ class CandidateGainLossConfig:
     boundary_band: float = 0.15
     boundary_boost: float = 2.0
     sign_epsilon: float = 0.002
+    utility_temperature: float = 0.05
 
     def __post_init__(self) -> None:
-        if self.beta <= 0.0 or self.boundary_band <= 0.0:
-            raise ValueError("beta and boundary_band must be positive")
+        if self.target_mode not in {"iou_gain", "ap75_utility"}:
+            raise ValueError("target_mode must be 'iou_gain' or 'ap75_utility'")
+        if self.beta <= 0.0 or self.boundary_band <= 0.0 or self.utility_temperature <= 0.0:
+            raise ValueError("beta, boundary_band, and utility_temperature must be positive")
         if not 0.0 <= self.boundary_iou <= 1.0:
             raise ValueError("boundary_iou must be in [0, 1]")
         for name in ("energy_weight", "impact_boost", "boundary_boost", "sign_epsilon"):
@@ -288,7 +292,13 @@ def candidate_action_gain_loss(
         raise ValueError("scores must have shape (B,)")
 
     predicted_gain = energies[:, :1] - energies
-    target_gain = candidate_quality - candidate_quality[:, :1]
+    if cfg.target_mode == "iou_gain":
+        target_value = candidate_quality
+    else:
+        target_value = torch.sigmoid(
+            (candidate_quality - float(cfg.boundary_iou)) / float(cfg.utility_temperature)
+        )
+    target_gain = target_value - target_value[:, :1]
     per_candidate = F.smooth_l1_loss(
         predicted_gain,
         target_gain,

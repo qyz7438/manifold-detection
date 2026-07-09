@@ -70,8 +70,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--energy-weight", type=float, default=0.001)
     parser.add_argument("--loss-mode", choices=("listwise", "dense_gain"), default="listwise")
     parser.add_argument("--gain-beta", type=float, default=0.02)
+    parser.add_argument("--gain-target", choices=("iou_gain", "ap75_utility"), default="iou_gain")
     parser.add_argument("--gain-impact-boost", type=float, default=10.0)
     parser.add_argument("--gain-boundary-boost", type=float, default=2.0)
+    parser.add_argument("--gain-utility-temperature", type=float, default=0.05)
     parser.add_argument("--min-energy-drop", type=float, default=0.0)
     parser.add_argument("--min-score", type=float, default=0.05)
     parser.add_argument("--require-foreground-dominant", action=argparse.BooleanOptionalAction, default=True)
@@ -692,11 +694,13 @@ def main() -> None:
         )
     else:
         loss_config = CandidateGainLossConfig(
+            target_mode=str(args.gain_target),
             beta=float(args.gain_beta),
             energy_weight=float(args.energy_weight),
             impact_boost=float(args.gain_impact_boost),
             boundary_boost=float(args.gain_boundary_boost),
             sign_epsilon=float(args.min_iou_gain),
+            utility_temperature=float(args.gain_utility_temperature),
         )
     optimizer = torch.optim.AdamW(
         energy_head.parameters(),
@@ -797,6 +801,11 @@ def main() -> None:
             f"learned_AP75={ap75:.4f} identity_AP75={evaluation['modes']['identity']['ap75']:.4f}"
         )
         save_checkpoint(energy_head, run_dir / "candidate_energy_last.pth", {"epoch": epoch})
+        save_checkpoint(
+            energy_head,
+            run_dir / f"candidate_energy_epoch_{epoch}.pth",
+            {"epoch": epoch, "ap75": ap75},
+        )
         if ap75 > best_ap75:
             best_ap75 = ap75
             best_epoch = epoch
