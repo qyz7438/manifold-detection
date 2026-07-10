@@ -28,8 +28,8 @@ LOCKED_CONFIG = (
     / "versions"
     / "det.energy.joint_probe.001.json"
 )
-LOCKED_CONFIG_SHA256 = "66bbf3c4637c5beaeec6ad5313f4a6f02ccba7da04646532b456c28e43ac4210"
-TRACE_CACHE_SCHEMA_VERSION = 1
+LOCKED_CONFIG_SHA256 = "a6c30c89acdc3b213da18eb2cfc2b7df9b83583c3c70d60872854cba1aa0e3d7"
+PROBE_CACHE_SCHEMA_VERSION = 2
 TRACE_RECORD_KEYS = {
     "image_id",
     "proposal_count",
@@ -40,6 +40,17 @@ TRACE_RECORD_KEYS = {
     "action_energies",
     "identity_utility",
     "singleton_delta_u",
+}
+DETECTOR_RECORD_KEYS = {
+    "image_id",
+    "spatial_features",
+    "class_logits",
+    "predicted_labels",
+    "scores",
+    "boxes",
+    "image_size",
+    "action_targets",
+    "move_targets",
 }
 
 
@@ -220,33 +231,82 @@ def probe_metrics(
     }
 
 
-def write_trace_cache(path: str | Path, records: Sequence[dict[str, Any]]) -> None:
+def write_probe_cache(
+    path: str | Path,
+    records: Sequence[tuple[dict[str, Any], dict[str, Any]]],
+) -> None:
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    for record in records:
-        _validate_trace_record(record)
+    serialized: list[dict[str, dict[str, Any]]] = []
+    for detector_record, trace_record in records:
+        _validate_probe_pair(detector_record, trace_record)
+        serialized.append({"detector": detector_record, "trace": trace_record})
     torch.save(
         {
             "format": "torch_pt",
-            "schema_version": TRACE_CACHE_SCHEMA_VERSION,
-            "records": list(records),
+            "schema_version": PROBE_CACHE_SCHEMA_VERSION,
+            "pairing": "same_detector_forward",
+            "records": serialized,
         },
         destination,
     )
 
 
-def read_trace_cache(path: str | Path) -> list[dict[str, Any]]:
+def read_probe_cache(
+    path: str | Path,
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     payload = torch.load(Path(path), map_location="cpu")
     if not isinstance(payload, dict) or payload.get("format") != "torch_pt":
-        raise ValueError("unsupported trace cache format")
-    if payload.get("schema_version") != TRACE_CACHE_SCHEMA_VERSION:
-        raise ValueError("trace cache schema version mismatch")
+        raise ValueError("unsupported probe cache format")
+    if payload.get("schema_version") != PROBE_CACHE_SCHEMA_VERSION:
+        raise ValueError("probe cache schema version mismatch")
+    if payload.get("pairing") != "same_detector_forward":
+        raise ValueError("probe cache pairing mismatch")
     records = payload.get("records")
     if not isinstance(records, list):
-        raise ValueError("trace cache records must be a list")
+        raise ValueError("probe cache records must be a list")
+    paired: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for record in records:
-        _validate_trace_record(record)
-    return records
+        if not isinstance(record, dict) or set(record) != {"detector", "trace"}:
+            raise ValueError("probe cache pair schema mismatch")
+        detector_record = record["detector"]
+        trace_record = record["trace"]
+        _validate_probe_pair(detector_record, trace_record)
+        paired.append((detector_record, trace_record))
+    return paired
+
+
+def _validate_probe_pair(
+    detector_record: dict[str, Any], trace_record: dict[str, Any]
+) -> None:
+    if not isinstance(detector_record, dict) or set(detector_record) != DETECTOR_RECORD_KEYS:
+        raise ValueError("probe detector record schema mismatch")
+    _validate_trace_record(trace_record)
+    if int(detector_record["image_id"]) != int(trace_record["image_id"]):
+        raise ValueError("probe detector and trace image IDs differ")
+    proposal_count = int(trace_record["proposal_count"])
+    spatial = torch.as_tensor(detector_record["spatial_features"])
+    logits = torch.as_tensor(detector_record["class_logits"])
+    boxes = torch.as_tensor(detector_record["boxes"])
+    if spatial.ndim != 4 or spatial.shape[0] != proposal_count:
+        raise ValueError("probe spatial feature shape mismatch")
+    if logits.ndim != 2 or logits.shape[0] != proposal_count:
+        raise ValueError("probe class logit shape mismatch")
+    if boxes.shape != (proposal_count, 4):
+        raise ValueError("probe detector box shape mismatch")
+    for key in ("predicted_labels", "scores", "action_targets", "move_targets"):
+        if torch.as_tensor(detector_record[key]).shape != (proposal_count,):
+            raise ValueError(f"probe detector {key} shape mismatch")
+    if len(tuple(detector_record["image_size"])) != 2:
+        raise ValueError("probe detector image_size shape mismatch")
+    finite_tensors = (
+        spatial,
+        logits,
+        boxes,
+        torch.as_tensor(detector_record["scores"]),
+    )
+    if not all(torch.isfinite(value).all() for value in finite_tensors):
+        raise ValueError("probe detector values must be finite")
 
 
 def _validate_trace_record(record: dict[str, Any]) -> None:
@@ -697,17 +757,16 @@ def evaluate_m1_arm(
 
 
 @torch.no_grad()
-def build_trace_cache_records(
+def build_probe_cache_records(
     detector: torch.nn.Module,
     loader: Any,
-    source_records: Sequence[dict[str, Any]],
     m0_module: Any,
+    m1_module: Any,
     m0_config: dict[str, Any],
     probe_config: dict[str, Any],
     device: torch.device,
-) -> list[dict[str, Any]]:
-    source_by_id = {int(record["image_id"]): record for record in source_records}
-    records: list[dict[str, Any]] = []
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    records: list[tuple[dict[str, Any], dict[str, Any]]] = []
     detector.eval()
     for image_index, (images, batch_targets) in enumerate(loader):
         images_device = [image.to(device) for image in images]
@@ -729,34 +788,42 @@ def build_trace_cache_records(
             include_evaluation_trace=True,
         )
         image_id = int(target["image_id"].flatten()[0].item())
-        if image_id not in source_by_id:
-            raise ValueError(f"trace image {image_id} is absent from source M1 cache")
-        source = source_by_id[image_id]
         proposal_count = int(batch.state.boxes.shape[0])
-        if proposal_count != int(source["boxes"].shape[0]):
-            raise ValueError("trace proposal count does not match source M1 cache")
-        if not torch.allclose(
-            batch.state.boxes.detach().cpu(),
-            torch.as_tensor(source["boxes"]),
-            atol=1e-5,
-            rtol=0.0,
-        ):
-            raise ValueError("trace proposal boxes do not match source M1 cache")
-        records.append(
-            build_trace_record(
-                image_id=image_id,
-                proposal_count=proposal_count,
-                candidate_pool=[item.__dict__ for item in pool],
-                evaluation_trace=search_record["evaluation_trace"],
-            )
+        pool_records = [item.__dict__ for item in pool]
+        supervision = m1_module.build_oracle_supervision(
+            pool_records,
+            search_record["selected"]["set_beam"],
+            proposal_count,
         )
+        detector_record = m1_module.build_cache_record(
+            image_id=image_id,
+            spatial_features=batch.spatial_features,
+            class_logits=batch.class_logits,
+            predicted_labels=batch.state.labels,
+            scores=batch.state.scores,
+            boxes=batch.state.boxes,
+            image_size=batch.image_sizes[0],
+            action_targets=supervision["action_targets"],
+            move_targets=supervision["move_targets"],
+        )
+        trace_record = build_trace_record(
+            image_id=image_id,
+            proposal_count=proposal_count,
+            candidate_pool=pool_records,
+            evaluation_trace=search_record["evaluation_trace"],
+        )
+        _validate_probe_pair(detector_record, trace_record)
+        records.append((detector_record, trace_record))
         if (image_index + 1) % 25 == 0:
             print(
                 json.dumps(
                     {
                         "stage": "trace_cache",
                         "images": image_index + 1,
-                        "candidates": sum(len(record["action_ids"]) for record in records),
+                        "candidates": sum(
+                            len(trace_record["action_ids"])
+                            for _, trace_record in records
+                        ),
                     },
                     sort_keys=True,
                 ),
@@ -873,7 +940,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "deterministic_warn_only": True,
         }
     )
-    source_records = m1_module._read_cache(source_cache_path)
     loader_config = m1_module._make_detector_config(m1_config, data_root, annotation)
     train_loader, _ = build_nwpu_vhr10_loaders(
         loader_config,
@@ -888,54 +954,59 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     code_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True
     ).stdout.strip()
-    trace_cache_path = run_dir / "joint_utility_trace_cache.pt"
-    trace_metadata_path = run_dir / "joint_utility_trace_cache_metadata.json"
-    expected_trace_metadata = {
-        "schema_version": TRACE_CACHE_SCHEMA_VERSION,
+    probe_cache_path = run_dir / "joint_utility_probe_cache.pt"
+    probe_metadata_path = run_dir / "joint_utility_probe_cache_metadata.json"
+    expected_probe_metadata = {
+        "schema_version": PROBE_CACHE_SCHEMA_VERSION,
+        "pairing": "same_detector_forward",
         "config_sha256": sha256_file(config_path),
         "source_m1_cache_sha256": config["source_m1"]["cache_sha256"],
         "source_m0_config_sha256": config["source_m0"]["config_sha256"],
         "train_manifest": train_manifest,
         "code_commit": code_commit,
     }
-    if trace_cache_path.exists() and not args.rebuild_trace_cache:
-        if not trace_metadata_path.is_file():
-            raise FileNotFoundError("trace cache exists without metadata")
-        actual_metadata = json.loads(trace_metadata_path.read_text(encoding="utf-8"))
-        for key, expected in expected_trace_metadata.items():
+    if probe_cache_path.exists() and not args.rebuild_trace_cache:
+        if not probe_metadata_path.is_file():
+            raise FileNotFoundError("probe cache exists without metadata")
+        actual_metadata = json.loads(probe_metadata_path.read_text(encoding="utf-8"))
+        for key, expected in expected_probe_metadata.items():
             if actual_metadata.get(key) != expected:
-                raise ValueError(f"trace cache metadata mismatch for {key}")
-        if sha256_file(trace_cache_path) != actual_metadata.get("trace_cache_sha256"):
-            raise ValueError("trace cache SHA256 mismatch")
-        trace_records = read_trace_cache(trace_cache_path)
+                raise ValueError(f"probe cache metadata mismatch for {key}")
+        if sha256_file(probe_cache_path) != actual_metadata.get("probe_cache_sha256"):
+            raise ValueError("probe cache SHA256 mismatch")
+        paired = read_probe_cache(probe_cache_path)
+        trace_records = [trace_record for _, trace_record in paired]
         trace_manifest = _manifest([record["image_id"] for record in trace_records])
         if trace_manifest != actual_metadata.get("trace_manifest"):
-            raise ValueError("trace cache image manifest mismatch")
+            raise ValueError("probe cache image manifest mismatch")
     else:
         detector = build_detector(loader_config).to(device)
         load_checkpoint(detector, checkpoint, device)
         for parameter in detector.parameters():
             parameter.requires_grad_(False)
-        trace_records = build_trace_cache_records(
+        paired = build_probe_cache_records(
             detector,
             train_loader,
-            source_records,
             m0_module,
+            m1_module,
             m0_config,
             config,
             device,
         )
-        write_trace_cache(trace_cache_path, trace_records)
+        write_probe_cache(probe_cache_path, paired)
+        trace_records = [trace_record for _, trace_record in paired]
         trace_manifest = _manifest([record["image_id"] for record in trace_records])
         if trace_manifest != train_manifest:
-            raise ValueError("generated trace cache does not cover the locked train manifest")
+            raise ValueError("generated probe cache does not cover the locked train manifest")
+        detector_records = [detector_record for detector_record, _ in paired]
         actual_metadata = {
-            **expected_trace_metadata,
-            "trace_cache_sha256": sha256_file(trace_cache_path),
+            **expected_probe_metadata,
+            "probe_cache_sha256": sha256_file(probe_cache_path),
             "trace_manifest": trace_manifest,
             **_trace_statistics(trace_records),
+            **m1_module.summarize_cache_storage(detector_records),
         }
-        trace_metadata_path.write_text(
+        probe_metadata_path.write_text(
             json.dumps(actual_metadata, indent=2, allow_nan=False) + "\n",
             encoding="utf-8",
         )
@@ -943,11 +1014,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if device.type == "cuda":
             torch.cuda.empty_cache()
 
+    detector_records = [detector_record for detector_record, _ in paired]
+    trace_records = [trace_record for _, trace_record in paired]
     trace_ids = {int(record["image_id"]) for record in trace_records}
     if len(trace_ids) != len(trace_records):
-        raise ValueError("trace cache contains duplicate image IDs")
-    source_records = [record for record in source_records if int(record["image_id"]) in trace_ids]
-    paired = _pair_records(source_records, trace_records)
+        raise ValueError("probe cache contains duplicate image IDs")
+    paired = _pair_records(detector_records, trace_records)
     image_ids = torch.tensor([int(detector_record["image_id"]) for detector_record, _ in paired])
     split = group_heldout_split(
         image_ids,
@@ -1033,6 +1105,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "annotation_sha256": config["dataset"]["annotation_sha256"],
             "source_m1_cache": str(source_cache_path),
             "source_m1_cache_sha256": config["source_m1"]["cache_sha256"],
+            "source_m1_cache_role": "historical_provenance_only",
             "source_m0_result": str(source_m0_result),
             "code_commit": code_commit,
             "train_manifest": train_manifest,
@@ -1041,8 +1114,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "fit_heldout_overlap": 0,
             "environment": environment,
         },
-        "trace_cache": {
-            "path": str(trace_cache_path),
+        "probe_cache": {
+            "path": str(probe_cache_path),
+            "pairing": "same_detector_forward",
             "metadata": actual_metadata,
             **_trace_statistics(trace_records),
         },

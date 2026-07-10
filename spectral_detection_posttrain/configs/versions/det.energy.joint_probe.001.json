@@ -35,7 +35,8 @@
     "cache": "runs/nwpu_m1_set_policy_s42_fulltrain_fullval/oracle_cache.pt",
     "cache_sha256": "95df3b621c49423433c6fe106feeee114a61529dc231dcf0c2feb8ef097eef44",
     "cache_metadata": "runs/nwpu_m1_set_policy_s42_fulltrain_fullval/oracle_cache_metadata.json",
-    "cache_schema_version": 1
+    "cache_schema_version": 1,
+    "cache_role": "historical_provenance_only"
   },
   "source_m0": {
     "config": "spectral_detection_posttrain/configs/versions/det.energy.set_oracle.m0.001.json",
@@ -80,11 +81,13 @@
   ],
   "cache": {
     "format": "torch_pt",
-    "schema_version": 1,
-    "stores_spatial_features": false,
+    "schema_version": 2,
+    "pairing": "same_detector_forward",
+    "stores_spatial_features": true,
     "stores_gt_inputs": false,
     "stores_oracle_labels": true,
-    "label": "exact singleton utility relative to native identity for the GT-pruned M0 candidate pool"
+    "label": "exact singleton utility relative to native identity for the GT-pruned M0 candidate pool",
+    "reproducibility_note": "ROI features, detector state, historical M1 supervision, and singleton utility labels are serialized atomically from one frozen-detector forward pass; the historical M1 cache is provenance only."
   },
   "gates": {
     "min_heldout_candidates": 200,

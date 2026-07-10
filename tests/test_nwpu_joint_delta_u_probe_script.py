@@ -40,6 +40,8 @@ def test_locked_config_is_train_split_holdout_and_keeps_validation_unseen() -> N
     assert config["candidate_pool"]["candidate_count"] == 73
     assert config["candidate_pool"]["max_candidates_per_image"] == 12
     assert config["candidate_pool"]["action_budget"] == 1
+    assert config["cache"]["stores_spatial_features"] is True
+    assert config["cache"]["pairing"] == "same_detector_forward"
     assert config["arms"] == [
         "m1_factorized",
         "joint_full",
@@ -207,36 +209,33 @@ def test_probe_metrics_treat_identity_as_the_oracle_when_all_actions_are_harmful
     assert metrics["positive_precision"] == pytest.approx(0.0)
 
 
-def test_trace_cache_round_trip_and_schema_validation(tmp_path: Path) -> None:
+def test_probe_cache_round_trip_preserves_same_pass_feature_label_pairing(tmp_path: Path) -> None:
     module = _load_module()
-    record = {
-        "image_id": 1,
-        "proposal_count": 2,
-        "action_ids": ("p0000_c01",),
-        "proposal_indices": torch.tensor([0]),
-        "candidate_indices": torch.tensor([1]),
-        "box_deltas": torch.zeros(1, 4),
-        "action_energies": torch.tensor([0.0]),
-        "identity_utility": 0.0,
-        "singleton_delta_u": torch.tensor([1.0]),
-    }
-    path = tmp_path / "trace.pt"
+    detector, trace = _tiny_probe_record(1, True)
+    path = tmp_path / "probe.pt"
 
-    module.write_trace_cache(path, [record])
-    loaded = module.read_trace_cache(path)
+    module.write_probe_cache(path, [(detector, trace)])
+    loaded = module.read_probe_cache(path)
 
     assert len(loaded) == 1
-    assert loaded[0]["image_id"] == 1
-    assert torch.equal(loaded[0]["singleton_delta_u"], torch.tensor([1.0]))
+    loaded_detector, loaded_trace = loaded[0]
+    assert loaded_detector["image_id"] == loaded_trace["image_id"] == 1
+    assert torch.equal(loaded_detector["spatial_features"], detector["spatial_features"])
+    assert torch.equal(loaded_trace["singleton_delta_u"], trace["singleton_delta_u"])
 
     torch.save({"format": "torch_pt", "schema_version": 999, "records": []}, path)
     with pytest.raises(ValueError, match="schema"):
-        module.read_trace_cache(path)
+        module.read_probe_cache(path)
 
-    malformed = dict(record)
-    malformed["box_deltas"] = torch.zeros(2, 4)
+    malformed = dict(trace)
+    malformed["box_deltas"] = torch.zeros(3, 4)
     with pytest.raises(ValueError, match="shape"):
-        module.write_trace_cache(path, [malformed])
+        module.write_probe_cache(path, [(detector, malformed)])
+
+    wrong_image = dict(trace)
+    wrong_image["image_id"] = 2
+    with pytest.raises(ValueError, match="image"):
+        module.write_probe_cache(path, [(detector, wrong_image)])
 
 
 def test_full_train_guard_rejects_limited_probe() -> None:
@@ -377,4 +376,4 @@ def test_launcher_is_gpu2_only_strictly_memory_gated_and_uses_correct_root() -> 
     assert "eval_metrics.json" in source
     assert '"completed"' in source
     assert "code_commit" in source
-    assert "66bbf3c4637c5beaeec6ad5313f4a6f02ccba7da04646532b456c28e43ac4210" in source
+    assert "a6c30c89acdc3b213da18eb2cfc2b7df9b83583c3c70d60872854cba1aa0e3d7" in source
