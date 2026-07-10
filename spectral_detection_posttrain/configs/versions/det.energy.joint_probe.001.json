@@ -1,0 +1,99 @@
+{
+  "version_id": "det.energy.joint_probe.001",
+  "status": "preregistered",
+  "objective": "Test whether proposal-set context predicts exact native postprocessing utility for one locally reachable NWPU action on an image-group-heldout subset of the training split.",
+  "probe": {
+    "scope": "train_split_image_group_holdout",
+    "uses_validation": false,
+    "uses_prior_validation_provenance": true,
+    "heldout_fraction": 0.2,
+    "split_seed": 20260710,
+    "claim_boundary": "B=1 oracle-pool-conditioned singleton discriminability probe. It uses a prior M0 full-validation result only as provenance and does not establish detector-only action generation, coordinated multi-action utility, or validation AP gain."
+  },
+  "dataset": {
+    "name": "nwpu",
+    "seed": 42,
+    "data_seed": 42,
+    "train_fraction": 0.7,
+    "train_images": 454,
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "train_image_ids_sha256": "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd"
+  },
+  "detector": {
+    "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "min_size": 480,
+    "max_size": 480,
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "source_m1": {
+    "config": "spectral_detection_posttrain/configs/versions/det.energy.set_policy.m1.001.json",
+    "config_sha256": "37238720b1eaf6a0a56ace8644a4f3248be566b301c3e6ad7393764b596daf32",
+    "cache": "runs/nwpu_m1_set_policy_s42_fulltrain_fullval/oracle_cache.pt",
+    "cache_sha256": "95df3b621c49423433c6fe106feeee114a61529dc231dcf0c2feb8ef097eef44",
+    "cache_metadata": "runs/nwpu_m1_set_policy_s42_fulltrain_fullval/oracle_cache_metadata.json",
+    "cache_schema_version": 1
+  },
+  "source_m0": {
+    "config": "spectral_detection_posttrain/configs/versions/det.energy.set_oracle.m0.001.json",
+    "config_sha256": "b2c485fc485bb605bffc776329beebbf42b556a5b79ed1123d22954465702f0e",
+    "validated_result": "runs/nwpu_m0_set_oracle_s42_fullval/eval_metrics.json",
+    "validated_result_sha256": "372d872ccaebea8418c2ff4428e56a666d4e4440a77b16acbd127f4999869cda"
+  },
+  "candidate_pool": {
+    "step_sizes": [0.05, 0.1, 0.2],
+    "candidate_count": 73,
+    "max_candidates_per_image": 12,
+    "action_budget": 1,
+    "action_energy_scale": 0.04,
+    "utility": "tp75 - 0.25*fp75 - 0.10*fp50 - 0.05*action_energy - 0.02*action_count"
+  },
+  "model": {
+    "hidden_dim": 96,
+    "spatial_size": 7,
+    "max_neighbors": 32,
+    "same_class_edges": true
+  },
+  "training": {
+    "epochs": 6,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "grad_accum_steps": 8,
+    "m1_epochs": 4,
+    "m1_positive_move_weight": 8.0,
+    "m1_identity_weight": 0.1
+  },
+  "loss": {
+    "regression_weight": 1.0,
+    "sign_weight": 0.5,
+    "ranking_weight": 0.5,
+    "target_epsilon": 0.001
+  },
+  "arms": [
+    "m1_factorized",
+    "joint_full",
+    "joint_no_edges",
+    "joint_spatial_shuffle"
+  ],
+  "cache": {
+    "format": "torch_pt",
+    "schema_version": 1,
+    "stores_spatial_features": false,
+    "stores_gt_inputs": false,
+    "stores_oracle_labels": true,
+    "label": "exact singleton utility relative to native identity for the GT-pruned M0 candidate pool"
+  },
+  "gates": {
+    "min_heldout_candidates": 200,
+    "min_heldout_images": 50,
+    "min_pairwise_accuracy": 0.55,
+    "min_sign_accuracy": 0.55,
+    "min_selected_true_delta_mean": 0.01,
+    "min_positive_precision_lift": 0.05,
+    "min_pairwise_gain_over_no_edges": 0.01,
+    "min_pairwise_gain_over_shuffle": 0.01
+  }
+}

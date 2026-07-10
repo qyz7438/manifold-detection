@@ -513,6 +513,7 @@ def _run_search(
     nms_threshold: float,
     permute_deltas: bool = False,
     permutation_seed: int | None = None,
+    include_evaluation_trace: bool = False,
 ) -> tuple[dict[str, Any], dict[str, torch.Tensor], dict[str, SetOutcome]]:
     search_cfg = locked["search"]
     by_id = {item.action_id: item for item in pool}
@@ -566,13 +567,28 @@ def _run_search(
             result = cache[key]
         outcomes[mode] = result[0]
         predictions[mode] = result[1]
-    return {
+    if include_evaluation_trace:
+        evaluate(identity_actions)
+        for candidate in candidates:
+            evaluate((candidate,))
+
+    record = {
         "selected": {mode: [action.action_id for action in actions] for mode, actions in selected.items()},
         "cache_evaluations": len(cache),
         "candidate_count": len(pool),
         "identity_utility": identity_outcome.utility,
         "local_utility": local_outcome.utility,
-    }, predictions, outcomes
+    }
+    if include_evaluation_trace:
+        record["evaluation_trace"] = [
+            {
+                "action_ids": list(action_ids),
+                "utility": float(outcome.utility),
+                "outcome": _json_value(outcome),
+            }
+            for (_, action_ids), (outcome, _) in sorted(cache.items(), key=lambda item: item[0][1])
+        ]
+    return record, predictions, outcomes
 
 
 def _evaluate_fixed_selection(

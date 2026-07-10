@@ -9,6 +9,7 @@ import pytest
 import torch
 
 from spectral_detection_posttrain.methods.energy_transport import ROIActionState
+from spectral_detection_posttrain.trainers.detection.action_local_transport import ProposalActionBatch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -317,6 +318,57 @@ def test_selected_pool_items_reconstructs_fixed_native_action_set() -> None:
     assert [item.action_id for item in selected] == [pool[1].action_id, pool[0].action_id]
     with pytest.raises(ValueError, match="unknown action"):
         module.selected_pool_items(pool, ["missing"])
+
+
+def test_run_search_optional_evaluation_trace_is_complete_and_deterministic(monkeypatch) -> None:
+    module = _load_module()
+    state = _state()
+    batch = ProposalActionBatch(
+        state=state,
+        matched_gt_boxes=torch.tensor([[0.0, 0.0, 10.0, 10.0]]),
+        matched_gt_labels=torch.tensor([1]),
+        image_sizes=[(32, 32)],
+    )
+    target = {
+        "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0]]),
+        "labels": torch.tensor([1]),
+    }
+    pool = (
+        module.LocalCandidate(0, 1, torch.tensor([0.1, 0.0, 0.0, 0.0]), 0.2, 0.8, 0.6, 0.1, "b"),
+        module.LocalCandidate(1, 1, torch.tensor([0.0, 0.1, 0.0, 0.0]), 0.1, 0.8, 0.6, 0.2, "a"),
+    )
+    locked = {
+        "search": {"action_budget": 2, "beam_width": 2, "beam_depth": 2},
+        "detector": {"score_threshold": 0.05, "detections_per_image": 10},
+    }
+    prediction = {
+        "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0]]),
+        "scores": torch.tensor([0.9]),
+        "labels": torch.tensor([1]),
+    }
+    monkeypatch.setattr(module, "action_batch_to_predictions", lambda *args, **kwargs: [prediction])
+
+    default_record, _, _ = module._run_search(
+        batch, target, pool, object(), locked, nms_threshold=0.5
+    )
+    traced_record, _, _ = module._run_search(
+        batch, target, pool, object(), locked, nms_threshold=0.5,
+        include_evaluation_trace=True,
+    )
+
+    assert "evaluation_trace" not in default_record
+    trace = traced_record["evaluation_trace"]
+    assert [entry["action_ids"] for entry in trace] == sorted(
+        (entry["action_ids"] for entry in trace), key=tuple
+    )
+    trace_by_ids = {tuple(entry["action_ids"]): entry for entry in trace}
+    assert () in trace_by_ids
+    assert ("a",) in trace_by_ids
+    assert ("b",) in trace_by_ids
+    for entry in trace:
+        assert isinstance(entry["utility"], float)
+        assert isinstance(entry["outcome"], dict)
+        json.dumps(entry)
 
 
 def test_validation_manifest_verifies_locked_image_ids() -> None:
