@@ -14,6 +14,8 @@ Obsolete round artifacts are archived in `docs/reports/archive/`.
 
 ## NWPU VHR-10
 
+- `nwpu_set_action_m0_m1_report_2026-07-10.md` - locked M0 reachability, GT-free M1 policy, move-gate bypass diagnosis, retired factorization, and next joint-utility boundary.
+
 - `manifold_research_line_retirement_report_2026-07-10.md` - full research-line audit: hard stops, invalidated evidence, demoted baselines, retained primitives, and the set-level/NMS-aware next boundary.
 
 - `nwpu_strong_native_candidate_energy_review_2026-07-10.md` - strong-baseline, native-parity, discrete candidate-energy, spatial-feature, dense-gain, and context-only decision record.
