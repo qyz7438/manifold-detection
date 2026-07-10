@@ -378,6 +378,8 @@ def test_launcher_is_gpu2_only_strictly_memory_gated_and_uses_correct_root() -> 
 
     assert "/home/ps/lzz/manifold-detection-energy-transport" in source
     assert "/home/ps/lzz/RLimage" not in source
+    assert "rev-parse --is-inside-work-tree" in source
+    assert 'test -d "$ROOT/.git"' not in source
     assert "CUDA_VISIBLE_DEVICES=2" in source
     assert "CUBLAS_WORKSPACE_CONFIG=:4096:8" in source
     assert "memory.free" in source

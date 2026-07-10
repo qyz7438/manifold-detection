@@ -7,7 +7,7 @@ PYTHON=/home/ps/anaconda3/envs/RLimage/bin/python
 RESULT="$RUN_DIR/eval_metrics.json"
 CONFIG_SHA=a6c30c89acdc3b213da18eb2cfc2b7df9b83583c3c70d60872854cba1aa0e3d7
 
-test -d "$ROOT/.git"
+test "$(git -C "$ROOT" rev-parse --is-inside-work-tree)" = true
 CURRENT_HEAD=$(git -C "$ROOT" rev-parse HEAD)
 
 if [ -f "$RESULT" ] && "$PYTHON" -c '
