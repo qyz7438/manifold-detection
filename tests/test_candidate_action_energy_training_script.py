@@ -7,6 +7,7 @@ import torch
 
 from spectral_detection_posttrain.methods.energy_transport import (
     ActionBenefitEnergyHead,
+    ContextOnlyCandidateEnergyHead,
     ROIActionState,
     SpatialCandidateEnergyHead,
     build_symmetric_box_candidates,
@@ -92,6 +93,23 @@ def test_candidate_energy_encodes_spatial_roi_once_per_proposal() -> None:
         state,
         candidates,
         feature_values=torch.randn(4, 4, 3, 3),
+    )
+
+    assert energies.shape == (4, 25)
+    assert energies.count_nonzero().item() == 0
+
+
+def test_candidate_energy_supports_context_only_control() -> None:
+    module = _load_module()
+    state = _state()
+    candidates = build_symmetric_box_candidates((0.1,))
+    head = ContextOnlyCandidateEnergyHead(num_classes=3, hidden_dim=8)
+
+    energies = module.candidate_energies(
+        head,
+        state,
+        candidates,
+        feature_values=torch.empty(4, 0),
     )
 
     assert energies.shape == (4, 25)

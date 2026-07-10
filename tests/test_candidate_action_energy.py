@@ -6,6 +6,7 @@ import torch
 from spectral_detection_posttrain.methods.energy_transport import (
     CandidateEnergyLossConfig,
     CandidateGainLossConfig,
+    ContextOnlyCandidateEnergyHead,
     ROIActionState,
     SpatialCandidateEnergyHead,
     build_candidate_quality_targets,
@@ -170,6 +171,20 @@ def test_spatial_candidate_head_preserves_batch_shape_and_zero_init() -> None:
     )
     energies = head(
         torch.randn(2, 4, 3, 3),
+        torch.randn(2, 3),
+        torch.tensor([1, 2]),
+        torch.tensor([0.8, 0.7]),
+        torch.randn(2, 4),
+    )
+
+    assert energies.shape == (2,)
+    assert energies.count_nonzero().item() == 0
+
+
+def test_context_only_candidate_head_uses_empty_feature_code() -> None:
+    head = ContextOnlyCandidateEnergyHead(num_classes=3, hidden_dim=8)
+    energies = head(
+        torch.empty(2, 0),
         torch.randn(2, 3),
         torch.tensor([1, 2]),
         torch.tensor([0.8, 0.7]),

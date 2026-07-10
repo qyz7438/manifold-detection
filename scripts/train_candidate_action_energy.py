@@ -24,6 +24,7 @@ from spectral_detection_posttrain.methods.energy_transport import (
     ActionBenefitEnergyHead,
     CandidateEnergyLossConfig,
     CandidateGainLossConfig,
+    ContextOnlyCandidateEnergyHead,
     ROITransportActions,
     SpatialCandidateEnergyHead,
     build_candidate_quality_targets,
@@ -61,7 +62,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-seed", type=int, default=42)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--hidden-dim", type=int, default=256)
-    parser.add_argument("--feature-source", choices=("box", "spatial"), default="box")
+    parser.add_argument("--feature-source", choices=("box", "spatial", "context"), default="box")
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--step-sizes", default="0.05,0.1,0.2")
@@ -140,6 +141,8 @@ def action_feature_values(batch, feature_source: str) -> torch.Tensor:
         if batch.spatial_features is None:
             raise ValueError("spatial ROI features were not captured")
         return batch.spatial_features
+    if feature_source == "context":
+        return batch.state.features.new_empty((batch.state.batch_size, 0))
     raise ValueError(f"unsupported feature source: {feature_source}")
 
 
@@ -669,7 +672,7 @@ def main() -> None:
             num_classes=11,
             hidden_dim=int(args.hidden_dim),
         ).to(device)
-    else:
+    elif args.feature_source == "spatial":
         output_size = tuple(int(value) for value in model.roi_heads.box_roi_pool.output_size)
         if len(output_size) != 2 or output_size[0] != output_size[1]:
             raise ValueError(f"spatial candidate head requires square ROI pooling, got {output_size}")
@@ -678,6 +681,11 @@ def main() -> None:
             num_classes=11,
             hidden_dim=int(args.hidden_dim),
             spatial_size=output_size[0],
+        ).to(device)
+    else:
+        energy_head = ContextOnlyCandidateEnergyHead(
+            num_classes=11,
+            hidden_dim=int(args.hidden_dim),
         ).to(device)
     energy_checkpoint = None
     if args.energy_checkpoint:

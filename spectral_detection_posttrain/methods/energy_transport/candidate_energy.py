@@ -157,6 +157,82 @@ class SpatialCandidateEnergyHead(nn.Module):
         return self.energy_from_code(feature_code, class_logits, labels, scores, box_delta)
 
 
+class ContextOnlyCandidateEnergyHead(nn.Module):
+    """Score candidate actions without proposal ROI features."""
+
+    def __init__(self, num_classes: int, hidden_dim: int = 256) -> None:
+        super().__init__()
+        if num_classes <= 1 or hidden_dim <= 0:
+            raise ValueError("num_classes must exceed one and hidden_dim must be positive")
+        self.num_classes = int(num_classes)
+        self.hidden_dim = int(hidden_dim)
+        context_dim = 2 * self.num_classes + 1 + 4
+        self.context_encoder = nn.Sequential(
+            nn.Linear(context_dim, self.hidden_dim),
+            nn.SiLU(),
+        )
+        self.energy_head = nn.Sequential(
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.SiLU(),
+            nn.Linear(self.hidden_dim, 1),
+        )
+        output = self.energy_head[-1]
+        assert isinstance(output, nn.Linear)
+        nn.init.zeros_(output.weight)
+        nn.init.zeros_(output.bias)
+
+    def encode_features(self, features: torch.Tensor) -> torch.Tensor:
+        if features.ndim != 2 or features.shape[1] != 0:
+            raise ValueError("context-only features must have shape (B, 0)")
+        return features
+
+    def energy_from_code(
+        self,
+        feature_code: torch.Tensor,
+        class_logits: torch.Tensor,
+        labels: torch.Tensor,
+        scores: torch.Tensor,
+        box_delta: torch.Tensor,
+    ) -> torch.Tensor:
+        batch = feature_code.shape[0]
+        if feature_code.shape != (batch, 0):
+            raise ValueError("feature_code must have shape (B, 0)")
+        if class_logits.shape != (batch, self.num_classes):
+            raise ValueError(f"class_logits must have shape (B, {self.num_classes})")
+        if labels.shape != (batch,) or scores.shape != (batch,):
+            raise ValueError("labels and scores must have shape (B,)")
+        if box_delta.shape != (batch, 4):
+            raise ValueError("box_delta must have shape (B, 4)")
+
+        probabilities = torch.softmax(class_logits, dim=-1)
+        one_hot = F.one_hot(
+            labels.long().clamp(0, self.num_classes - 1),
+            num_classes=self.num_classes,
+        ).to(dtype=class_logits.dtype)
+        context = torch.cat(
+            (
+                probabilities,
+                one_hot,
+                scores[:, None].to(dtype=class_logits.dtype),
+                box_delta.to(dtype=class_logits.dtype),
+            ),
+            dim=1,
+        )
+        context_code = self.context_encoder(context)
+        return self.energy_head(context_code).squeeze(1)
+
+    def forward(
+        self,
+        features: torch.Tensor,
+        class_logits: torch.Tensor,
+        labels: torch.Tensor,
+        scores: torch.Tensor,
+        box_delta: torch.Tensor,
+    ) -> torch.Tensor:
+        feature_code = self.encode_features(features)
+        return self.energy_from_code(feature_code, class_logits, labels, scores, box_delta)
+
+
 def build_symmetric_box_candidates(
     step_sizes: tuple[float, ...] = (0.05, 0.10, 0.20),
 ) -> torch.Tensor:
