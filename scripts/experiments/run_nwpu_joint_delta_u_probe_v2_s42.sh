@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT=/home/ps/lzz/manifold-detection-energy-transport
-RUN_DIR="$ROOT/runs/nwpu_joint_delta_u_probe_v2_s42_traincal_fullval"
+RUN_DIR="$ROOT/runs/nwpu_joint_delta_u_probe_v2_s42_traincal_cleanval180"
 PYTHON=/home/ps/anaconda3/envs/RLimage/bin/python
 RESULT="$RUN_DIR/eval_metrics.json"
 CONFIG_SHA=0b327d1f60e3fac222d1233a7fa35ed60c81abcf44d987a653f71b71189f6938

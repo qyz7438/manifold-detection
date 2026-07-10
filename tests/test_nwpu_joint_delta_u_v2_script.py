@@ -232,6 +232,7 @@ def test_v2_launcher_is_clean_gpu2_only_and_hash_locked() -> None:
     config_hash = module.sha256_file(CONFIG)
 
     assert "/home/ps/lzz/manifold-detection-energy-transport" in source
+    assert "nwpu_joint_delta_u_probe_v2_s42_traincal_cleanval180" in source
     assert "/home/ps/lzz/RLimage" not in source
     assert "rev-parse --is-inside-work-tree" in source
     assert "CUDA_VISIBLE_DEVICES=2" in source
