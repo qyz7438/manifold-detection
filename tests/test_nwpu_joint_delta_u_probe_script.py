@@ -246,6 +246,18 @@ def test_full_train_guard_rejects_limited_probe() -> None:
         )
 
 
+def test_cuda_probe_requires_reproducible_cublas_workspace(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_module()
+    monkeypatch.delenv("CUBLAS_WORKSPACE_CONFIG", raising=False)
+
+    module.validate_deterministic_cuda_environment(torch.device("cpu"))
+    with pytest.raises(RuntimeError, match="CUBLAS_WORKSPACE_CONFIG"):
+        module.validate_deterministic_cuda_environment(torch.device("cuda"))
+
+    monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    module.validate_deterministic_cuda_environment(torch.device("cuda"))
+
+
 def test_locked_config_loader_rejects_noncanonical_path(tmp_path: Path) -> None:
     module = _load_module()
     copied = tmp_path / "copied.json"
@@ -367,6 +379,7 @@ def test_launcher_is_gpu2_only_strictly_memory_gated_and_uses_correct_root() -> 
     assert "/home/ps/lzz/manifold-detection-energy-transport" in source
     assert "/home/ps/lzz/RLimage" not in source
     assert "CUDA_VISIBLE_DEVICES=2" in source
+    assert "CUBLAS_WORKSPACE_CONFIG=:4096:8" in source
     assert "memory.free" in source
     assert "8192" in source
     assert "-le 8192" in source or "<= 8192" in source

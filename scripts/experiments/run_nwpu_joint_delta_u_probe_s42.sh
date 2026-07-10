@@ -35,6 +35,7 @@ fi
 mkdir -p "$RUN_DIR"
 cd "$ROOT"
 export CUDA_VISIBLE_DEVICES=2
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
 export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
 
 exec "$PYTHON" scripts/probe_nwpu_joint_delta_u.py \

@@ -11,6 +11,7 @@ import hashlib
 import importlib.util
 import json
 import math
+import os
 import random
 import subprocess
 import sys
@@ -662,6 +663,16 @@ def validate_cli_args(args: argparse.Namespace) -> None:
         raise ValueError("--limit-train must be positive")
 
 
+def validate_deterministic_cuda_environment(device: torch.device) -> None:
+    if device.type != "cuda":
+        return
+    workspace = os.environ.get("CUBLAS_WORKSPACE_CONFIG")
+    if workspace not in {":4096:8", ":16:8"}:
+        raise RuntimeError(
+            "CUDA joint probe requires CUBLAS_WORKSPACE_CONFIG=:4096:8 or :16:8"
+        )
+
+
 def sha256_file(path: str | Path) -> str:
     digest = hashlib.sha256()
     with Path(path).open("rb") as handle:
@@ -924,8 +935,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     from spectral_detection_posttrain.utils.seed import resolve_device, set_seed
 
     set_seed(int(config["dataset"]["seed"]))
-    torch.use_deterministic_algorithms(True, warn_only=True)
     device = resolve_device({"device": args.device or ("cuda" if torch.cuda.is_available() else "cpu")})
+    validate_deterministic_cuda_environment(device)
+    torch.use_deterministic_algorithms(True, warn_only=True)
     checkpoint = (ROOT / config["detector"]["checkpoint"]).resolve()
     annotation = (ROOT / "data" / "NWPU_VHR10_coco.json").resolve()
     data_root = (ROOT / "data" / "NWPU VHR-10 dataset").resolve()
