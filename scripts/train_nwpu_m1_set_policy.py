@@ -422,6 +422,7 @@ def policy_output_diagnostics(
     observable_mask: torch.Tensor,
     move_threshold: float,
     action_energy_scale: float,
+    require_move_gate: bool = True,
 ) -> dict[str, float | int]:
     if action_energy_scale <= 0.0:
         raise ValueError("action_energy_scale must be positive")
@@ -432,13 +433,14 @@ def policy_output_diagnostics(
     action_margin = best_non_identity - output.action_logits[:, 0]
     gate_positive = observable & output.move_logits.gt(float(move_threshold))
     margin_positive = observable & action_margin.gt(0.0)
+    eligible = (gate_positive & margin_positive) if require_move_gate else margin_positive
     selected_energy = selection.box_delta.square().sum() / float(action_energy_scale)
     count = int(observable.sum().item())
     return {
         "observable_count": count,
         "move_gate_positive": int(gate_positive.sum().item()),
         "action_margin_positive": int(margin_positive.sum().item()),
-        "eligible_before_budget": int((gate_positive & margin_positive).sum().item()),
+        "eligible_before_budget": int(eligible.sum().item()),
         "selected_count": int(selection.selected_mask.sum().item()),
         "selected_energy_sum": float(selected_energy.item()),
         "move_logit_mean": float(output.move_logits[observable].mean().item()) if count else 0.0,
@@ -528,13 +530,24 @@ def _selection_to_actions(selection: Any, state: Any) -> Any:
 
 
 @torch.no_grad()
-def evaluate_validation(model: torch.nn.Module, policy: torch.nn.Module, loader: Any, config: dict[str, Any], device: torch.device) -> tuple[dict[str, Any], dict[str, Any]]:
+def evaluate_validation(
+    model: torch.nn.Module,
+    policy: torch.nn.Module,
+    loader: Any,
+    config: dict[str, Any],
+    device: torch.device,
+    *,
+    include_move_gate_bypass: bool = False,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     from spectral_detection_posttrain.eval.detection_metrics import evaluate_detection_predictions
     from spectral_detection_posttrain.trainers.detection.action_local_transport import action_batch_to_predictions, extract_proposal_action_batch
     from spectral_detection_posttrain.methods.energy_transport import build_symmetric_box_candidates, select_set_policy_actions
     m0 = _load_m0()
     candidates = build_symmetric_box_candidates(tuple(config["candidate_pool"]["step_sizes"])).to(device)
-    predictions = {mode: [] for mode in config["modes"]}
+    modes = list(config["modes"])
+    if include_move_gate_bypass:
+        modes.append("move_gate_bypass")
+    predictions = {mode: [] for mode in modes}
     targets_for_metrics: list[dict[str, torch.Tensor]] = []
     parity = {"mismatched_images": 0, "max_box_abs_error": 0.0, "max_score_abs_error": 0.0, "passed": True}
     diagnostics = {
@@ -548,7 +561,7 @@ def evaluate_validation(model: torch.nn.Module, policy: torch.nn.Module, loader:
             "move_logit_weighted_sum": 0.0,
             "action_margin_weighted_sum": 0.0,
         }
-        for mode in config["modes"]
+        for mode in modes
     }
     model.eval()
     policy.eval()
@@ -567,7 +580,7 @@ def evaluate_validation(model: torch.nn.Module, policy: torch.nn.Module, loader:
         image_id = int(target_for_metrics["image_id"].flatten()[0].item())
         observable = _observable_mask(batch.state.logits, batch.state.scores, config["detector"]["score_threshold"])
         image_indices = batch.state.image_indices
-        for mode in config["modes"]:
+        for mode in modes:
             if mode == "identity":
                 actions = _zero_actions(batch.state)
             else:
@@ -576,7 +589,16 @@ def evaluate_validation(model: torch.nn.Module, policy: torch.nn.Module, loader:
                     generator = torch.Generator(device=spatial.device).manual_seed(31415 + image_id)
                     spatial = spatial[torch.randperm(spatial.shape[0], generator=generator, device=spatial.device)]
                 output = policy(spatial, batch.class_logits, batch.state.labels, batch.state.scores, batch.state.boxes, image_size=batch.image_sizes[0], energy_weight=0.0 if mode == "energy_zero" else float(config["policy"]["energy_weight"]))
-                selected = select_set_policy_actions(output, candidates, image_indices=image_indices, observable_mask=observable, max_actions_per_image=int(config["candidate_pool"]["action_budget"]), move_threshold=float(config["candidate_pool"]["move_threshold"]))
+                require_move_gate = mode != "move_gate_bypass"
+                selected = select_set_policy_actions(
+                    output,
+                    candidates,
+                    image_indices=image_indices,
+                    observable_mask=observable,
+                    max_actions_per_image=int(config["candidate_pool"]["action_budget"]),
+                    move_threshold=float(config["candidate_pool"]["move_threshold"]),
+                    require_move_gate=require_move_gate,
+                )
                 actions = _selection_to_actions(selected, batch.state)
                 row_diagnostics = policy_output_diagnostics(
                     output,
@@ -584,6 +606,7 @@ def evaluate_validation(model: torch.nn.Module, policy: torch.nn.Module, loader:
                     observable_mask=observable,
                     move_threshold=float(config["candidate_pool"]["move_threshold"]),
                     action_energy_scale=float(config["candidate_pool"]["action_energy_scale"]),
+                    require_move_gate=require_move_gate,
                 )
                 for key in ("observable_count", "move_gate_positive", "action_margin_positive", "eligible_before_budget", "selected_count"):
                     diagnostics[mode][key] += int(row_diagnostics[key])
@@ -591,12 +614,21 @@ def evaluate_validation(model: torch.nn.Module, policy: torch.nn.Module, loader:
                 diagnostics[mode]["move_logit_weighted_sum"] += float(row_diagnostics["move_logit_mean"]) * int(row_diagnostics["observable_count"])
                 diagnostics[mode]["action_margin_weighted_sum"] += float(row_diagnostics["action_margin_mean"]) * int(row_diagnostics["observable_count"])
             predictions[mode].append(action_batch_to_predictions(batch, actions, score_threshold=float(config["detector"]["score_threshold"]), nms_threshold=float(config["detector"]["nms_threshold"]), detections_per_img=int(config["detector"]["detections_per_image"]), native_model=model)[0])
-    metrics = {mode: evaluate_detection_predictions(predictions[mode], targets_for_metrics, score_threshold=float(config["detector"]["score_threshold"]), per_class=True, per_size=True, num_classes=11) for mode in config["modes"]}
+    metrics = {mode: evaluate_detection_predictions(predictions[mode], targets_for_metrics, score_threshold=float(config["detector"]["score_threshold"]), per_class=True, per_size=True, num_classes=11) for mode in modes}
     identity = metrics["identity"]
     learned = metrics["learned_set"]
     shuffled = metrics["shuffled_spatial"]
     energy_zero = metrics["energy_zero"]
     summary = {"parity": parity, "gt_free_eval": True, "detector_deltas": {"ap75": float(learned["ap75"] - identity["ap75"]), "ap50": float(learned["ap50"] - identity["ap50"]), "false_positive_rate": float(learned["false_positive_rate"] - identity["false_positive_rate"]), "num_predictions_relative": float((learned["num_predictions"] - identity["num_predictions"]) / max(1, identity["num_predictions"]))}, "learned_vs_shuffled": {"ap75": float(learned["ap75"] - shuffled["ap75"])}, "learned_vs_energy_zero": {"ap75": float(learned["ap75"] - energy_zero["ap75"])}}
+    if include_move_gate_bypass:
+        bypass = metrics["move_gate_bypass"]
+        summary["move_gate_bypass_deltas"] = {
+            "ap75_vs_identity": float(bypass["ap75"] - identity["ap75"]),
+            "ap75_vs_learned": float(bypass["ap75"] - learned["ap75"]),
+            "ap50_vs_identity": float(bypass["ap50"] - identity["ap50"]),
+            "false_positive_rate_vs_identity": float(bypass["false_positive_rate"] - identity["false_positive_rate"]),
+            "num_predictions_relative_vs_identity": float((bypass["num_predictions"] - identity["num_predictions"]) / max(1, identity["num_predictions"])),
+        }
     for mode in diagnostics:
         observable_count = int(diagnostics[mode]["observable_count"])
         diagnostics[mode]["mean_selected_energy_per_image"] = diagnostics[mode]["selected_energy_sum"] / max(1, len(targets_for_metrics))

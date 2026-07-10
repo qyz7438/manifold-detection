@@ -1,0 +1,52 @@
+{
+  "version_id": "det.energy.set_policy.movegate_diag.001",
+  "status": "posthoc_diagnostic",
+  "parent_version_id": "det.energy.set_policy.m1.001",
+  "arms": ["move_gate_bypass"],
+  "output_modes": ["identity", "learned_set", "move_gate_bypass"],
+  "objective": "One frozen-policy diagnostic arm testing whether the move gate is the primary M1 bottleneck.",
+  "dataset": {
+    "name": "nwpu",
+    "seed": 42,
+    "data_seed": 42,
+    "validation_images": 196,
+    "annotation": "data/NWPU_VHR10_coco.json",
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "val_image_ids_sha256": "49f05cc9fa82ccaf924ff3be58a8f6376387c225e020ea6138182a4637219684"
+  },
+  "detector": {
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "policy": {
+    "checkpoint": "runs/nwpu_m1_set_policy_s42_fulltrain_fullval/policy_best.pt",
+    "checkpoint_sha256": "54a34c463ea5ed2fea58e7fa9534fc059867d2b7cf1444b32255aadb9055d9cd",
+    "energy_weight": 0.05,
+    "frozen": true
+  },
+  "source_m1": {
+    "config": "spectral_detection_posttrain/configs/versions/det.energy.set_policy.m1.001.json",
+    "config_sha256": "37238720b1eaf6a0a56ace8644a4f3248be566b301c3e6ad7393764b596daf32",
+    "result": "runs/nwpu_m1_set_policy_s42_fulltrain_fullval/eval_metrics.json",
+    "result_sha256": "9b089b6625d0dfc9d9fe6a1553be6d5646b78a8179c7de15e506b2e0215a88e5",
+    "required_gates": {"completed": true, "G0_parity": true, "G1_gt_free_eval": true, "G2_learned_vs_identity": false}
+  },
+  "diagnostic": {
+    "arms": ["move_gate_bypass"],
+    "output_modes": ["identity", "learned_set", "move_gate_bypass"],
+    "eligibility": "observable & action_margin > 0",
+    "ranking": "move_logit + action_margin",
+    "action_budget": 4,
+    "energy_weight": 0.05,
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100,
+    "retrain": false,
+    "threshold_sweep": false,
+    "clean_gain": false
+  },
+  "claim_boundary": "Post-hoc diagnostic only; any result is not a clean gain and does not add another M1 arm."
+}

@@ -156,6 +156,16 @@ def test_selection_stops_everything_when_move_gate_does_not_pass() -> None:
     assert selected.candidate_indices.tolist() == [0, 0]
     assert selected.box_delta.count_nonzero().item() == 0
 
+    bypassed = select_set_policy_actions(
+        output,
+        _candidates(),
+        torch.tensor([0, 0]),
+        torch.tensor([True, True]),
+        require_move_gate=False,
+    )
+    assert bypassed.selected_mask.tolist() == [True, True]
+    assert bypassed.candidate_indices.tolist() == [1, 1]
+
 
 def test_selection_respects_per_image_budget_and_skips_unobservable_proposals() -> None:
     output = SetPolicyOutput(

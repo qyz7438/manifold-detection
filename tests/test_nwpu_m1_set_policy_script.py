@@ -212,6 +212,16 @@ def test_policy_output_diagnostics_separate_gate_margin_and_budget() -> None:
     assert summary["move_logit_mean"] == pytest.approx(1.0 / 3.0)
     assert summary["action_margin_mean"] == pytest.approx(4.0 / 3.0)
 
+    bypassed = module.policy_output_diagnostics(
+        output,
+        selection,
+        observable_mask=torch.tensor([True, True, True]),
+        move_threshold=0.0,
+        action_energy_scale=0.04,
+        require_move_gate=False,
+    )
+    assert bypassed["eligible_before_budget"] == 2
+
 
 def test_beam_labels_map_to_local_candidate_indices_and_identity_is_observable() -> None:
     module = _load_module()

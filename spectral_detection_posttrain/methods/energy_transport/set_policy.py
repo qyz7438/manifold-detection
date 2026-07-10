@@ -227,6 +227,7 @@ def select_set_policy_actions(
     observable_mask: torch.Tensor,
     max_actions_per_image: int = 4,
     move_threshold: float = 0.0,
+    require_move_gate: bool = True,
 ) -> SetPolicySelection:
     """Select at most one positive-margin action per proposal under image budgets."""
     count, candidates = _validate_output(output)
@@ -250,11 +251,10 @@ def select_set_policy_actions(
     best_non_identity = best_non_identity + 1
     action_margin = best_non_identity_logits - output.action_logits[:, 0]
     selection_scores = output.move_logits + action_margin
-    eligible = (
-        observable_mask.bool()
-        & output.move_logits.gt(float(move_threshold))
-        & action_margin.gt(0.0)
-    )
+    move_eligible = output.move_logits.gt(float(move_threshold))
+    if not require_move_gate:
+        move_eligible = torch.ones_like(move_eligible)
+    eligible = observable_mask.bool() & move_eligible & action_margin.gt(0.0)
     selected_mask = torch.zeros(count, dtype=torch.bool, device=output.action_logits.device)
     image_indices = image_indices.to(device=output.action_logits.device)
     for image_index in torch.unique(image_indices[eligible], sorted=True).tolist():
