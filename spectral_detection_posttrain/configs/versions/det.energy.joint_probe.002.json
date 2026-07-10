@@ -1,0 +1,119 @@
+{
+  "version_id": "det.energy.joint_probe.002",
+  "status": "preregistered",
+  "objective": "Test whether fit-only conservative calibration turns proposal-set Delta-U ranking into positive B=1 utility on detector-unseen NWPU validation images.",
+  "probe": {
+    "scope": "train_fit_calibration_then_detector_unseen_validation",
+    "validation_evaluated_once": true,
+    "validation_used_for_training_or_calibration": false,
+    "claim_boundary": "B=1 oracle-pool-conditioned utility validation. This does not establish detector_only_action_generation, coordinated multi-action transport, or AP improvement."
+  },
+  "dataset": {
+    "name": "nwpu",
+    "seed": 42,
+    "data_seed": 42,
+    "train_fraction": 0.7,
+    "train_images": 454,
+    "validation_images": 196,
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "train_image_ids_sha256": "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd",
+    "validation_image_ids_sha256": "49f05cc9fa82ccaf924ff3be58a8f6376387c225e020ea6138182a4637219684"
+  },
+  "split": {
+    "calibration_fraction": 0.2,
+    "seed": 20260711
+  },
+  "detector": {
+    "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "min_size": 480,
+    "max_size": 480,
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "source_train_cache": {
+    "path": "runs/nwpu_joint_delta_u_probe_s42_trainholdout/joint_utility_probe_cache.pt",
+    "sha256": "d30a36631d13d2e95d4340c901d0ea53cac37c7b6d4c30d1a97315105994c6cd",
+    "metadata": "runs/nwpu_joint_delta_u_probe_s42_trainholdout/joint_utility_probe_cache_metadata.json",
+    "metadata_sha256": "b83dcbe9e0317665ca7356104a06cb1af8022fe9b7bde6c819b65c086ac70bb6",
+    "schema_version": 2,
+    "pairing": "same_detector_forward"
+  },
+  "source_m0": {
+    "config": "spectral_detection_posttrain/configs/versions/det.energy.set_oracle.m0.001.json",
+    "config_sha256": "b2c485fc485bb605bffc776329beebbf42b556a5b79ed1123d22954465702f0e",
+    "validated_result": "runs/nwpu_m0_set_oracle_s42_fullval/eval_metrics.json",
+    "validated_result_sha256": "372d872ccaebea8418c2ff4428e56a666d4e4440a77b16acbd127f4999869cda"
+  },
+  "source_m1": {
+    "config": "spectral_detection_posttrain/configs/versions/det.energy.set_policy.m1.001.json",
+    "config_sha256": "37238720b1eaf6a0a56ace8644a4f3248be566b301c3e6ad7393764b596daf32"
+  },
+  "candidate_pool": {
+    "step_sizes": [0.05, 0.1, 0.2],
+    "candidate_count": 73,
+    "max_candidates_per_image": 12,
+    "action_budget": 1,
+    "action_energy_scale": 0.04,
+    "utility": "tp75 - 0.25*fp75 - 0.10*fp50 - 0.05*action_energy - 0.02*action_count"
+  },
+  "model": {
+    "hidden_dim": 96,
+    "spatial_size": 7,
+    "max_neighbors": 32,
+    "same_class_edges": true
+  },
+  "training": {
+    "epochs": 6,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "grad_accum_steps": 8
+  },
+  "loss": {
+    "regression_weight": 1.0,
+    "sign_weight": 0.5,
+    "ranking_weight": 0.5,
+    "target_epsilon": 0.001
+  },
+  "calibration": {
+    "min_selected_actions": 12,
+    "max_action_image_rate": 0.25,
+    "min_positive_precision_lift": 0.05,
+    "min_mean_delta_u_lcb": 0.0,
+    "lcb_z": 1.645
+  },
+  "bootstrap": {
+    "resamples": 5000,
+    "seed": 20260711,
+    "confidence": 0.95
+  },
+  "arms": [
+    "joint_full",
+    "joint_no_edges",
+    "joint_spatial_shuffle",
+    "joint_edge_topology_shuffle"
+  ],
+  "validation_cache": {
+    "format": "torch_pt",
+    "schema_version": 2,
+    "pairing": "same_detector_forward",
+    "stores_spatial_features": true,
+    "stores_gt_inputs": false,
+    "stores_oracle_labels": true
+  },
+  "gates": {
+    "min_validation_candidates": 500,
+    "min_validation_candidate_images": 100,
+    "min_topology_edge_change_fraction": 0.25,
+    "min_pairwise_accuracy": 0.55,
+    "min_pairwise_ci_low_vs_controls": 0.0,
+    "min_calibration_lcb": 0.0,
+    "min_validation_selected_actions": 12,
+    "min_validation_mean_delta_u": 0.01,
+    "min_validation_positive_precision_lift": 0.05,
+    "max_validation_action_image_rate": 0.25,
+    "min_validation_gain_over_controls": 0.005
+  }
+}

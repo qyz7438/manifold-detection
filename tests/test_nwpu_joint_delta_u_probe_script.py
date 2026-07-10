@@ -341,6 +341,93 @@ def test_tiny_joint_arm_trains_and_evaluates_without_validation_data(tmp_path: P
     assert 0.0 <= metrics["pairwise_accuracy"] <= 1.0
 
 
+def test_joint_prediction_rows_are_exposed_for_fit_only_calibration() -> None:
+    module = _load_module()
+    records = [_tiny_probe_record(10, True), _tiny_probe_record(20, False)]
+    candidate_deltas = torch.tensor(
+        [[0.0, 0.0, 0.0, 0.0], [0.1, 0.0, 0.0, 0.0], [-0.1, 0.0, 0.0, 0.0]]
+    )
+    config = {
+        "model": {"hidden_dim": 8, "max_neighbors": 4, "same_class_edges": True},
+        "candidate_pool": {"action_budget": 1},
+        "loss": {"target_epsilon": 1e-3},
+    }
+    model_cls, _, _, _ = module._joint_api()
+    model = model_cls(
+        in_channels=4,
+        num_classes=3,
+        candidate_deltas=candidate_deltas,
+        hidden_dim=8,
+    )
+
+    predicted, target, image_ids = module.predict_joint_arm(
+        model,
+        records,
+        candidate_deltas,
+        config,
+        torch.device("cpu"),
+        arm="joint_full",
+    )
+
+    assert predicted.shape == target.shape == image_ids.shape == (4,)
+    assert image_ids.tolist() == [10, 10, 20, 20]
+    assert torch.equal(target, torch.tensor([0.8, -0.4, -0.3, 0.5]))
+
+
+def test_topology_shuffle_arm_changes_edges_without_shuffling_roi_features() -> None:
+    module = _load_module()
+    detector = {
+        "image_id": 37,
+        "spatial_features": torch.arange(108, dtype=torch.float32).reshape(3, 4, 3, 3).half(),
+        "class_logits": torch.tensor([[0.0, 2.0, -1.0]]).repeat(3, 1),
+        "predicted_labels": torch.tensor([1, 1, 1]),
+        "scores": torch.tensor([0.9, 0.8, 0.7]),
+        "boxes": torch.tensor(
+            [[0.0, 0.0, 8.0, 8.0], [1.0, 0.0, 9.0, 8.0], [2.0, 0.0, 10.0, 8.0]]
+        ),
+        "image_size": (16, 16),
+        "action_targets": torch.tensor([1, 2, 1]),
+        "move_targets": torch.tensor([1, 0, 0]),
+    }
+    trace = {
+        "image_id": 37,
+        "proposal_count": 3,
+        "action_ids": ("p0000_c01",),
+        "proposal_indices": torch.tensor([0]),
+        "candidate_indices": torch.tensor([1]),
+        "box_deltas": torch.tensor([[0.1, 0.0, 0.0, 0.0]]),
+        "action_energies": torch.tensor([0.25]),
+        "identity_utility": 0.0,
+        "singleton_delta_u": torch.tensor([0.8]),
+    }
+    candidate_deltas = torch.tensor(
+        [[0.0, 0.0, 0.0, 0.0], [0.1, 0.0, 0.0, 0.0], [-0.1, 0.0, 0.0, 0.0]]
+    )
+    config = {"model": {"hidden_dim": 8, "max_neighbors": 4, "same_class_edges": True}}
+
+    full, _, _ = module._joint_record_inputs(
+        detector,
+        trace,
+        candidate_deltas,
+        config,
+        torch.device("cpu"),
+        arm="joint_full",
+    )
+    shuffled, _, _ = module._joint_record_inputs(
+        detector,
+        trace,
+        candidate_deltas,
+        config,
+        torch.device("cpu"),
+        arm="joint_edge_topology_shuffle",
+    )
+
+    assert torch.equal(full["spatial_features"], shuffled["spatial_features"])
+    assert torch.equal(full["edges"].edge_features, shuffled["edges"].edge_features)
+    assert torch.equal(full["edges"].edge_index[0], shuffled["edges"].edge_index[0])
+    assert not torch.equal(full["edges"].edge_index[1], shuffled["edges"].edge_index[1])
+
+
 def test_joint_arm_rejects_trace_delta_that_does_not_match_candidate_grid(tmp_path: Path) -> None:
     module = _load_module()
     detector, trace = _tiny_probe_record(10, True)

@@ -455,6 +455,17 @@ def _finish_joint_record_inputs(
             max_neighbors=int(config["model"]["max_neighbors"]),
             same_class_only=bool(config["model"]["same_class_edges"]),
         )
+        if arm == "joint_edge_topology_shuffle":
+            from spectral_detection_posttrain.methods.energy_transport import (
+                shuffle_edge_topology,
+            )
+
+            edges = shuffle_edge_topology(
+                edges,
+                labels,
+                image_indices,
+                seed=31415 + int(detector_record["image_id"]),
+            )
     target, mask = sparse_target_matrix(
         trace_record,
         proposal_count=count,
@@ -483,7 +494,12 @@ def train_joint_arm(
     arm: str,
     num_classes: int = 11,
 ) -> tuple[torch.nn.Module, dict[str, Any]]:
-    if arm not in {"joint_full", "joint_no_edges", "joint_spatial_shuffle"}:
+    if arm not in {
+        "joint_full",
+        "joint_no_edges",
+        "joint_spatial_shuffle",
+        "joint_edge_topology_shuffle",
+    }:
         raise ValueError(f"unsupported joint probe arm: {arm}")
     if not records:
         raise ValueError("joint probe training records cannot be empty")
@@ -566,7 +582,7 @@ def train_joint_arm(
 
 
 @torch.no_grad()
-def evaluate_joint_arm(
+def predict_joint_arm(
     model: torch.nn.Module,
     records: Sequence[tuple[dict[str, Any], dict[str, Any]]],
     candidate_deltas: torch.Tensor,
@@ -574,7 +590,7 @@ def evaluate_joint_arm(
     device: torch.device,
     *,
     arm: str,
-) -> dict[str, float | int]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     model.eval()
     predicted_rows: list[torch.Tensor] = []
     target_rows: list[torch.Tensor] = []
@@ -589,10 +605,31 @@ def evaluate_joint_arm(
         predicted_rows.append(prediction[proposal_indices, candidate_indices].cpu())
         target_rows.append(target[proposal_indices, candidate_indices].cpu())
         image_rows.append(torch.full((proposal_indices.numel(),), int(detector_record["image_id"]), dtype=torch.long))
+    return torch.cat(predicted_rows), torch.cat(target_rows), torch.cat(image_rows)
+
+
+@torch.no_grad()
+def evaluate_joint_arm(
+    model: torch.nn.Module,
+    records: Sequence[tuple[dict[str, Any], dict[str, Any]]],
+    candidate_deltas: torch.Tensor,
+    config: dict[str, Any],
+    device: torch.device,
+    *,
+    arm: str,
+) -> dict[str, float | int]:
+    predicted, target, image_ids = predict_joint_arm(
+        model,
+        records,
+        candidate_deltas,
+        config,
+        device,
+        arm=arm,
+    )
     return probe_metrics(
-        torch.cat(predicted_rows),
-        torch.cat(target_rows),
-        torch.cat(image_rows),
+        predicted,
+        target,
+        image_ids,
         action_budget=int(config["candidate_pool"]["action_budget"]),
         target_epsilon=float(config["loss"]["target_epsilon"]),
     )
