@@ -1,0 +1,94 @@
+{
+  "version_id": "det.energy.set_oracle.m0.001",
+  "status": "preregistered",
+  "objective": "Test whether post-NMS coordination of locally beneficial bounded box actions has safe detector-level headroom beyond independent local selection.",
+  "dataset": {
+    "name": "nwpu",
+    "seed": 42,
+    "data_seed": 42,
+    "train_fraction": 0.7,
+    "validation_images": 196,
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "train_image_ids_sha256": "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd",
+    "val_image_ids_sha256": "49f05cc9fa82ccaf924ff3be58a8f6376387c225e020ea6138182a4637219684"
+  },
+  "detector": {
+    "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "min_size": 480,
+    "max_size": 480,
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "candidate_pool": {
+    "step_sizes": [0.05, 0.1, 0.2],
+    "candidate_count": 73,
+    "require_foreground_dominant": true,
+    "min_score": 0.05,
+    "min_iou_gain": 0.002,
+    "boundary_iou": 0.75,
+    "boundary_temperature": 0.05,
+    "action_energy_scale": 0.04,
+    "local_energy_weight": 0.05,
+    "local_move_cost": 0.02,
+    "max_candidates_per_image": 12,
+    "one_action_per_proposal": true
+  },
+  "set_utility": {
+    "tp75_weight": 1.0,
+    "fp75_weight": -0.25,
+    "fp50_weight": -0.1,
+    "action_energy_weight": -0.05,
+    "action_count_weight": -0.02
+  },
+  "search": {
+    "action_budget": 4,
+    "beam_width": 4,
+    "beam_depth": 4,
+    "permutation_seed": 31415,
+    "bootstrap_seed": 1729,
+    "bootstrap_repetitions": 10000,
+    "nms_off_threshold": 1.0,
+    "nms_off_policy": "fixed_native_selected_actions"
+  },
+  "modes": [
+    "identity",
+    "local",
+    "set_greedy",
+    "set_beam",
+    "delta_permuted_beam",
+    "local_nms_off",
+    "set_beam_nms_off"
+  ],
+  "gates": {
+    "G0_strict_zero_parity": {
+      "mismatched_images": 0,
+      "max_box_abs_error": 0.0001,
+      "max_score_abs_error": 0.000002
+    },
+    "G1_set_problem": {
+      "min_fraction_images_with_two_candidates": 0.2
+    },
+    "G2_coordination": {
+      "min_sum_beam_minus_local_utility": 5.0,
+      "min_improved_images": 10,
+      "paired_bootstrap_lower_bound_gt": 0.0
+    },
+    "G3_nms_specific": {
+      "min_native_to_nms_off_uplift_ratio": 2.0
+    },
+    "G4_location_alignment": {
+      "beam_minus_permuted_bootstrap_lower_bound_gt": 0.0
+    },
+    "G5_detector_headroom": {
+      "min_ap75_delta_vs_identity": 0.005,
+      "min_ap50_delta_vs_identity": -0.002,
+      "max_fpr_delta_vs_identity": 0.02,
+      "max_prediction_relative_delta_vs_identity": 0.05
+    }
+  },
+  "decision_rule": "Do not implement or train a learnable Set/Graph head unless G0 through G5 all pass on the single locked full-validation run.",
+  "claim_boundary": "M0 is a GT-oracle reachability and coordination test. It cannot establish feature information, learned generalization, or a detector improvement method."
+}
