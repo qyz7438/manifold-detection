@@ -376,10 +376,14 @@ def summarize_cache_storage(records: Sequence[dict[str, Any]]) -> dict[str, floa
         int(record["spatial_features"].numel() * record["spatial_features"].element_size())
         for record in records
     )
+    local_action_labels = sum(int(record["action_targets"].ne(0).sum().item()) for record in records)
+    selected_move_labels = sum(int(record["move_targets"].ne(0).sum().item()) for record in records)
     return {
         "total_proposals": total_proposals,
         "spatial_storage_bytes": spatial_storage_bytes,
         "mean_proposals_per_image": total_proposals / max(1, len(records)),
+        "local_action_labels": local_action_labels,
+        "selected_move_labels": selected_move_labels,
     }
 
 

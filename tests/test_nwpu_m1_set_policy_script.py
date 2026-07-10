@@ -109,6 +109,8 @@ def test_tensor_cache_round_trip_preserves_compact_spatial_features(tmp_path: Pa
     assert storage["total_proposals"] == 2
     assert storage["spatial_storage_bytes"] == 2 * 4 * 3 * 3 * 2
     assert storage["mean_proposals_per_image"] == pytest.approx(2.0)
+    assert storage["local_action_labels"] == 1
+    assert storage["selected_move_labels"] == 1
 
 
 def test_cache_metadata_must_match_locked_inputs() -> None:
