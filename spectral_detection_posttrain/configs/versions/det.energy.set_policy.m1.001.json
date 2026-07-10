@@ -1,0 +1,80 @@
+{
+  "version_id": "det.energy.set_policy.m1.001",
+  "status": "preregistered",
+  "objective": "Exploratory train-split oracle distillation for an energy-guided NMS-aware ROI set policy without using ground truth during validation.",
+  "dataset": {
+    "name": "nwpu",
+    "seed": 42,
+    "data_seed": 42,
+    "train_fraction": 0.7,
+    "train_images": 454,
+    "validation_images": 196,
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "train_image_ids_sha256": "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd",
+    "val_image_ids_sha256": "49f05cc9fa82ccaf924ff3be58a8f6376387c225e020ea6138182a4637219684"
+  },
+  "detector": {
+    "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "min_size": 480,
+    "max_size": 480,
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "source_m0": {
+    "version_id": "det.energy.set_oracle.m0.001",
+    "result": "runs/nwpu_m0_set_oracle_s42_fullval/eval_metrics.json",
+    "result_sha256": "372d872ccaebea8418c2ff4428e56a666d4e4440a77b16acbd127f4999869cda",
+    "required_all_gates_passed": true
+  },
+  "candidate_pool": {
+    "step_sizes": [0.05, 0.1, 0.2],
+    "candidate_count": 73,
+    "require_foreground_dominant": true,
+    "min_score": 0.05,
+    "action_energy_scale": 0.04,
+    "local_energy_weight": 0.05,
+    "action_budget": 4,
+    "move_threshold": 0.0
+  },
+  "policy": {
+    "hidden_dim": 96,
+    "energy_weight": 0.05,
+    "spatial_size": 7
+  },
+  "training": {
+    "epochs": 4,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "grad_accum_steps": 8,
+    "action_weight": 1.0,
+    "move_weight": 1.0,
+    "identity_weight": 0.1,
+    "positive_move_weight": 8.0,
+    "batch_size": 1
+  },
+  "modes": ["identity", "learned_set", "energy_zero", "shuffled_spatial"],
+  "cache": {
+    "format": "torch_pt",
+    "schema_version": 1,
+    "feature_storage_dtype": "float16",
+    "policy_input_dtype": "float32_from_float16",
+    "train_only_oracle": true,
+    "detector_frozen": true,
+    "batch_size": 1,
+    "observable": "score>=0.05 and foreground_dominant",
+    "supervision": ["action_targets", "move_targets"],
+    "contains_gt_inputs": false,
+    "contains_oracle_labels": true
+  },
+  "gates": {
+    "G0_parity": {"max_mismatched_images": 0, "max_box_abs_error": 0.0001, "max_score_abs_error": 0.000002},
+    "G1_gt_free_eval": {"required": true},
+    "G2_learned_vs_identity": {"min_ap75_delta": 0.002, "min_ap50_delta": -0.002, "max_fpr_delta": 0.02, "max_prediction_relative_delta": 0.05},
+    "G3_learned_vs_shuffled": {"min_ap75_delta": 0.001},
+    "G4_energy": {"min_ap75_delta": 0.0}
+  },
+  "claim_boundary": "This is one preregistered development-validation run. Train-split GT creates oracle labels, but validation policy inputs are detector-only. Any gain requires later seed and held-out replication."
+}

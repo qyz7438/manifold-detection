@@ -83,6 +83,15 @@ from spectral_detection_posttrain.methods.energy_transport.search import (
     apply_score_action_to_prediction,
     select_min_energy_score_actions,
 )
+from spectral_detection_posttrain.methods.energy_transport.set_policy import (
+    NMSAwareSetPolicyHead,
+    SetPolicyLossConfig,
+    SetPolicyOutput,
+    SetPolicySelection,
+    class_aware_conflict_statistics,
+    select_set_policy_actions,
+    set_policy_loss,
+)
 from spectral_detection_posttrain.methods.energy_transport.set_search import (
     ActionCandidate,
     PairedBootstrapSummary,
@@ -118,6 +127,7 @@ from spectral_detection_posttrain.methods.energy_transport.structure_metrics imp
 
 __all__ = [
     "ActionLocalTransportHead",
+    "NMSAwareSetPolicyHead",
     "ActionBenefitEnergyHead",
     "ActionBenefitTargets",
     "ActionCandidate",
@@ -142,6 +152,9 @@ __all__ = [
     "ROIActionState",
     "ROIStructureSignature",
     "ROITransportActions",
+    "SetPolicyLossConfig",
+    "SetPolicyOutput",
+    "SetPolicySelection",
     "ScoreActionSearchResult",
     "SetOutcome",
     "SetSearchResult",
@@ -161,6 +174,7 @@ __all__ = [
     "candidate_action_gain_loss",
     "centered_relation_matrix",
     "class_topk_adjacency",
+    "class_aware_conflict_statistics",
     "classify_error_modes",
     "clip_boxes_to_image",
     "compute_action_local_prototypes",
@@ -195,6 +209,7 @@ __all__ = [
     "rescue_budget_loss",
     "select_min_energy_score_actions",
     "select_min_energy_box_actions",
+    "select_set_policy_actions",
     "set_outcome_from_prediction",
     "should_update_high_water_mark",
     "simplex_energy",
@@ -203,4 +218,5 @@ __all__ = [
     "threshold_preservation_loss",
     "transport_action_energy",
     "action_benefit_energy_loss",
+    "set_policy_loss",
 ]
