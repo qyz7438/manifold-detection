@@ -14,6 +14,8 @@ Obsolete round artifacts are archived in `docs/reports/archive/`.
 
 ## NWPU VHR-10
 
+- `nwpu_strong_native_candidate_energy_review_2026-07-10.md` - strong-baseline, native-parity, discrete candidate-energy, spatial-feature, dense-gain, and context-only decision record.
+
 - `nwpu_c0_native_parity_review_2026-07-10.md` - active baseline-convergence and native-parity decision record.
 
 - `nwpu_matrix_analysis.md` / `nwpu_matrix_summary.txt` — NWPU 主矩阵分析。
