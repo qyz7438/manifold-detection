@@ -6,6 +6,7 @@
     "scope": "train_fit_calibration_then_detector_unseen_validation",
     "validation_evaluated_once": true,
     "validation_used_for_training_or_calibration": false,
+    "protocol_amendment": "exclude_integration_smoke_images",
     "claim_boundary": "B=1 oracle-pool-conditioned utility validation. This does not establish detector_only_action_generation, coordinated multi-action transport, or AP improvement."
   },
   "dataset": {
@@ -22,6 +23,12 @@
   "split": {
     "calibration_fraction": 0.2,
     "seed": 20260711
+  },
+  "clean_validation": {
+    "images": 180,
+    "image_ids_sha256": "4bec6dfca29a845fc2e592a7e8f91c053bb7f36d3eea1987f01aeaed7bbf62c9",
+    "excluded_smoke_image_ids": [53, 125, 129, 219, 223, 342, 402, 467, 473, 488, 493, 496, 512, 539, 572, 588],
+    "exclusion_reason": "These images were consumed by the pre-formal integration smoke and are excluded before any clean final evaluation."
   },
   "detector": {
     "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",

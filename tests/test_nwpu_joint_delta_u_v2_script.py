@@ -38,6 +38,7 @@ def test_v2_config_locks_train_calibration_before_unseen_validation() -> None:
     assert config["status"] == "preregistered"
     assert config["probe"]["scope"] == "train_fit_calibration_then_detector_unseen_validation"
     assert config["probe"]["validation_evaluated_once"] is True
+    assert config["probe"]["protocol_amendment"] == "exclude_integration_smoke_images"
     assert config["probe"]["claim_boundary"].startswith("B=1 oracle-pool-conditioned")
     assert config["source_train_cache"]["sha256"] == (
         "d30a36631d13d2e95d4340c901d0ea53cac37c7b6d4c30d1a97315105994c6cd"
@@ -52,6 +53,28 @@ def test_v2_config_locks_train_calibration_before_unseen_validation() -> None:
     ]
     assert config["calibration"]["max_action_image_rate"] <= 0.25
     assert config["bootstrap"]["resamples"] >= 2000
+    assert config["clean_validation"]["images"] == 180
+    assert config["clean_validation"]["image_ids_sha256"] == (
+        "4bec6dfca29a845fc2e592a7e8f91c053bb7f36d3eea1987f01aeaed7bbf62c9"
+    )
+    assert config["clean_validation"]["excluded_smoke_image_ids"] == [
+        53,
+        125,
+        129,
+        219,
+        223,
+        342,
+        402,
+        467,
+        473,
+        488,
+        493,
+        496,
+        512,
+        539,
+        572,
+        588,
+    ]
 
 
 def _paired_record(image_id: int) -> tuple[dict, dict]:
@@ -159,6 +182,20 @@ def test_train_and_validation_ids_must_be_explicitly_disjoint() -> None:
     module.require_disjoint_image_ids([1, 2, 3], [4, 5])
     with pytest.raises(ValueError, match="overlap"):
         module.require_disjoint_image_ids([1, 2, 3], [3, 4])
+
+
+def test_clean_validation_excludes_every_smoke_image_before_limiting() -> None:
+    module = _load_module()
+
+    clean = module.clean_validation_image_ids(
+        [1, 2, 3, 4, 5], excluded_image_ids=[2, 5], limit=2
+    )
+
+    assert clean == [1, 3]
+    with pytest.raises(ValueError, match="absent"):
+        module.clean_validation_image_ids(
+            [1, 2, 3], excluded_image_ids=[4], limit=None
+        )
 
 
 def test_full_validation_guard_rejects_limited_run() -> None:

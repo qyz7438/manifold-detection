@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 import torch
+from torch.utils.data import DataLoader
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,7 +26,7 @@ LOCKED_CONFIG = (
     / "versions"
     / "det.energy.joint_probe.002.json"
 )
-LOCKED_CONFIG_SHA256 = "79eceeec051245d91d3ccc42969879ea7c37519376a5aa9096ce28f6091cdfdd"
+LOCKED_CONFIG_SHA256 = "0b327d1f60e3fac222d1233a7fa35ed60c81abcf44d987a653f71b71189f6938"
 V1_SCRIPT = ROOT / "scripts" / "probe_nwpu_joint_delta_u.py"
 
 
@@ -141,6 +142,23 @@ def require_disjoint_image_ids(
     )
     if overlap:
         raise ValueError(f"train/validation image overlap detected: {sorted(overlap)[:10]}")
+
+
+def clean_validation_image_ids(
+    all_image_ids: Sequence[int],
+    *,
+    excluded_image_ids: Sequence[int],
+    limit: int | None,
+) -> list[int]:
+    all_ids = sorted(set(int(value) for value in all_image_ids))
+    excluded = set(int(value) for value in excluded_image_ids)
+    absent = excluded - set(all_ids)
+    if absent:
+        raise ValueError(f"excluded validation IDs are absent from the full split: {sorted(absent)}")
+    clean = [image_id for image_id in all_ids if image_id not in excluded]
+    if limit is not None:
+        clean = clean[: min(int(limit), len(clean))]
+    return clean
 
 
 def evaluate_v2_gates(payload: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
@@ -383,7 +401,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         seed=int(config["split"]["seed"]),
     )
 
-    from spectral_detection_posttrain.datasets import build_nwpu_vhr10_loaders
+    from spectral_detection_posttrain.datasets import (
+        NWPUVHR10DetectionDataset,
+        build_nwpu_vhr10_loaders,
+    )
+    from spectral_detection_posttrain.datasets.penn_fudan import detection_collate
     from spectral_detection_posttrain.experiments.metadata import collect_experiment_metadata
     from spectral_detection_posttrain.methods.energy_transport import (
         calibrate_conservative_threshold,
@@ -454,22 +476,45 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     m0_config = m0.load_locked_config(m0_config_path)
     m1_config = m1.load_locked_config(m1_config_path)
     loader_config = m1._make_detector_config(m1_config, data_root, annotation)
-    _, validation_loader = build_nwpu_vhr10_loaders(
+    _, full_validation_loader = build_nwpu_vhr10_loaders(
         loader_config,
         limit_train=1,
-        limit_val=args.limit_validation,
+        limit_val=None,
         batch_size=1,
     )
-    validation_manifest = m1.split_manifest(validation_loader)
-    expected_validation_manifest = {
+    full_validation_ids = getattr(full_validation_loader.dataset, "img_ids", None)
+    if full_validation_ids is None:
+        raise ValueError("validation dataset does not expose image IDs")
+    if _manifest(full_validation_ids) != {
         "count": int(config["dataset"]["validation_images"]),
         "image_ids_sha256": config["dataset"]["validation_image_ids_sha256"],
+    }:
+        raise ValueError("full validation split mismatch before smoke exclusion")
+    validation_image_ids = clean_validation_image_ids(
+        full_validation_ids,
+        excluded_image_ids=config["clean_validation"]["excluded_smoke_image_ids"],
+        limit=args.limit_validation,
+    )
+    validation_dataset = NWPUVHR10DetectionDataset(
+        data_root,
+        annotation,
+        validation_image_ids,
+        max_size=int(config["detector"]["max_size"]),
+    )
+    validation_loader = DataLoader(
+        validation_dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=0,
+        collate_fn=detection_collate,
+    )
+    validation_manifest = _manifest(validation_image_ids)
+    expected_validation_manifest = {
+        "count": int(config["clean_validation"]["images"]),
+        "image_ids_sha256": config["clean_validation"]["image_ids_sha256"],
     }
     if args.limit_validation is None and validation_manifest != expected_validation_manifest:
-        raise ValueError("validation manifest mismatch")
-    validation_image_ids = getattr(validation_loader.dataset, "img_ids", None)
-    if validation_image_ids is None:
-        raise ValueError("validation dataset does not expose image IDs")
+        raise ValueError("clean validation manifest mismatch")
     require_disjoint_image_ids(
         [record[0]["image_id"] for record in train_records], validation_image_ids
     )
