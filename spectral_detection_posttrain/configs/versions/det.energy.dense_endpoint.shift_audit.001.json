@@ -1,0 +1,32 @@
+{
+  "version_id": "det.energy.dense_endpoint.shift_audit.001",
+  "status": "preregistered_cache_only_failure_diagnosis",
+  "objective": "Explain the frozen detector-unseen endpoint gap by decomposing teacher-coordinate shift, detector-feature OOD, and frozen-model calibration residuals without changing the decision.",
+  "sources": {
+    "cleanval_result": "runs/nwpu_dense_endpoint_cleanval_s42/eval_metrics.json",
+    "cleanval_sha256": "024f9ed8cd89a52ac743d35b1bb6a54717772dfd51b2027e47ad30de51f80f8f",
+    "required_status": "detector_unseen_absolute_endpoint_frozen",
+    "fit_tune_cache": "runs/nwpu_dense_endpoint_absolute_s42_nested/fit_tune_cache.pt",
+    "fit_tune_cache_sha256": "42d72c4c44da6e50689554ee1eaae57ecbc924ad657ea41dc8276fad643a1d2c",
+    "outer_train_cache": "runs/nwpu_dense_endpoint_absolute_s42_nested/outer_read_once_cache.pt",
+    "outer_train_cache_sha256": "241ec83c01902692f967d7bc26eb19ef10267d09842a52c04769d7e999ee47fa",
+    "validation_cache": "runs/nwpu_dense_endpoint_cleanval_s42/detector_validation_read_once_cache.pt",
+    "validation_cache_sha256": "3d39f276d5a5c0128099a9145ea2613572f46ab72e37203c60fa714b708d7a11",
+    "full_checkpoint": "runs/nwpu_dense_endpoint_cleanval_s42/local_full/endpoint.pth",
+    "full_checkpoint_sha256": "df373ee8611cf3c0e5194d7bf46f176cb3816c4fcee71c37128187e2764f4725",
+    "new_inference_forbidden": true,
+    "training_forbidden": true
+  },
+  "analysis": {
+    "teacher_coordinates": ["coverage_per_gt", "total_error_per_prediction", "duplicate_per_edge"],
+    "feature_vector": "per_image_mean_22_node_plus_5_pair",
+    "covariance_ridge_fraction": 0.001,
+    "ood_reference_quantile": 0.95,
+    "target_quantile_bins": 5,
+    "calibration_shift_min_abs_residual_mean": 0.5,
+    "calibration_shift_min_centered_mae_relative_gain": 0.3,
+    "feature_ood_min_validation_fraction": 0.25
+  },
+  "decision_rule": "The original endpoint remains frozen regardless of this diagnostic. Report calibration shift when rank transfer remains at least 0.80 and oracle mean-centering reduces validation MAE by at least 30% with absolute mean residual at least 0.5. Report feature OOD when at least 25% of validation images exceed the train 95th-percentile Mahalanobis distance.",
+  "claim_boundary": "Post-validation cache-only failure diagnosis. No new inference, training, threshold change, gate reinterpretation, validation claim, action, or AP claim."
+}
