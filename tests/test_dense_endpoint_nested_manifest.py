@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from scripts.build_dense_endpoint_nested_manifest import manifest_hash, partition_train_ids, summarize_split
+
+
+def test_manifest_script_adds_repository_root_for_direct_cli() -> None:
+    source = (Path(__file__).resolve().parents[1] / "scripts" / "build_dense_endpoint_nested_manifest.py").read_text(encoding="utf-8")
+    assert "sys.path.insert(0, str(ROOT))" in source
 
 
 def test_nested_partition_is_deterministic_disjoint_and_complete() -> None:

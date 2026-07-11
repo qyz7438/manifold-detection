@@ -5,11 +5,16 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Sequence
 
 import numpy as np
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 
 EXPECTED_FULL_TRAIN_HASH = "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd"
