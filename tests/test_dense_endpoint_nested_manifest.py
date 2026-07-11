@@ -35,3 +35,18 @@ def test_split_summary_reports_image_and_instance_class_support() -> None:
     assert summary["objects"] == 3
     assert summary["class_image_support"] == {"1": 1, "2": 1}
     assert summary["class_instance_support"] == {"1": 2, "2": 1}
+
+
+def test_multilabel_partition_balances_rare_class_across_tune_and_outer() -> None:
+    image_ids = list(range(1, 101))
+    image_classes = {image_id: {1} for image_id in image_ids}
+    for image_id in range(1, 11):
+        image_classes[image_id].add(2)
+    split = partition_train_ids(image_ids, seed=11, image_classes=image_classes)
+    rare_counts = {
+        name: sum(2 in image_classes[image_id] for image_id in values)
+        for name, values in split.items()
+    }
+    assert rare_counts["inner_fit"] >= 6
+    assert rare_counts["inner_tune"] >= 1
+    assert rare_counts["outer_train_heldout"] >= 1

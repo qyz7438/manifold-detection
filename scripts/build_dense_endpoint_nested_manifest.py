@@ -28,7 +28,11 @@ def manifest_hash(image_ids: Sequence[int]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def partition_train_ids(image_ids: Sequence[int], seed: int = NESTED_SEED) -> dict[str, list[int]]:
+def partition_train_ids(
+    image_ids: Sequence[int],
+    seed: int = NESTED_SEED,
+    image_classes: dict[int, set[int]] | None = None,
+) -> dict[str, list[int]]:
     ordered = sorted(
         (int(value) for value in image_ids),
         key=lambda image_id: hashlib.sha256(f"dense-endpoint:{seed}:{image_id}".encode("ascii")).digest(),
@@ -36,11 +40,46 @@ def partition_train_ids(image_ids: Sequence[int], seed: int = NESTED_SEED) -> di
     fit_count = int(round(0.70 * len(ordered)))
     remaining = len(ordered) - fit_count
     tune_count = remaining // 2
-    return {
-        "inner_fit": sorted(ordered[:fit_count]),
-        "inner_tune": sorted(ordered[fit_count : fit_count + tune_count]),
-        "outer_train_heldout": sorted(ordered[fit_count + tune_count :]),
+    capacities = {
+        "inner_fit": fit_count,
+        "inner_tune": tune_count,
+        "outer_train_heldout": len(ordered) - fit_count - tune_count,
     }
+    if image_classes is None:
+        return {
+            "inner_fit": sorted(ordered[:fit_count]),
+            "inner_tune": sorted(ordered[fit_count : fit_count + tune_count]),
+            "outer_train_heldout": sorted(ordered[fit_count + tune_count :]),
+        }
+    class_totals: Counter[int] = Counter()
+    for image_id in ordered:
+        class_totals.update(image_classes.get(image_id, set()))
+    ordered.sort(
+        key=lambda image_id: (
+            min((class_totals[label] for label in image_classes.get(image_id, set())), default=10**9),
+            -len(image_classes.get(image_id, set())),
+            hashlib.sha256(f"dense-endpoint:{seed}:{image_id}".encode("ascii")).digest(),
+        )
+    )
+    assigned = {name: [] for name in capacities}
+    class_counts = {name: Counter() for name in capacities}
+    total = len(ordered)
+    for image_id in ordered:
+        labels = image_classes.get(image_id, set())
+        options = [name for name, capacity in capacities.items() if len(assigned[name]) < capacity]
+
+        def assignment_cost(name: str) -> tuple[float, str]:
+            size_ratio = (len(assigned[name]) + 1) / capacities[name]
+            class_ratio = 0.0
+            for label in labels:
+                target = class_totals[label] * capacities[name] / total
+                class_ratio += (class_counts[name][label] + 1) / max(target, 1e-8)
+            return (class_ratio + 0.5 * size_ratio, name)
+
+        selected = min(options, key=assignment_cost)
+        assigned[selected].append(image_id)
+        class_counts[selected].update(labels)
+    return {name: sorted(values) for name, values in assigned.items()}
 
 
 def summarize_split(image_ids: Sequence[int], annotations: Sequence[dict[str, Any]]) -> dict[str, Any]:
@@ -84,7 +123,13 @@ def build_manifest(root: Path, annotation_path: Path) -> dict[str, Any]:
         raise RuntimeError(
             f"NWPU full-train source drift: count={len(train_ids)} hash={source_hash}"
         )
-    partitions = partition_train_ids(train_ids)
+    train_set = set(train_ids)
+    image_classes: dict[int, set[int]] = defaultdict(set)
+    for annotation in payload.get("annotations", []):
+        image_id = int(annotation["image_id"])
+        if image_id in train_set and int(annotation.get("iscrowd", 0)) == 0:
+            image_classes[image_id].add(int(annotation["category_id"]))
+    partitions = partition_train_ids(train_ids, image_classes=image_classes)
     union = set().union(*(set(values) for values in partitions.values()))
     if len(union) != len(train_ids) or any(
         set(left) & set(right)
@@ -103,6 +148,8 @@ def build_manifest(root: Path, annotation_path: Path) -> dict[str, Any]:
         supported = set(int(key) for key in row["class_image_support"])
         if supported != set(range(1, 11)):
             raise RuntimeError(f"{name} lacks NWPU class coverage: {sorted(supported)}")
+        if name != "inner_fit" and min(row["class_image_support"].values()) < 3:
+            raise RuntimeError(f"{name} has fewer than three images for a class")
     return {
         "version_id": "det.energy.dense_endpoint.split.001",
         "dataset": "nwpu_vhr10",
