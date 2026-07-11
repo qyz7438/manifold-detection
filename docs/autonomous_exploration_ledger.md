@@ -64,7 +64,7 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 ## Ranked Hypothesis Queue
 
 1. **D1: proposal-set context representation.** Replace independent ROI scoring with a permutation-equivariant set-context encoder while keeping the C3 endpoint, action table, cache, balanced loss, and controls fixed. High information gain because C3b proved optimization and the action path work, while single-ROI generalization failed.
-2. **D2: detector-native set action with threshold/NMS boundary features.** If D1 shows representation signal but misses detector gates, add only observable boundary distances and same-class conflict topology; do not alter utility or action space simultaneously.
+2. **D2: action-conditioned detector-native NMS topology.** For every proposal-action pair, encode post-action higher-score same-class IoU, NMS survival margin, and topology change versus identity. Add a topology-shuffle control. Do not alter utility, action table, split, or loss.
 3. **D3: action-space change.** Only if D1/D2 establish set-level information but the fixed 0.05 translation/scale table remains limiting, compare a locked smaller localization action set against identity and controls.
 4. **Stop condition.** If D1 fails non-degeneracy, AP75, or both controls under the locked C3 cache, freeze set-context on this cache and do not expand train size. If D1 passes every smoke gate, run one locked larger-train/full-val confirmation without tuning.
 
@@ -101,3 +101,24 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Next action: commit/sync, remote tests, GPU2 reserve gate, launch D1 smoke.
 - Estimated D1 peak: 7168 MiB, based on the same detector/cache/evaluation path as C3b plus a small set-context encoder. Launcher requires `free_mib - 7168 > 8192`.
 - First launch failed before model construction because the config SHA was transcribed as `f441...` instead of `441...`. No cache/checkpoint/result was created. Root cause is locked by a direct `load_config()` test; retry count 1/2.
+
+### D1 Result
+
+- Time completed: 2026-07-12 03:31 Asia/Shanghai.
+- Commits: `a560325`, `733793a`, `4816a81`.
+- Command: `CUDA_VISIBLE_DEVICES=2 python scripts/train_nwpu_d1_set_context.py --run-dir runs/nwpu_d1_set_context_smoke_s42 --require-clean-git`.
+- Launcher PID: `1606773` (completed).
+- GPU2: 43372 MiB before launch, 34291 MiB immediately after/steady; estimated 7168 MiB peak reserve gate passed.
+- Run: `runs/nwpu_d1_set_context_smoke_s42`.
+- Artifact SHA256: `2ce9aee19783e5f0d5ae61024df03675f400e4a186d787420405c4c8a7fff722`.
+- Checkpoints: local full `6dba66347f30893bd4f8333170e1e0216efd487bd70e7cc2fd3cfb0c00bac70f`; feature shuffle `271cc78baff1f8d1d4449979a5d988f1db36e786477feac14369c29da0b7c1e5`; utility shuffle `e7126ba91d24857183da215da26798a37fb179b9a5ffc8f63f6a347a75ebe073`.
+- Label support: 12 action / 20 no-op images.
+- Full diagnostics: selected 9/32, action rate 0.28125, all selected actions were candidate 2 (`-dx`).
+- Identity/full metrics were exactly equal: AP50 `0.7399366`, AP75 `0.4636476`, precision `0.572165`, recall `0.776224`, FPR `0.427835`, ECE `0.119736`, predictions `194`.
+- AP75 full minus feature shuffle: `0.0`; full minus utility shuffle: `+0.0000914`.
+- Gates: native parity and non-degeneracy passed; detector and control gates failed.
+- Decision: freeze D1 set mean/max context on the locked C3 cache. Do not expand train size.
+- Interpretation: set context changed policy decisions but selected actions were postprocessing-inert on full/feature arms; the representation still collapsed to a global direction prior rather than proposal-conditioned localization.
+- DeepSeek review: agreed that D1 must freeze and that the next experiment must target the representation-to-postprocessing interface.
+- Codex qualification: DeepSeek proposed higher-score max-IoU distance and same-class count. D1 already receives max/mean/thresholded/higher-score same-class IoU statistics, so a static threshold-distance transform is not genuinely new evidence. D2 is refined to action-conditioned topology, which D1 cannot infer directly from its pre-action local conflict vector.
+- Next action: implement D2 action-conditioned topology plus a topology-shuffle control. Keep the same C3 cache, balanced loss, action table, split, seed, and gates. If D2 fails, freeze set-context on this cache and move to D3 action-space change.
