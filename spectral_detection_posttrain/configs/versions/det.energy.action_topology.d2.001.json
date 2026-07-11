@@ -1,0 +1,41 @@
+{
+  "version_id": "det.energy.action_topology.d2.001",
+  "status": "preregistered_smoke",
+  "source": {
+    "base_config_sha256": "f191933f6299efb3b22af241fbd77b9685f6bb9127b5ea09196418c4352c70a0",
+    "d1_result": "runs/nwpu_d1_set_context_smoke_s42/eval_metrics.json",
+    "d1_result_sha256": "2ce9aee19783e5f0d5ae61024df03675f400e4a186d787420405c4c8a7fff722",
+    "cache": "runs/nwpu_c3_global_delta_u_smoke_s42/global_delta_u_cache.pt",
+    "cache_sha256": "1fa2184945bf5d38b1c47e5b732ffce4bcdd1b57064f4f2eb71d76611304a53e"
+  },
+  "policy_override": {
+    "architecture": "action_topology",
+    "hidden_dim": 96,
+    "spatial_size": 2,
+    "loss_type": "balanced_margin",
+    "action_margin": 0.2,
+    "rank_margin": 0.2,
+    "actionability_weight": 1.0,
+    "rank_weight": 1.0
+  },
+  "training_override": {"epochs": 8},
+  "controls_override": {"topology_shuffle_seed": 342},
+  "arms": ["local_full", "topology_shuffle", "utility_shuffle"],
+  "topology_features": [
+    "post_action_max_iou_with_higher_score_same_class",
+    "nms_survival_margin",
+    "post_minus_identity_max_iou",
+    "log1p_higher_score_same_class_peer_count"
+  ],
+  "fixed_variables": ["detector", "split", "seed", "C1_actions", "Delta_U_cache", "balanced_loss", "optimizer", "epochs", "native_postprocessing"],
+  "gates": {
+    "min_selected_count": 3,
+    "min_action_image_rate": 0.10,
+    "max_action_image_rate": 0.90,
+    "min_ap75_delta_vs_identity_exclusive": 0.0,
+    "min_ap50_delta_vs_identity": 0.0,
+    "require_ap75_strictly_above_each_control": true
+  },
+  "decision_rule": "Any gate failure freezes D2 action-conditioned topology on the locked cache and moves the queue to D3 action-space change. All gates passing permits one locked larger-train/full-val confirmation.",
+  "claim_boundary": "NWPU 32/32 single-seed smoke. A positive result is only topology information gain, not an AP improvement claim."
+}

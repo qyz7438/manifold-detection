@@ -67,6 +67,8 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     GlobalTop1Selection,
     GlobalTop1Target,
     SetContextGlobalTop1PolicyHead,
+    ActionTopologyGlobalTop1PolicyHead,
+    action_conditioned_nms_topology,
     build_global_top1_target,
     flatten_observable_action_logits,
     global_top1_balanced_margin_loss,
@@ -182,6 +184,7 @@ __all__ = [
     "GlobalTop1Selection",
     "GlobalTop1Target",
     "SetContextGlobalTop1PolicyHead",
+    "ActionTopologyGlobalTop1PolicyHead",
     "FlattenedGlobalLogits",
     "HighWaterMarkLossConfig",
     "HighWaterMarkModuleSnapshot",
@@ -280,5 +283,6 @@ __all__ = [
     "threshold_preservation_loss",
     "transport_action_energy",
     "action_benefit_energy_loss",
+    "action_conditioned_nms_topology",
     "set_policy_loss",
 ]

@@ -12,4 +12,6 @@ D1 completed and failed its preregistered detector/control gates. The policy was
 
 DeepSeek agreed with the freeze, but its cheapest static boundary proposal overlaps D1's existing conflict statistics. Codex therefore refined D2 to action-conditioned NMS topology: post-action higher-score same-class overlap, survival margin, and topology change for each action, with a dedicated topology-shuffle control. This changes observable information rather than merely model capacity.
 
+D2 is now implemented and preregistered. It reuses the locked detector-only C3 candidate cache and whole-image Delta-U endpoint; no GT candidate filtering or larger offline probe was introduced. The only added information is action-conditioned native-NMS topology. Its dedicated control destroys proposal/action alignment while preserving the topology-feature values. Local focused/regression verification passes 46 tests; remote execution remains gated on review, a clean synchronized commit, and the GPU2 reserve calculation.
+
 See `docs/autonomous_exploration_ledger.md` for the authoritative queue, commands, gates, and artifacts.

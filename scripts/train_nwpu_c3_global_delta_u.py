@@ -105,7 +105,7 @@ def _non_identity_permutation(count: int, seed: int) -> torch.Tensor:
 
 
 def make_control_records(records: Sequence[dict[str, Any]], arm: str, seed: int) -> list[dict[str, Any]]:
-    if arm not in {"local_full", "feature_shuffle", "utility_shuffle"}:
+    if arm not in {"local_full", "feature_shuffle", "topology_shuffle", "utility_shuffle"}:
         raise ValueError(f"unsupported C3 arm {arm!r}")
     output: list[dict[str, Any]] = []
     for index, source in enumerate(records):
@@ -118,6 +118,8 @@ def make_control_records(records: Sequence[dict[str, Any]], arm: str, seed: int)
             values = source["delta_u"][rows, 1:].reshape(-1)
             permutation = _non_identity_permutation(int(values.numel()), int(seed) + 1009 * index)
             record["delta_u"][rows, 1:] = values[permutation].reshape(rows.numel(), -1)
+        elif arm == "topology_shuffle":
+            record["topology_shuffle_seed"] = int(seed) + 1009 * index
         output.append(record)
     return output
 
@@ -316,6 +318,7 @@ def train_arm(
     from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
         GlobalTop1PolicyHead,
         SetContextGlobalTop1PolicyHead,
+        ActionTopologyGlobalTop1PolicyHead,
         build_global_top1_target,
         global_top1_balanced_margin_loss,
         global_top1_loss,
@@ -325,11 +328,16 @@ def train_arm(
     seed = int(config["controls"][f"{arm.split('_')[0]}_shuffle_seed"]) if arm != "local_full" else int(config["dataset"]["seed"])
     arm_records = make_control_records(records, arm, seed)
     deltas = build_native_c1_deltas(float(config["candidate_pool"]["step"])).to(device)
-    policy_class = (
-        SetContextGlobalTop1PolicyHead
-        if config["policy"].get("architecture") == "set_context"
-        else GlobalTop1PolicyHead
-    )
+    architecture = config["policy"].get("architecture")
+    if architecture == "action_topology":
+        policy_class = ActionTopologyGlobalTop1PolicyHead
+    elif architecture == "set_context":
+        policy_class = SetContextGlobalTop1PolicyHead
+    else:
+        policy_class = GlobalTop1PolicyHead
+    policy_kwargs = {}
+    if architecture == "action_topology":
+        policy_kwargs["nms_threshold"] = float(config["detector"]["nms_threshold"])
     policy = policy_class(
         in_channels=int(records[0]["spatial_features"].shape[1]),
         num_classes=11,
@@ -337,6 +345,7 @@ def train_arm(
         hidden_dim=int(config["policy"]["hidden_dim"]),
         spatial_size=int(config["policy"]["spatial_size"]),
         energy_weight=float(config["policy"]["energy_weight"]),
+        **policy_kwargs,
     ).to(device)
     optimizer = torch.optim.AdamW(
         [parameter for parameter in policy.parameters() if parameter.requires_grad],
@@ -363,6 +372,9 @@ def train_arm(
                 record["observable_mask"],
                 float(config["utility"]["min_delta_u"]),
             )
+            forward_kwargs = {}
+            if architecture == "action_topology" and "topology_shuffle_seed" in record:
+                forward_kwargs["topology_shuffle_seed"] = int(record["topology_shuffle_seed"])
             output = policy(
                 record["spatial_features"].float(),
                 record["class_logits"],
@@ -371,6 +383,7 @@ def train_arm(
                 record["boxes"],
                 record["image_size"],
                 record["observable_mask"],
+                **forward_kwargs,
             )
             if config["policy"].get("loss_type", "flat_cross_entropy") == "balanced_margin":
                 row = global_top1_balanced_margin_loss(

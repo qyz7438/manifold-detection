@@ -8,6 +8,8 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     GlobalTop1PolicyHead,
     GlobalTop1Target,
     SetContextGlobalTop1PolicyHead,
+    ActionTopologyGlobalTop1PolicyHead,
+    action_conditioned_nms_topology,
     build_global_top1_target,
     flatten_observable_action_logits,
     global_top1_balanced_margin_loss,
@@ -211,4 +213,52 @@ def test_set_context_policy_is_permutation_equivariant_with_invariant_noop() -> 
     )
     assert torch.allclose(permuted.action_logits, original.action_logits[permutation], atol=1e-6)
     assert torch.allclose(permuted.conflict_stats, original.conflict_stats[permutation], atol=1e-6)
+    assert torch.allclose(permuted.noop_logit, original.noop_logit, atol=1e-6)
+
+
+def test_action_conditioned_topology_tracks_post_action_nms_margin() -> None:
+    boxes = torch.tensor([[0.0, 0.0, 2.0, 2.0], [1.0, 0.0, 3.0, 2.0]])
+    labels = torch.tensor([1, 1])
+    scores = torch.tensor([0.5, 0.9])
+    topology = action_conditioned_nms_topology(
+        boxes,
+        labels,
+        scores,
+        image_size=(4, 4),
+        candidate_deltas=build_native_c1_deltas(0.05),
+        nms_threshold=0.5,
+    )
+    assert topology.shape == (2, 9, 4)
+    assert topology[0, 1, 0] > topology[0, 0, 0]
+    assert topology[0, 1, 1] < topology[0, 0, 1]
+    assert topology[0, 1, 2] > 0.0
+    assert topology[0, 0, 3].item() == pytest.approx(torch.log1p(torch.tensor(1.0)).item())
+    assert torch.equal(topology[1, :, 0], torch.zeros(9))
+
+
+def test_action_topology_policy_is_proposal_permutation_equivariant() -> None:
+    torch.manual_seed(11)
+    policy = ActionTopologyGlobalTop1PolicyHead(
+        in_channels=2,
+        num_classes=3,
+        candidate_deltas=build_native_c1_deltas(0.05),
+        hidden_dim=8,
+        spatial_size=2,
+        energy_weight=0.05,
+    )
+    torch.nn.init.normal_(policy.base.action_head.weight, std=0.1)
+    torch.nn.init.normal_(policy.topology_head[-1].weight, std=0.1)
+    spatial = torch.randn(3, 2, 3, 3)
+    logits = torch.tensor([[0.0, 2.0, 0.0], [0.0, 0.0, 2.0], [0.0, 1.0, 0.5]])
+    labels = torch.tensor([1, 2, 1])
+    scores = torch.tensor([0.8, 0.7, 0.6])
+    boxes = torch.tensor([[0.0, 0.0, 2.0, 2.0], [1.0, 1.0, 3.0, 3.0], [0.5, 0.5, 2.5, 2.5]])
+    observable = torch.tensor([True, True, True])
+    original = policy(spatial, logits, labels, scores, boxes, (4, 4), observable)
+    permutation = torch.tensor([2, 0, 1])
+    permuted = policy(
+        spatial[permutation], logits[permutation], labels[permutation], scores[permutation],
+        boxes[permutation], (4, 4), observable[permutation],
+    )
+    assert torch.allclose(permuted.action_logits, original.action_logits[permutation], atol=1e-6)
     assert torch.allclose(permuted.noop_logit, original.noop_logit, atol=1e-6)

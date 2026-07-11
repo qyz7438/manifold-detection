@@ -88,6 +88,10 @@ def test_controls_shuffle_only_the_intended_observable_alignment() -> None:
     assert torch.equal(utility["spatial_features"], record["spatial_features"])
     assert sorted(utility["delta_u"][:, 1:].reshape(-1).tolist()) == sorted(record["delta_u"][:, 1:].reshape(-1).tolist())
     assert torch.equal(utility["delta_u"][:, 0], torch.zeros(3))
+    topology = module.make_control_records([record], "topology_shuffle", seed=342)[0]
+    assert topology["topology_shuffle_seed"] == 342
+    assert torch.equal(topology["spatial_features"], record["spatial_features"])
+    assert torch.equal(topology["delta_u"], record["delta_u"])
 
 
 def test_cache_reuse_requires_exact_provenance(tmp_path: Path) -> None:

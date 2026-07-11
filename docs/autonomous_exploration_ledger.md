@@ -91,7 +91,7 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 
 ### D1 Implementation Milestone
 
-- Time: 2026-07-12 03:25 Asia/Shanghai
+- Recorded in autonomous cycle 1; use the run artifact and git commits, rather than conversational timestamps, as the reproducibility clock.
 - Config: `det.energy.set_context.d1.001`, SHA256 `441dfca02683b63d8408d81c3919dd970b4ca8718685b63cc89de363acedf357`.
 - Representation: permutation-equivariant local proposal encoding plus observable-set mean/max context; global no-op remains image-level.
 - Loss: unchanged C3b balanced actionability plus conditional hard-negative rank.
@@ -104,7 +104,7 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 
 ### D1 Result
 
-- Time completed: 2026-07-12 03:31 Asia/Shanghai.
+- Completed in autonomous cycle 1; the authoritative ordering is commit/artifact provenance below.
 - Commits: `a560325`, `733793a`, `4816a81`.
 - Command: `CUDA_VISIBLE_DEVICES=2 python scripts/train_nwpu_d1_set_context.py --run-dir runs/nwpu_d1_set_context_smoke_s42 --require-clean-git`.
 - Launcher PID: `1606773` (completed).
@@ -122,3 +122,16 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - DeepSeek review: agreed that D1 must freeze and that the next experiment must target the representation-to-postprocessing interface.
 - Codex qualification: DeepSeek proposed higher-score max-IoU distance and same-class count. D1 already receives max/mean/thresholded/higher-score same-class IoU statistics, so a static threshold-distance transform is not genuinely new evidence. D2 is refined to action-conditioned topology, which D1 cannot infer directly from its pre-action local conflict vector.
 - Next action: implement D2 action-conditioned topology plus a topology-shuffle control. Keep the same C3 cache, balanced loss, action table, split, seed, and gates. If D2 fails, freeze set-context on this cache and move to D3 action-space change.
+
+### D2 Implementation Milestone
+
+- Time: 2026-07-12 03:27 Asia/Shanghai.
+- Config: `det.energy.action_topology.d2.001`, SHA256 `2ef50b3152d0aac6349fb0c52e110332420f3419bbf275b4baf829355f3dffe6`.
+- Changed variable: each detector proposal/action pair receives post-action maximum IoU with a higher-score same-class peer, NMS survival margin, topology change from identity, and higher-score peer count.
+- Detector-only boundary: features use native predicted boxes, labels, scores, image size, the fixed C1 action table, and the detector NMS threshold. GT and Delta-U are used only by the locked training target.
+- Control: `topology_shuffle` preserves the per-image topology-feature multiset but breaks proposal/action alignment during training. It has the same base encoder, topology head, initialization, optimizer, and epochs as `local_full`.
+- Fixed variables: detector, 32/32 manifests, seed 42, C1 actions, C3 cache, whole-image Delta-U labels, balanced loss, optimizer, eight epochs, and native postprocessing.
+- Gates: native parity; 3 or more selected actions and action rate in `[0.10, 0.90]`; AP75 strictly above identity with non-negative AP50 delta; AP75 strictly above topology- and utility-shuffle controls.
+- Verification: 46 focused and regression tests passed; Python compilation and `git diff --check` passed.
+- Estimated GPU peak: 7680 MiB. Launcher requires `free_mib - 7680 > 8192` and records immediate/steady reserve checks.
+- Next action: independent Terra read-only review, commit/sync, remote tests, then launch the locked D2 smoke if GPU2 reserve passes.

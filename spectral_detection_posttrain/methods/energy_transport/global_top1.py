@@ -13,6 +13,7 @@ from spectral_detection_posttrain.methods.energy_transport.set_policy import (
     NMSAwareSetPolicyHead,
     class_aware_conflict_statistics,
 )
+from spectral_detection_posttrain.methods.energy_transport.operators import apply_box_delta
 
 
 @dataclass(frozen=True)
@@ -214,6 +215,151 @@ def _normalize_set_boxes(
     height, width = size[0], size[1]
     scale = torch.stack((width, height, width, height))
     return boxes / scale.clamp_min(1.0)
+
+
+def action_conditioned_nms_topology(
+    boxes: torch.Tensor,
+    labels: torch.Tensor,
+    scores: torch.Tensor,
+    image_size: tuple[int, int] | torch.Tensor,
+    candidate_deltas: torch.Tensor,
+    nms_threshold: float = 0.5,
+) -> torch.Tensor:
+    """Return detector-visible NMS topology for every proposal-action pair."""
+    if boxes.ndim != 2 or boxes.shape[1] != 4:
+        raise ValueError("boxes must have shape (N, 4)")
+    count = boxes.shape[0]
+    if labels.shape != (count,) or scores.shape != (count,):
+        raise ValueError("labels and scores must have shape (N,)")
+    if candidate_deltas.ndim != 2 or candidate_deltas.shape[1] != 4:
+        raise ValueError("candidate_deltas must have shape (K, 4)")
+    if not 0.0 <= float(nms_threshold) <= 1.0:
+        raise ValueError("nms_threshold must be in [0, 1]")
+    size = torch.as_tensor(image_size).flatten()
+    if size.numel() != 2:
+        raise ValueError("image_size must contain height and width")
+    height, width = int(size[0].item()), int(size[1].item())
+    candidates = candidate_deltas.shape[0]
+    moved = []
+    for candidate_index in range(candidates):
+        deltas = candidate_deltas[candidate_index].to(device=boxes.device, dtype=boxes.dtype)[None, :].expand(count, -1)
+        moved.append(apply_box_delta(boxes, deltas, image_size=(height, width)))
+    moved_boxes = torch.stack(moved, dim=1)
+    ious = _cross_box_iou(moved_boxes.reshape(-1, 4), boxes).reshape(count, candidates, count)
+    higher_same = labels[:, None].eq(labels[None, :]) & (scores[None, :] > scores[:, None])
+    post_max = (ious * higher_same[:, None, :].to(dtype=ious.dtype)).max(dim=2).values
+    base_max = post_max[:, :1]
+    survival_margin = float(nms_threshold) - post_max
+    topology_change = post_max - base_max
+    peer_count = torch.log1p(higher_same.sum(dim=1).to(dtype=ious.dtype))[:, None].expand(-1, candidates)
+    return torch.stack((post_max, survival_margin, topology_change, peer_count), dim=2)
+
+
+class ActionTopologyGlobalTop1PolicyHead(nn.Module):
+    """Set-context policy augmented by action-conditioned NMS topology."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        num_classes: int,
+        candidate_deltas: torch.Tensor,
+        hidden_dim: int = 96,
+        spatial_size: int = 2,
+        energy_weight: float = 0.05,
+        nms_threshold: float = 0.5,
+    ) -> None:
+        super().__init__()
+        self.base = SetContextGlobalTop1PolicyHead(
+            in_channels=in_channels,
+            num_classes=num_classes,
+            candidate_deltas=candidate_deltas,
+            hidden_dim=hidden_dim,
+            spatial_size=spatial_size,
+            energy_weight=energy_weight,
+        )
+        self.nms_threshold = float(nms_threshold)
+        self.topology_head = nn.Sequential(
+            nn.Linear(4, hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, 1),
+        )
+        nn.init.zeros_(self.topology_head[-1].weight)
+        nn.init.zeros_(self.topology_head[-1].bias)
+
+    def forward(
+        self,
+        spatial_features: torch.Tensor,
+        class_logits: torch.Tensor,
+        labels: torch.Tensor,
+        scores: torch.Tensor,
+        boxes: torch.Tensor,
+        image_size: tuple[int, int] | torch.Tensor,
+        observable_mask: torch.Tensor,
+        *,
+        topology_shuffle_seed: int | None = None,
+    ) -> GlobalTop1Output:
+        output = self.base(
+            spatial_features,
+            class_logits,
+            labels,
+            scores,
+            boxes,
+            image_size,
+            observable_mask,
+        )
+        topology = action_conditioned_nms_topology(
+            boxes,
+            labels,
+            scores,
+            image_size,
+            self.base.candidate_deltas,
+            self.nms_threshold,
+        )
+        if topology_shuffle_seed is not None:
+            topology = _shuffle_observable_action_topology(
+                topology,
+                observable_mask,
+                int(topology_shuffle_seed),
+            )
+        topology_logits = self.topology_head(topology).squeeze(-1)
+        return GlobalTop1Output(
+            action_logits=output.action_logits + topology_logits,
+            noop_logit=output.noop_logit,
+            conflict_stats=output.conflict_stats,
+        )
+
+
+def _shuffle_observable_action_topology(
+    topology: torch.Tensor,
+    observable_mask: torch.Tensor,
+    seed: int,
+) -> torch.Tensor:
+    shuffled = topology.clone()
+    rows = torch.nonzero(observable_mask.to(device=topology.device).bool(), as_tuple=False).flatten()
+    if rows.numel() == 0 or topology.shape[1] <= 1:
+        return shuffled
+    values = topology[rows, 1:, :].reshape(-1, topology.shape[2])
+    if values.shape[0] < 2:
+        return shuffled
+    generator = torch.Generator().manual_seed(int(seed))
+    permutation = torch.randperm(values.shape[0], generator=generator).to(device=topology.device)
+    identity = torch.arange(values.shape[0], device=topology.device)
+    if torch.equal(permutation, identity):
+        permutation = permutation.roll(1)
+    shuffled[rows, 1:, :] = values[permutation].reshape(rows.numel(), topology.shape[1] - 1, topology.shape[2])
+    return shuffled
+
+
+def _cross_box_iou(boxes1: torch.Tensor, boxes2: torch.Tensor) -> torch.Tensor:
+    if boxes1.ndim != 2 or boxes2.ndim != 2 or boxes1.shape[1] != 4 or boxes2.shape[1] != 4:
+        raise ValueError("boxes must have shape (N, 4) and (M, 4)")
+    top_left = torch.maximum(boxes1[:, None, :2], boxes2[None, :, :2])
+    bottom_right = torch.minimum(boxes1[:, None, 2:], boxes2[None, :, 2:])
+    intersection = (bottom_right - top_left).clamp_min(0.0).prod(dim=2)
+    area1 = (boxes1[:, 2:] - boxes1[:, :2]).clamp_min(0.0).prod(dim=1)
+    area2 = (boxes2[:, 2:] - boxes2[:, :2]).clamp_min(0.0).prod(dim=1)
+    union = area1[:, None] + area2[None, :] - intersection
+    return intersection / union.clamp_min(1e-8)
 
 
 def flatten_observable_action_logits(
