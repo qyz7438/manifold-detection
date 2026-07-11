@@ -6,7 +6,7 @@
     "teacher_stats_result": "runs/nwpu_dense_teacher_stats_s42_innerfit/eval_metrics.json",
     "teacher_stats_sha256": "6fd77a0e70b8a2365f441a98fcc19ca3c6260a6727579185807c798e913d2d10",
     "confounding_result": "runs/nwpu_dense_teacher_confound_s42_innerfit/eval_metrics.json",
-    "confounding_sha256": "50da6f35fff24de3cdce7be34c5194d9a9aaf56e2b06c12903b95e424de181",
+    "confounding_sha256": "50da6f35fff24de3cdce7be34c5194d9a9a9aaf56e2b06c12903b95e424de181",
     "required_confounding_decision": "reduce_penalty_basis_before_endpoint"
   },
   "dataset": {

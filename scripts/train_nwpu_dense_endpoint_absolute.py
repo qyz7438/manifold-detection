@@ -27,7 +27,7 @@ CONFIG_PATH = (
     / "versions"
     / "det.energy.dense_endpoint.absolute.001.json"
 )
-CONFIG_SHA256 = "74b7e73b2b0ac8d3705d5022eae0a91807b2976e7fda29851a06c6f855cd10f9"
+CONFIG_SHA256 = "e69f42129ec6aa409299c64ecbb4b8eecdb82365004f333249fa4db92e8798fa"
 
 
 def sha256_file(path: str | Path) -> str:

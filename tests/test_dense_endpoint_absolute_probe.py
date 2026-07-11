@@ -15,6 +15,7 @@ def test_absolute_endpoint_config_locks_nested_outer_boundary():
     assert config["dataset"]["detector_validation_forbidden"] is True
     assert config["dataset"]["outer_read_once_after_selection"] is True
     assert config["teacher"]["calibration_error_role"] == "diagnostic_only_not_in_quality"
+    assert len(config["sources"]["confounding_sha256"]) == 64
 
 
 def test_feature_alignment_shuffle_preserves_column_marginals_but_breaks_rows():
