@@ -1,0 +1,75 @@
+{
+  "version_id": "det.energy.step005_audit.001",
+  "status": "adaptive_preregistered",
+  "objective": "Test whether any single-axis step-0.05 action stratum has positive image-balanced Delta-U beyond same-image uniform action selection in the locked oracle-conditioned NWPU train cache.",
+  "probe": {
+    "scope": "train_cache_adaptive_fit_tune_outer_replay",
+    "researcher_adaptive": true,
+    "uses_detector_validation": false,
+    "outer_evaluated_once_for_frozen_primary": true,
+    "claim_boundary": "Adaptive train-cache-only oracle-pool-conditioned step-0.05 stratum audit. This does not establish detector-only candidates, globally unseen generalization, coordinated actions, or AP gain."
+  },
+  "dataset": {
+    "name": "nwpu",
+    "seed": 42,
+    "train_images": 454,
+    "train_image_ids_sha256": "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd"
+  },
+  "source_train_cache": {
+    "path": "runs/nwpu_joint_delta_u_probe_s42_trainholdout/joint_utility_probe_cache.pt",
+    "sha256": "d30a36631d13d2e95d4340c901d0ea53cac37c7b6d4c30d1a97315105994c6cd",
+    "metadata": "runs/nwpu_joint_delta_u_probe_s42_trainholdout/joint_utility_probe_cache_metadata.json",
+    "metadata_sha256": "b83dcbe9e0317665ca7356104a06cb1af8022fe9b7bde6c819b65c086ac70bb6",
+    "pairing": "same_detector_forward"
+  },
+  "split": {
+    "outer_heldout_fraction": 0.2,
+    "outer_seed": 20260711,
+    "outer_fit_manifest": {
+      "count": 363,
+      "image_ids_sha256": "d878beb39f9da15843c85e3755a6a02a85984beccc20e620d1f4923be25eaa34"
+    },
+    "outer_heldout_manifest": {
+      "count": 91,
+      "image_ids_sha256": "c171513833306609415c7a5d5ce829014b90b2a0f1873a79cc34ec637251ccd0"
+    },
+    "inner_tune_fraction": 0.2,
+    "inner_seed": 20260712
+  },
+  "action": {
+    "step": 0.05,
+    "step_tolerance": 0.000001,
+    "expected_full_candidates": 1243,
+    "expected_full_candidate_images": 321
+  },
+  "scale_bins": {
+    "small_area_max": 0.02,
+    "medium_area_max": 0.1
+  },
+  "strata_axes": ["family", "direction", "class", "scale"],
+  "discovery": {
+    "min_fit_candidates": 40,
+    "min_fit_images": 20,
+    "min_tune_candidates": 20,
+    "min_tune_images": 10,
+    "selection_rule": "maximum tune paired-uniform-gain LCB, then tune raw LCB, image support, and lexical key"
+  },
+  "statistics": {
+    "target_epsilon": 0.001,
+    "lcb_z": 1.645,
+    "target_permutation_trials": 5000,
+    "target_permutation_seed": 20260715
+  },
+  "gates": {
+    "min_outer_candidates": 200,
+    "min_outer_images": 50,
+    "min_outer_stratum_candidates": 40,
+    "min_outer_stratum_images": 20,
+    "min_outer_mean_delta_u": 0.01,
+    "min_outer_mean_delta_u_lcb": 0.0,
+    "min_paired_uniform_gain": 0.01,
+    "min_paired_uniform_gain_lcb": 0.0,
+    "min_positive_precision_lift": 0.05,
+    "min_gain_over_permutation_p95": 0.005
+  }
+}
