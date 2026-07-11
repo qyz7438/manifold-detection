@@ -54,8 +54,8 @@ def test_dense_endpoint_is_permutation_invariant_and_handles_empty_pairs():
     no_pairs = endpoint(nodes, torch.empty(0, 5))
     empty = endpoint(torch.empty(0, 4), torch.empty(0, 5))
 
-    assert torch.allclose(original.quality, permuted.quality, atol=1e-7)
-    assert torch.allclose(original.unary_contribution, permuted.unary_contribution, atol=1e-7)
-    assert torch.allclose(original.pair_contribution, permuted.pair_contribution, atol=1e-7)
+    assert torch.equal(original.quality, permuted.quality)
+    assert torch.equal(original.unary_contribution, permuted.unary_contribution)
+    assert torch.equal(original.pair_contribution, permuted.pair_contribution)
     assert torch.isfinite(no_pairs.quality)
     assert torch.isfinite(empty.quality)

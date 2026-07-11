@@ -1,0 +1,95 @@
+{
+  "version_id": "det.energy.dense_local_delta_learner.001",
+  "status": "preregistered_train_only_exploratory_learner",
+  "objective": "Test whether a minimal additive detector-only set endpoint can generalize local reduced-teacher Delta-Q across heldout train images, avoiding absolute calibration shift.",
+  "sources": {
+    "delta_stats_result": "runs/nwpu_dense_local_delta_stats_v2_s42_train64/eval_metrics.json",
+    "delta_stats_sha256": "10804a48fae1b3d81d7ebac1b51660524f2008f57a333a4da15ed185fe4d3010",
+    "required_status": "shift_invariant_local_delta_learner_warranted",
+    "teacher_checkpoint": "runs/nwpu_dense_endpoint_cleanval_s42/local_full/endpoint.pth",
+    "teacher_checkpoint_sha256": "df373ee8611cf3c0e5194d7bf46f176cb3816c4fcee71c37128187e2764f4725"
+  },
+  "dataset": {
+    "source_count": 64,
+    "source_sha256": "cde545e8fb7b29adad9c3901b8ea1590b50ec8dcb1210e41101685f5fdeceefe",
+    "fit_count": 48,
+    "fit_sha256": "5ab4f3fea09e298279df441fb28aa999f52c39d46dccec66581fbbc5a504abe1",
+    "tune_count": 16,
+    "tune_sha256": "802c12beb3c076669ce75feb6861cceb6b610563b533af37bc094b1e546713db",
+    "split_algorithm": "sha256_dense_local_learner_seed42",
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "all_other_splits_forbidden": true
+  },
+  "detector": {
+    "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "num_classes": 11,
+    "min_size": 480,
+    "max_size": 480,
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "teacher": {
+    "coverage_temperature": 0.1,
+    "coverage_kappa": 10.0,
+    "target_iou": 0.75,
+    "background_temperature": 0.1,
+    "class_temperature": 0.1,
+    "calibration_temperature": 0.1,
+    "duplicate_temperature": 0.05,
+    "duplicate_nms_reference": 0.5,
+    "duplicate_edge_min_iou": 0.1,
+    "correctness_iou": 0.5,
+    "epsilon": 0.000001
+  },
+  "perturbations": {
+    "top_detections_per_image": 3,
+    "score_step": 0.02,
+    "box_step_fraction": 0.02,
+    "families": ["identity_permutation", "score_down", "score_up", "translate_left", "translate_right", "translate_up", "translate_down", "scale_down", "scale_up", "drop"]
+  },
+  "model": {
+    "node_dim": 22,
+    "pair_dim": 5,
+    "pair_min_iou": 0.1,
+    "hidden_dim": 32,
+    "prediction": "Q_perturbed_minus_Q_base"
+  },
+  "training": {
+    "seed": 42,
+    "epochs": 100,
+    "lr": 0.001,
+    "weight_decay": 0.001,
+    "grad_accum_pairs": 32,
+    "loss": "smooth_l1",
+    "smooth_l1_beta": 0.05
+  },
+  "arms": ["local_full", "strong_geometry_shuffle", "utility_shuffle"],
+  "controls": {
+    "same_initialization_seed": 42,
+    "geometry_shuffle_seed": 642,
+    "utility_shuffle_seed": 742,
+    "strong_geometry_columns": [1, 2, 3, 4, 5, 6, 18, 19, 20, 21]
+  },
+  "gates": {
+    "tune_min_rows": 300,
+    "identity_max_abs_prediction": 0.0000001,
+    "tune_imagewise_pairwise_min": 0.6,
+    "tune_sign_auroc_min": 0.65,
+    "mae_relative_gain_over_zero_min": 0.1,
+    "pairwise_gain_over_each_control_min": 0.03,
+    "mae_gain_over_each_control_min": 0.01,
+    "fit_to_tune_pairwise_gap_max": 0.15
+  },
+  "resource": {
+    "physical_gpu": 2,
+    "estimated_peak_mib": 6144,
+    "required_post_launch_free_mib_exclusive": 8192,
+    "batch_size": 1,
+    "num_workers": 0
+  },
+  "decision_rule": "All gates must pass to retain only a train-only exploratory shift-invariant local endpoint learner. Failure freezes this learner. Passing permits a future separately locked larger train-only confirmation, not detector validation or actions.",
+  "claim_boundary": "Researcher-adaptive 48/16 split inside 64 cached-design train images. Perturbations are synthetic post-NMS set changes and not native detector actions. No old tune/outer/detector validation, AP, action utility, or manifold-correction claim."
+}

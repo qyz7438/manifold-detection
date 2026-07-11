@@ -114,6 +114,13 @@ class DenseEndpointOutput:
     pair_contributions: torch.Tensor
 
 
+def _canonical_feature_order(features: torch.Tensor) -> torch.Tensor:
+    order = torch.arange(features.shape[0], device=features.device)
+    for column in range(features.shape[1] - 1, -1, -1):
+        order = order[torch.argsort(features[order, column], stable=True)]
+    return order
+
+
 class DenseSetEnergyEndpoint(nn.Module):
     """Permutation-invariant mean-additive unary/pair set energy."""
 
@@ -141,6 +148,8 @@ class DenseSetEnergyEndpoint(nn.Module):
             raise ValueError("node_features must have shape (N, node_dim)")
         if pair_features.ndim != 2 or pair_features.shape[1] != self.pair_dim:
             raise ValueError("pair_features must have shape (E, pair_dim)")
+        node_features = node_features[_canonical_feature_order(node_features)]
+        pair_features = pair_features[_canonical_feature_order(pair_features)]
         node_values = self.unary(node_features).squeeze(1)
         pair_values = self.pair(pair_features).squeeze(1)
         unary = node_values.mean() if node_values.numel() else self.identity_bias * 0.0
