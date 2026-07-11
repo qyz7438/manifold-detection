@@ -85,6 +85,13 @@ from spectral_detection_posttrain.methods.energy_transport.native_topology impor
 from spectral_detection_posttrain.methods.energy_transport.adaptive_consensus import (
     proposal_graph_consensus_deltas,
 )
+from spectral_detection_posttrain.methods.energy_transport.post_nms_suppress import (
+    PostNMSSuppression,
+    PostNMSSuppressPolicyHead,
+    build_post_nms_detection_features,
+    select_post_nms_suppression,
+    suppress_detection,
+)
 from spectral_detection_posttrain.methods.energy_transport.high_water_mark import (
     HighWaterMarkLossConfig,
     HighWaterMarkModuleSnapshot,
@@ -300,5 +307,10 @@ __all__ = [
     "action_conditioned_nms_topology",
     "native_action_nms_topology",
     "proposal_graph_consensus_deltas",
+    "PostNMSSuppression",
+    "PostNMSSuppressPolicyHead",
+    "build_post_nms_detection_features",
+    "select_post_nms_suppression",
+    "suppress_detection",
     "set_policy_loss",
 ]

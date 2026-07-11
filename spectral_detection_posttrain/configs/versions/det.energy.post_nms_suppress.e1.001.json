@@ -1,0 +1,50 @@
+{
+  "version_id": "det.energy.post_nms_suppress.e1.001",
+  "status": "preregistered_structural_pivot_smoke",
+  "source": {
+    "base_config_sha256": "f191933f6299efb3b22af241fbd77b9685f6bb9127b5ea09196418c4352c70a0",
+    "d4_result": "runs/nwpu_d4_adaptive_consensus_smoke_s42/eval_metrics.json",
+    "d4_result_sha256": "6f437f7c9e05c718f80dda8ec5f9d1d4e230288f0d2f73207d8e452356c92223"
+  },
+  "candidate": {
+    "source": "native_post_nms_kept_set",
+    "candidate_filter_uses_gt": false,
+    "action": "suppress_exactly_one_detection_or_noop",
+    "max_actions_per_image": 1
+  },
+  "policy": {
+    "hidden_dim": 64,
+    "loss_type": "balanced_margin",
+    "action_margin": 0.2,
+    "rank_margin": 0.2,
+    "actionability_weight": 1.0,
+    "rank_weight": 1.0
+  },
+  "training": {
+    "epochs": 8,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "grad_accum_steps": 8
+  },
+  "controls": {
+    "feature_shuffle_seed": 142,
+    "utility_shuffle_seed": 242,
+    "same_initialization_seed": 42
+  },
+  "arms": ["local_full", "feature_shuffle", "utility_shuffle"],
+  "gates": {
+    "min_candidate_images": 16,
+    "min_noop_images": 2,
+    "min_action_images": 2,
+    "min_selected_count": 3,
+    "min_action_image_rate": 0.05,
+    "max_action_image_rate": 0.50,
+    "min_ap75_delta_vs_identity_exclusive": 0.0,
+    "min_ap50_delta_vs_identity": 0.0,
+    "max_fpr_delta": 0.0,
+    "max_recall_drop": 0.005,
+    "require_ap75_strictly_above_each_control": true
+  },
+  "decision_rule": "Any gate failure freezes post-NMS suppress-only transport. Passing all gates permits one locked larger-train/full-val confirmation without tuning.",
+  "claim_boundary": "NWPU 32/32 single-seed post-NMS suppression smoke. A positive result is only a structural action-interface signal, not an AP improvement claim."
+}

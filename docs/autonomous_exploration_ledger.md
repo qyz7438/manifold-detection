@@ -237,3 +237,15 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Decision: permanently freeze pre-NMS bbox-adjustment actions for this detector/checkpoint/endpoint. This includes fixed axes, finer steps, graph consensus, topology variants, and single-box spatial deltas. No threshold/magnitude/consensus/seed/capacity tuning.
 - DeepSeek agreed the early stop is the most informative negative because the candidate set itself is utility-barren. Codex qualifies the strongest wording: D4 disproves this specified higher-score graph-consensus generator, while the combined D1-D4 evidence is what supports freezing the broader single-box bbox interface.
 - Next structural pivot E1: leave native boxes and NMS untouched, then learn at most one post-NMS suppress/no-op action over the stable native kept set. This is a discrete global set-energy decision with deterministic consequences, not another bbox action or NMS-threshold adjustment.
+
+### E1 Post-NMS Suppress Implementation Milestone
+
+- Config: `det.energy.post_nms_suppress.e1.001`, SHA256 `72405a2fdaf19b1b5d9b3ae28b57e21c5c33343e177f8e181273ba4d53ef25bb`.
+- Candidate set is the native detector's final kept set after decode, threshold, small-box removal, class-aware NMS, and top-k. GT never filters candidates.
+- Action is deterministic: suppress exactly one kept detection or no-op. It changes no box, score, threshold, or NMS decision and has no cascade.
+- Detector-only node features contain confidence, normalized box, log area/aspect, predicted-class one-hot code, and kept-set conflict statistics. A small permutation-equivariant set head scores one global suppression versus no-op.
+- Train labels enumerate native whole-image Delta-U for dropping each kept detection on the same 32 train images. Controls separately shuffle node features or utility alignment within each image.
+- Gates require candidate/label support, exact native no-op parity, bounded non-degenerate suppression rate, positive AP75 with non-negative AP50, non-increasing FPR, recall drop at most `0.005`, and AP75 strictly above both controls.
+- Focused verification: seven E1 module/runner tests pass; empty kept sets, permutation equivariance, exact single removal, tie-to-noop, control isolation, config hash, compilation, and launcher provenance are covered.
+- Estimated peak: 6144 MiB; launcher requires `free - 6144 > 8192 MiB` on physical GPU2.
+- Broad maintained regression: 106 tests pass. Terra found no other P0/P1 and confirmed detector-only kept candidates, train-utility-only GT, exact suppress/no-op behavior, controls, loss/eval, and hash chain. Its repeated historical RLimage-path warning is rejected under the explicit current manifold-only workspace contract.

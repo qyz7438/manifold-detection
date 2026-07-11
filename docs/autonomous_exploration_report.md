@@ -30,4 +30,6 @@ D4 is implemented as a deterministic low-energy graph flow: each proposal may mo
 
 D4 found 803 detector-only graph actions across every train image but only one action-positive image. The label-support gate correctly stopped before training or validation. Together with D1-D3, this freezes the entire pre-NMS single-box bbox-adjustment interface. The next pivot changes the intervention point: one deterministic post-NMS suppress/no-op decision over native kept detections, with boxes, thresholds, and NMS unchanged.
 
+E1 is implemented as that structural pivot. It learns a global set-energy decision over the stable native kept set, using detector-only confidence, box, class, and conflict features. Suppression removes exactly one output and cannot trigger an NMS cascade. Local focused verification passes seven checks; remote launch remains gated on broad regression tests, review, clean synchronization, and GPU2 reserve.
+
 See `docs/autonomous_exploration_ledger.md` for the authoritative queue, commands, gates, and artifacts.
