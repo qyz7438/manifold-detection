@@ -166,3 +166,32 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Terra pre-launch review found that calling `apply_box_delta` with the zero vector is not bitwise identity (observed max coordinate drift `1.5258789e-05`). Candidate index 0 now directly reuses the baseline trace; a mock-guarded regression test proves no box transform is called. The launcher also validates existing artifacts against current HEAD, clean status, source-cache hash, config hash, and scope before idempotent exit.
 - Post-fix focused verification: 19 tests passed. Terra otherwise confirmed torchvision operation ordering, no GT candidate leakage, persistent train/eval topology shuffle, and the GPU2 reserve gate.
 - First remote launch failed before writing cache/checkpoint/result because the D2b alignment threshold was looked up in the inherited C3 gate namespace. The threshold is now an explicit function argument sourced from the locked D2b config; retry count is 1/2.
+
+### D2b Native Kept-Set Result
+
+- Completed on retry 1/2 at commit `6a3634d2ebce010ed3dad9b7d13f66e5087586cc`.
+- Run: `runs/nwpu_d2b_native_topology_smoke_s42`.
+- Artifact SHA256: `c35e7e20492b3a39a985f2e8b09a77b0eed853bbacd60c3f9f929d2984989bf0`.
+- Native topology cache SHA256: `629eda04bcbaf5e6f41bbb9a9b683a7e9bec1631af4989adf9e5b47382f81ca8`.
+- Checkpoints: full `c6680a7346e1cc3100a035d975659af78fa20475e6e69fdaea40da62430b27ea`; topology shuffle `0fc0313e2facd3ad776ffa895af3ce0bb7e61fe253e6fbf873db9d73fa3aa7d5`; utility shuffle `8b84436c4abf1107f0a698e843f0ec00dd770743fb6dbb2e18fb121ac8e4071d`.
+- Cache alignment: all 32 images aligned with max absolute detector/cache error `0.0`; no GT used for topology; locked Delta-U copied unchanged.
+- Support: 12 action / 20 no-op images. All arms selected 9/32 actions. Full chose candidate 3 on all nine acted images; topology shuffle chose candidates 2/3; utility shuffle chose 2/3/4.
+- Identity: AP50 `0.7399366`, AP75 `0.4636476`, precision `0.572165`, recall `0.776224`, FPR `0.427835`, ECE `0.119736`, predictions `194`.
+- Full: AP50 `0.7397871` (`-0.0001495`), AP75 `0.4477563` (`-0.0158913`), precision `0.569231`, recall `0.776224`, FPR `0.430769`, ECE `0.118883`, predictions `195`.
+- Topology shuffle AP75 `0.4635562`; utility shuffle AP75 `0.4636476`. Full minus controls: `-0.0157998` and `-0.0158913`.
+- Gates: cache alignment, native parity, and non-degeneracy passed; detector and control gates failed.
+- Decision: freeze native kept-set topology on the locked 0.05 C1 action endpoint. Do not expand train size, seeds, topology capacity, or topology features.
+- DeepSeek read-only review agreed this is a strong bounded negative and recommended D3. Codex rejects two review details: controls did not collapse to no-op (both selected exactly 9 actions), and the C1 table contains only single-axis magnitude `0.05`, not `0.05/0.10`. Its broader conclusion remains valid because full harmed AP75 and lost to both equal-budget controls.
+- Next action: D3 changes only the action magnitude from `0.05` to a locked finer `0.02`, recomputes native whole-image Delta-U on the same 32 detector-only train images, and otherwise restores the C3b balanced policy/loss/controls. If D3 fails, stop this action-table branch rather than tune step size repeatedly.
+
+### D3 Fine-Action Implementation Milestone
+
+- Config: `det.energy.fine_action.d3.001`, SHA256 `0d76a612045dfb2be24c131a6672566f0dfb7a19c5d1c7c46b3dd21112425ea9`.
+- Changed variable: the eight single-axis translation/scale actions use magnitude `0.02` instead of `0.05`; identity remains exact index 0 and the one-action-per-image budget is unchanged.
+- Whole-image Delta-U is recomputed through native decode, threshold, class-aware matching, and NMS on the same locked 32 detector-only train images. GT is used only after candidate fixation to score train utility.
+- Fixed from C3b: independent ROI policy architecture, balanced-margin objective, eight epochs, optimizer, feature/utility controls, initialization, detector, train/validation manifests, and strict detector/control gates.
+- Provenance requires the frozen C3b artifact and corrected frozen D2b artifact. Cache metadata locks commit, detector/annotation hashes, train manifest, candidate builder, and `candidate_step=0.02`.
+- Decision is single-shot: any label-support, parity, non-degeneracy, detector, or control failure freezes the fixed-grid action-table branch. No additional step sweep or same-cache tuning.
+- Focused verification: 18 tests pass; config SHA loads directly; Python compilation and `git diff --check` pass.
+- Estimated GPU peak: 7680 MiB with strict `free - peak > 8192 MiB` launcher gate.
+- Luna's quick review raised the historical `AGENTS.md` RLimage path as a blocker. Codex rejects that finding: the user's repeated current instruction and active autonomous contract explicitly require `/home/ps/lzz/manifold-detection-energy-transport` and forbid writing `/home/ps/lzz/RLimage`. The launcher path is therefore correct.

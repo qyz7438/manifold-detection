@@ -20,4 +20,8 @@ D2b is implemented with a torchvision-equivalent class-expanded postprocessing t
 
 Pre-launch review caught a subtle identity drift from applying a mathematically zero box transform. D2b now reuses the baseline trace exactly for candidate 0, and its launcher rejects stale artifacts whose HEAD, clean state, source hash, config hash, or scope do not match. The native smoke remains pending commit and remote verification.
 
+D2b completed with exact detector/cache alignment and parity, but failed decisively: AP75 fell from `0.46365` to `0.44776`, while topology- and utility-shuffle controls remained near identity. All arms acted on 9/32 images, so the control comparison is not a no-op-rate artifact. Native topology is frozen under the locked 0.05 C1 endpoint. D3 will test one preregistered finer 0.02 action magnitude using the same C3b balanced policy and same 32 detector-only images; there will be no step sweep.
+
+D3 is now preregistered and implemented as that single action-resolution test. It rebuilds native whole-image Delta-U for the same detector-only train images and changes no policy, loss, control, split, or optimization variable from C3b. Local focused verification passes 18 tests; remote execution is pending clean commit/sync and GPU2 reserve checks.
+
 See `docs/autonomous_exploration_ledger.md` for the authoritative queue, commands, gates, and artifacts.

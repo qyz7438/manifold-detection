@@ -1,0 +1,39 @@
+{
+  "version_id": "det.energy.fine_action.d3.001",
+  "status": "preregistered_single_step_smoke",
+  "source": {
+    "base_config_sha256": "f191933f6299efb3b22af241fbd77b9685f6bb9127b5ea09196418c4352c70a0",
+    "c3b_result": "runs/nwpu_c3b_balanced_smoke_s42/eval_metrics.json",
+    "c3b_result_sha256": "f404ea84770ac19c1054d78761feda0f29ad79e78a8ec34c7e4cf6a43e1e9e6a",
+    "d2b_result": "runs/nwpu_d2b_native_topology_smoke_s42/eval_metrics.json",
+    "d2b_result_sha256": "c35e7e20492b3a39a985f2e8b09a77b0eed853bbacd60c3f9f929d2984989bf0"
+  },
+  "candidate_override": {
+    "step": 0.02,
+    "candidate_count": 9,
+    "source": "detector_visible_proposals_only",
+    "max_actions_per_image": 1
+  },
+  "policy_override": {
+    "loss_type": "balanced_margin",
+    "action_margin": 0.2,
+    "rank_margin": 0.2,
+    "actionability_weight": 1.0,
+    "rank_weight": 1.0
+  },
+  "training_override": {"epochs": 8},
+  "arms": ["local_full", "feature_shuffle", "utility_shuffle"],
+  "fixed_variables": ["detector", "32_train_images", "32_validation_images", "seed", "single_axis_action_table", "whole_image_Delta_U", "policy_architecture", "balanced_loss", "optimizer", "epochs", "controls", "native_postprocessing"],
+  "gates": {
+    "min_noop_images": 2,
+    "min_action_images": 2,
+    "min_selected_count": 3,
+    "min_action_image_rate": 0.10,
+    "max_action_image_rate": 0.90,
+    "min_ap75_delta_vs_identity_exclusive": 0.0,
+    "min_ap50_delta_vs_identity": 0.0,
+    "require_ap75_strictly_above_each_control": true
+  },
+  "decision_rule": "Any gate failure freezes the fixed-grid single-axis action-table branch. No additional step sweep or same-cache tuning. All gates passing permits one locked larger-train/full-val confirmation.",
+  "claim_boundary": "NWPU 32/32 single-seed fine-action smoke. A positive result is only an action-resolution signal, not an AP improvement claim."
+}
