@@ -1,0 +1,35 @@
+{
+  "version_id": "det.energy.dense_endpoint.attribution.001",
+  "status": "preregistered_fit_tune_artifact_only",
+  "objective": "Determine whether the frozen absolute endpoint relies on box/conflict geometry, pair topology, or mostly score/class set statistics without rereading outer.",
+  "source": {
+    "result": "runs/nwpu_dense_endpoint_absolute_s42_nested/eval_metrics.json",
+    "result_sha256": "d0e4afb68bd9c6f7636672e501c3638400efe82c91ec24ef5c68740b30043c2f",
+    "required_status": "reduced_absolute_endpoint_frozen",
+    "fit_tune_cache": "runs/nwpu_dense_endpoint_absolute_s42_nested/fit_tune_cache.pt",
+    "fit_tune_cache_sha256": "42d72c4c44da6e50689554ee1eaae57ecbc924ad657ea41dc8276fad643a1d2c",
+    "full_checkpoint": "runs/nwpu_dense_endpoint_absolute_s42_nested/local_full/endpoint.pth",
+    "full_checkpoint_sha256": "25c53622f21e8dbcdc6219c45eb21fc82272118e63bcc025ba23c60920a127af",
+    "inner_fit_count": 318,
+    "inner_tune_count": 68,
+    "outer_cache_forbidden": true,
+    "new_data_forbidden": true
+  },
+  "feature_groups": {
+    "score": [0],
+    "box_geometry": [1, 2, 3, 4, 5, 6],
+    "class_code": [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+    "conflict_geometry": [18, 19, 20, 21],
+    "all_geometry": [1, 2, 3, 4, 5, 6, 18, 19, 20, 21]
+  },
+  "ablations": ["score_zero", "box_geometry_zero", "conflict_geometry_zero", "all_geometry_zero", "class_code_zero", "pair_branch_disabled"],
+  "gates": {
+    "tune_count": 68,
+    "geometry_pairwise_drop_min": 0.03,
+    "geometry_mae_increase_min": 0.03,
+    "pair_pairwise_drop_min": 0.03,
+    "pair_mae_increase_min": 0.03
+  },
+  "decision_rule": "If both all-geometry and pair-branch ablations exceed both degradation gates, the original feature control was underpowered and a fresh control design is warranted. Otherwise freeze geometry-conditioned endpoint claims and retain only a narrower detector score/set-statistics observation.",
+  "claim_boundary": "Researcher-adaptive fit/tune artifact attribution. No retraining, new images, outer cache, detector validation, AP, or endpoint-validation claim."
+}
