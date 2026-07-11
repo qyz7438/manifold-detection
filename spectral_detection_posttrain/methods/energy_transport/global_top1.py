@@ -88,7 +88,9 @@ class GlobalTop1PolicyHead(nn.Module):
         )
         if observable_mask.shape != (output.action_logits.shape[0],):
             raise ValueError("observable_mask must have shape (N,)")
-        observable_noop = output.action_logits[observable_mask.bool(), 0]
+        observable_noop = output.action_logits[
+            observable_mask.to(device=output.action_logits.device).bool(), 0
+        ]
         if observable_noop.numel():
             noop_logit = torch.logsumexp(observable_noop, dim=0) - math.log(observable_noop.numel())
             noop_logit = noop_logit + self.noop_bias
@@ -110,7 +112,9 @@ def flatten_observable_action_logits(
     count, candidates = output.action_logits.shape
     if observable_mask.shape != (count,):
         raise ValueError("observable_mask must have shape (N,)")
-    rows = torch.nonzero(observable_mask.bool(), as_tuple=False).flatten()
+    rows = torch.nonzero(
+        observable_mask.to(device=output.action_logits.device).bool(), as_tuple=False
+    ).flatten()
     proposal_indices = torch.cat(
         (
             torch.full((1,), -1, dtype=torch.long, device=rows.device),
@@ -138,7 +142,7 @@ def build_global_top1_target(
         raise ValueError("observable_mask must have shape (N,)")
     if not math.isfinite(float(min_delta_u)):
         raise ValueError("min_delta_u must be finite")
-    rows = torch.nonzero(observable_mask.bool(), as_tuple=False).flatten()
+    rows = torch.nonzero(observable_mask.to(device=delta_u.device).bool(), as_tuple=False).flatten()
     if rows.numel() == 0:
         return GlobalTop1Target(True, -1, 0, 0.0)
     utilities = delta_u[rows, 1:]

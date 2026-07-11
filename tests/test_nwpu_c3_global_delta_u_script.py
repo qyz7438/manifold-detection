@@ -61,6 +61,7 @@ def test_singleton_enumerator_visits_only_observable_non_noop_actions() -> None:
         identity_utility=1.0,
         evaluate_utility=evaluate,
     )
+    assert delta_u.device == torch.device("cpu")
     assert calls == [(0, 1), (0, 2), (0, 3), (2, 1), (2, 2), (2, 3)]
     assert torch.equal(delta_u[:, 0], torch.zeros(3))
     assert torch.isneginf(delta_u[1, 1:]).all()

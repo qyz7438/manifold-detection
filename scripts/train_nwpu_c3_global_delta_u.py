@@ -65,7 +65,12 @@ def enumerate_singleton_delta_u(
         raise ValueError("proposal_count must be non-negative and candidate_count must be at least two")
     if observable_mask.shape != (proposal_count,):
         raise ValueError("observable_mask must have shape (proposal_count,)")
-    delta_u = torch.full((proposal_count, candidate_count), float("-inf"), dtype=torch.float32)
+    delta_u = torch.full(
+        (proposal_count, candidate_count),
+        float("-inf"),
+        dtype=torch.float32,
+        device=observable_mask.device,
+    )
     delta_u[:, 0] = 0.0
     for proposal_index in torch.nonzero(observable_mask.bool(), as_tuple=False).flatten().tolist():
         for candidate_index in range(1, candidate_count):
