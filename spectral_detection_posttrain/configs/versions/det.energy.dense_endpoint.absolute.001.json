@@ -1,0 +1,101 @@
+{
+  "version_id": "det.energy.dense_endpoint.absolute.001",
+  "status": "preregistered_train_only_nested_probe",
+  "objective": "Test whether a minimal detector-only normalized additive set model generalizes absolute reduced teacher quality across the locked NWPU train-only nested split.",
+  "sources": {
+    "teacher_stats_result": "runs/nwpu_dense_teacher_stats_s42_innerfit/eval_metrics.json",
+    "teacher_stats_sha256": "6fd77a0e70b8a2365f441a98fcc19ca3c6260a6727579185807c798e913d2d10",
+    "confounding_result": "runs/nwpu_dense_teacher_confound_s42_innerfit/eval_metrics.json",
+    "confounding_sha256": "50da6f35fff24de3cdce7be34c5194d9a9aaf56e2b06c12903b95e424de181",
+    "required_confounding_decision": "reduce_penalty_basis_before_endpoint"
+  },
+  "dataset": {
+    "name": "nwpu",
+    "split_manifest": "spectral_detection_posttrain/configs/splits/nwpu_dense_endpoint_s42_nested.json",
+    "split_manifest_sha256": "ce19316aeaef1cbdf85f2c9668c5ae2c8443da8e848de2d22ed0f0f3a687e080",
+    "inner_fit_count": 318,
+    "inner_fit_sha256": "3314b7d59dccf8df83a11662883b822c874757f7dd6b62356cb91335b434e54f",
+    "inner_tune_count": 68,
+    "inner_tune_sha256": "48dc60dacdcfa3e532bc61ca87e08c2dad36ded90ff5dcc82b7a6764188174d0",
+    "outer_count": 68,
+    "outer_sha256": "4e1acfd60ffdc4a528adeb9fc942d4c1867ff9b2117e5e86089e8f84240fa771",
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "detector_validation_forbidden": true,
+    "outer_read_once_after_selection": true
+  },
+  "detector": {
+    "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "num_classes": 11,
+    "min_size": 480,
+    "max_size": 480,
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "teacher": {
+    "basis": ["coverage_per_gt", "total_error_per_prediction", "duplicate_per_edge"],
+    "quality": "z_coverage_minus_z_total_error_minus_z_duplicate",
+    "standardization": "inner_fit_median_iqr_only",
+    "calibration_error_role": "diagnostic_only_not_in_quality",
+    "coverage_temperature": 0.1,
+    "coverage_kappa": 10.0,
+    "target_iou": 0.75,
+    "background_temperature": 0.1,
+    "class_temperature": 0.1,
+    "calibration_temperature": 0.1,
+    "duplicate_temperature": 0.05,
+    "duplicate_nms_reference": 0.5,
+    "duplicate_edge_min_iou": 0.1,
+    "correctness_iou": 0.5,
+    "epsilon": 0.000001
+  },
+  "model": {
+    "architecture": "normalized_additive_unary_pair_deepsets",
+    "node_feature_builder": "post_nms_detection_features_v1",
+    "node_dim": 22,
+    "pair_feature_builder": "same_class_iou_graph_v1",
+    "pair_dim": 5,
+    "pair_min_iou": 0.1,
+    "hidden_dim": 32,
+    "aggregation": "mean_unary_plus_mean_pair_plus_bias"
+  },
+  "training": {
+    "seed": 42,
+    "epochs": 150,
+    "lr": 0.001,
+    "weight_decay_grid": [0.0001, 0.001, 0.01],
+    "grad_accum_images": 16,
+    "loss": "smooth_l1",
+    "smooth_l1_beta": 1.0,
+    "hyperparameter_selection": "inner_tune_full_arm_mae_only_then_freeze_for_controls"
+  },
+  "controls": {
+    "arms": ["local_full", "feature_alignment_shuffle", "teacher_shuffle", "edge_topology_shuffle"],
+    "same_initialization_seed": 42,
+    "feature_shuffle_seed": 142,
+    "teacher_shuffle_seed": 242,
+    "topology_shuffle_seed": 342,
+    "feature_alignment_block": "normalized_box_log_area_log_aspect",
+    "topology_control": "permute_boxes_across_nodes_before_pair_graph"
+  },
+  "gates": {
+    "outer_min_images": 60,
+    "outer_pairwise_accuracy_min": 0.6,
+    "outer_auroc_min": 0.65,
+    "pairwise_gain_over_each_control_min": 0.03,
+    "mae_gain_over_each_control_min": 0.03,
+    "mae_relative_gain_over_best_constant_min": 0.1,
+    "fit_to_outer_pairwise_gap_max": 0.1
+  },
+  "resource": {
+    "physical_gpu": 2,
+    "estimated_peak_mib": 6144,
+    "required_post_launch_free_mib_exclusive": 8192,
+    "batch_size": 1,
+    "num_workers": 0
+  },
+  "decision_rule": "All gates must pass before any local Delta-Q or identity-basin perturbation probe. Failure freezes this reduced absolute endpoint and does not authorize a larger model.",
+  "claim_boundary": "NWPU train-only nested absolute set-quality probe. Passing would establish only detector-only absolute teacher learnability, not local action utility, identity safety, AP gain, or detector validation evidence."
+}
