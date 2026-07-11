@@ -1,0 +1,39 @@
+{
+  "version_id": "det.energy.native_listwise.c1.001",
+  "status": "contract_preregistered",
+  "objective": "Lock detector-native bounded action generation, explicit no-op, budget one, and strict zero-action parity before native listwise training.",
+  "claim_boundary": "Contract and parity readiness only. This does not establish training benefit or detector AP gain.",
+  "sources": {
+    "parity_baseline": {
+      "path": "runs/det_action_zero_parity_nativefix_baseline_s42/eval_metrics.json",
+      "sha256": "d4db4d9f5a8e152fbac3ec5fb0946693fbee62d150723fb49d2e1a82532fff00"
+    },
+    "parity_fullft": {
+      "path": "runs/det_action_zero_parity_nativefix_fullft18best_s42/eval_metrics.json",
+      "sha256": "5324392a0629f7b450ab3332bf7e22fd9631698fb1f1e71352fb8832e135c42e"
+    },
+    "native_m1": {
+      "path": "runs/nwpu_m1_set_policy_s42_fulltrain_fullval/eval_metrics.json",
+      "sha256": "9b089b6625d0dfc9d9fe6a1553be6d5646b78a8179c7de15e506b2e0215a88e5",
+      "all_gates_passed": false,
+      "ap75_delta": 0.00019963263463540493
+    }
+  },
+  "candidate_contract": {
+    "step": 0.05,
+    "candidate_count": 9,
+    "max_actions_per_image": 1,
+    "score_threshold": 0.05,
+    "explicit_noop": true,
+    "candidate_source": "detector_visible_proposals_only",
+    "training_gt_scope": "utility_labels_only_never_candidate_filter"
+  },
+  "gates": {
+    "required_candidate_count": 9,
+    "required_max_abs_delta": 0.05,
+    "required_max_actions_per_image": 1,
+    "required_score_threshold": 0.05,
+    "required_candidate_source": "detector_visible_proposals_only",
+    "required_training_gt_scope": "utility_labels_only_never_candidate_filter"
+  }
+}
