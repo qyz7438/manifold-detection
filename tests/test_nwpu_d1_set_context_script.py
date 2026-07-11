@@ -6,6 +6,16 @@ SCRIPT = ROOT / "scripts" / "train_nwpu_d1_set_context.py"
 LAUNCHER = ROOT / "scripts" / "experiments" / "run_nwpu_d1_set_context_smoke_s42.sh"
 
 
+def test_d1_locked_config_hash_loads() -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("d1_config", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.load_config()["version_id"] == "det.energy.set_context.d1.001"
+
+
 def test_d1_changes_only_representation_and_reuses_locked_cache() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
     assert "global_delta_u_cache.pt" in source

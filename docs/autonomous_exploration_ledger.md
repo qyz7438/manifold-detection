@@ -92,7 +92,7 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 ### D1 Implementation Milestone
 
 - Time: 2026-07-12 03:25 Asia/Shanghai
-- Config: `det.energy.set_context.d1.001`, SHA256 `f441dfca02683b63d8408d81c3919dd970b4ca8718685b63cc89de363acedf357`.
+- Config: `det.energy.set_context.d1.001`, SHA256 `441dfca02683b63d8408d81c3919dd970b4ca8718685b63cc89de363acedf357`.
 - Representation: permutation-equivariant local proposal encoding plus observable-set mean/max context; global no-op remains image-level.
 - Loss: unchanged C3b balanced actionability plus conditional hard-negative rank.
 - Cache: locked C3 global Delta-U cache, no regeneration.
@@ -100,3 +100,4 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Focused verification: 15 tests passed, including proposal permutation equivariance and invariant global no-op.
 - Next action: commit/sync, remote tests, GPU2 reserve gate, launch D1 smoke.
 - Estimated D1 peak: 7168 MiB, based on the same detector/cache/evaluation path as C3b plus a small set-context encoder. Launcher requires `free_mib - 7168 > 8192`.
+- First launch failed before model construction because the config SHA was transcribed as `f441...` instead of `441...`. No cache/checkpoint/result was created. Root cause is locked by a direct `load_config()` test; retry count 1/2.

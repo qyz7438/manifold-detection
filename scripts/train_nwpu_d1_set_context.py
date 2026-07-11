@@ -17,7 +17,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 CONFIG = ROOT / "spectral_detection_posttrain" / "configs" / "versions" / "det.energy.set_context.d1.001.json"
-CONFIG_SHA256 = "f441dfca02683b63d8408d81c3919dd970b4ca8718685b63cc89de363acedf357"
+CONFIG_SHA256 = "441dfca02683b63d8408d81c3919dd970b4ca8718685b63cc89de363acedf357"
 C3_SCRIPT = ROOT / "scripts" / "train_nwpu_c3_global_delta_u.py"
 EXPECTED_POLICY = {"architecture": "set_context"}
 
