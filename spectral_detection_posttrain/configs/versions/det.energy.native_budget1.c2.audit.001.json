@@ -1,0 +1,16 @@
+{
+  "version_id": "det.energy.native_budget1.c2.audit.001",
+  "status": "researcher_adaptive_gate_correction",
+  "source": {
+    "path": "runs/nwpu_c2_native_budget1_smoke_s42/eval_metrics.json",
+    "sha256": "9a1f0e9eb8f797d4b5add5d3ebc7b302cde3c4b5ec1b7d13281ea41d947abf3a",
+    "original_config_sha256": "e9502d42891dab2df01560ed3dd13f9afd2076291af9e808f83cb3ef2bdef635"
+  },
+  "gates": {
+    "min_selected_count": 1,
+    "min_move_gate_positive": 1,
+    "min_ap75_delta_vs_identity": 0.000001,
+    "min_ap75_delta_vs_each_control": 0.000001
+  },
+  "claim_boundary": "Post-hoc correction of a degenerate >=0 gate. It can invalidate C2 but cannot validate a positive detector claim."
+}
