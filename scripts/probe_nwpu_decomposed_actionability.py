@@ -184,7 +184,7 @@ def fit_sign_head(
         ),
     )
     return selected["model"], {
-        "selected_l2": selected["l2"],
+        "selected_sign_l2": selected["l2"],
         "fit_sign": selected["fit_real"],
         "tune_sign": selected["tune_real"],
         "tune_selection_sign": selected["tune_selection"],
@@ -263,7 +263,7 @@ def fit_rank_head(
         ),
     )
     return selected["model"], {
-        "selected_l2": selected["l2"],
+        "selected_rank_l2": selected["l2"],
         "fit_rank": selected["fit_real"],
         "tune_rank": selected["tune_real"],
         "tune_selection_rank": selected["tune_selection"],

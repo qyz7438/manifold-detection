@@ -49,6 +49,8 @@ def test_runner_separates_sign_rank_and_frozen_abstention_without_detector() -> 
     assert "fit_sign_head" in source
     assert "fit_rank_head" in source
     assert "calibrate_ranked_abstention" in source
+    assert '"selected_sign_l2"' in source
+    assert '"selected_rank_l2"' in source
     assert '"outer_evaluated_after_freeze": True' in source
     assert "outer_label_order" not in source
     assert "if outer_feature_fraction < float(" in source
