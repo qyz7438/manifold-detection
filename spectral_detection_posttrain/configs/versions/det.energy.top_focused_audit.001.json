@@ -1,0 +1,47 @@
+{
+  "version_id": "det.energy.top_focused_audit.001",
+  "status": "researcher_adaptive_preregistered",
+  "objective": "Audit whether B3 sign and rank evidence remains candidate-local and actionable after removing image prevalence and focusing on top-1 decisions.",
+  "probe": {
+    "scope": "zero_training_reused_outer_top_focused_audit",
+    "researcher_adaptive": true,
+    "outer_split_seen_in_prior_analyses": true,
+    "uses_detector_validation": false,
+    "performs_new_training": false,
+    "claim_boundary": "Zero-training researcher-adaptive audit of frozen B3 heads on a previously analyzed train-cache outer split. It does not establish fresh generalization, detector-only candidates, coordinated actions, or AP gain."
+  },
+  "source_b3": {
+    "config_path": "spectral_detection_posttrain/configs/versions/det.energy.decomposed_actionability.001.json",
+    "config_sha256": "c059ef07b8a8edc8e4f8854b203672d340b68f09260966b275b05aaa2fdf51b8",
+    "metrics_path": "runs/nwpu_decomposed_actionability_s42_nested/eval_metrics.json",
+    "metrics_sha256": "53d2a712f109b259751fed85dbb6ba1c8fad56631fc257efc42a6d14d07b411f",
+    "checkpoint_path": "runs/nwpu_decomposed_actionability_s42_nested/selected_decomposed_models.pt",
+    "checkpoint_sha256": "da4fcb664689ddb2a51d870c9333b32eb5634657497a3ae109f4c64b80ced08d",
+    "code_commit": "39dc4e5b7e385290e64fcef8dfd838ec585d9cff"
+  },
+  "metrics": {
+    "target_epsilon": 0.001,
+    "min_target_gap": 0.001,
+    "lcb_z": 1.645,
+    "median_tie_policy": "exclude_target_equal_to_image_median",
+    "score_threshold_policy": "strictly_above_image_score_median",
+    "pair_weighting": ["equal_image", "candidate_weighted_within_image"]
+  },
+  "arms": [
+    "local_full",
+    "within_image_feature_shuffle",
+    "within_image_label_shuffle"
+  ],
+  "gates": {
+    "min_candidates": 500,
+    "min_images": 60,
+    "min_median_pairs": 100,
+    "min_cross_boundary_pairs": 100,
+    "min_oracle_top_pairs": 100,
+    "min_median_sign_auroc": 0.55,
+    "min_rank_pairwise": 0.58,
+    "min_control_gain": 0.02,
+    "min_top1_positive_hit_lift": 0.0,
+    "min_top1_mean_delta_u_lcb": 0.0
+  }
+}
