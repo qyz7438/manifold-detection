@@ -339,8 +339,7 @@ def _loss_config(config: dict[str, Any], loss_config_cls: Any) -> Any:
 
 def _new_policy(config: dict[str, Any], spatial_channels: int, device: torch.device) -> Any:
     head_cls, _, _, _ = _load_policy_api()
-    from spectral_detection_posttrain.methods.energy_transport import build_symmetric_box_candidates
-    candidates = build_symmetric_box_candidates(tuple(config["candidate_pool"]["step_sizes"])).to(device)
+    candidates = candidate_deltas(config).to(device)
     head = head_cls(
         in_channels=spatial_channels,
         num_classes=11,
@@ -350,6 +349,21 @@ def _new_policy(config: dict[str, Any], spatial_channels: int, device: torch.dev
         energy_weight=float(config["policy"]["energy_weight"]),
     ).to(device)
     return head
+
+
+def candidate_deltas(config: dict[str, Any]) -> torch.Tensor:
+    pool = config["candidate_pool"]
+    if pool.get("builder") == "native_c1":
+        from spectral_detection_posttrain.methods.energy_transport.native_contract import build_native_c1_deltas
+
+        candidates = build_native_c1_deltas(float(pool["step"]))
+    else:
+        from spectral_detection_posttrain.methods.energy_transport import build_symmetric_box_candidates
+
+        candidates = build_symmetric_box_candidates(tuple(pool["step_sizes"]))
+    if int(candidates.shape[0]) != int(pool["candidate_count"]):
+        raise ValueError("candidate builder does not match locked candidate_count")
+    return candidates
 
 
 def _write_cache(path: Path, records: Sequence[dict[str, Any]]) -> None:
@@ -541,9 +555,9 @@ def evaluate_validation(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     from spectral_detection_posttrain.eval.detection_metrics import evaluate_detection_predictions
     from spectral_detection_posttrain.trainers.detection.action_local_transport import action_batch_to_predictions, extract_proposal_action_batch
-    from spectral_detection_posttrain.methods.energy_transport import build_symmetric_box_candidates, select_set_policy_actions
+    from spectral_detection_posttrain.methods.energy_transport import select_set_policy_actions
     m0 = _load_m0()
-    candidates = build_symmetric_box_candidates(tuple(config["candidate_pool"]["step_sizes"])).to(device)
+    candidates = candidate_deltas(config).to(device)
     modes = list(config["modes"])
     if include_move_gate_bypass:
         modes.append("move_gate_bypass")

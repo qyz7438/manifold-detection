@@ -1,0 +1,78 @@
+{
+  "version_id": "det.energy.native_budget1.c2.001",
+  "status": "preregistered_smoke",
+  "objective": "Test a detector-native nine-action budget-one policy against equal-capacity feature and utility shuffle controls.",
+  "dataset": {
+    "name": "nwpu",
+    "seed": 42,
+    "data_seed": 42,
+    "train_fraction": 0.7,
+    "train_images": 454,
+    "validation_images": 196,
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "train_image_ids_sha256": "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd",
+    "val_image_ids_sha256": "49f05cc9fa82ccaf924ff3be58a8f6376387c225e020ea6138182a4637219684"
+  },
+  "detector": {
+    "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "min_size": 480,
+    "max_size": 480,
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "source_c1": {
+    "result": "runs/nwpu_native_c1_contract_s42/eval_metrics.json",
+    "result_sha256": "71022f08acf22b0c982929089d9799d0f5f19941cc31428d6ec7d9f795f53b44",
+    "required_all_gates_passed": true
+  },
+  "candidate_pool": {
+    "builder": "native_c1",
+    "step": 0.05,
+    "candidate_count": 9,
+    "min_iou_gain": 0.002,
+    "require_foreground_dominant": true,
+    "min_score": 0.05,
+    "action_energy_scale": 0.04,
+    "action_budget": 1,
+    "move_threshold": 0.0
+  },
+  "policy": {
+    "hidden_dim": 96,
+    "energy_weight": 0.05,
+    "spatial_size": 7
+  },
+  "training": {
+    "epochs": 2,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "grad_accum_steps": 8,
+    "action_weight": 1.0,
+    "move_weight": 1.0,
+    "identity_weight": 0.1,
+    "positive_move_weight": 8.0,
+    "batch_size": 1
+  },
+  "arms": ["local_full", "feature_shuffle", "utility_shuffle"],
+  "modes": ["identity", "learned_set", "energy_zero", "shuffled_spatial"],
+  "cache": {
+    "format": "torch_pt",
+    "schema_version": 2,
+    "feature_storage_dtype": "float16",
+    "policy_input_dtype": "float32_from_float16",
+    "train_only_oracle": true,
+    "detector_frozen": true,
+    "candidate_filter_uses_gt": false,
+    "utility_labels_use_train_gt": true
+  },
+  "gates": {
+    "G0_c1_contract": {"required": true},
+    "G1_support": {"min_noop": 1, "min_action": 1},
+    "G2_native_parity": {"max_mismatched_images": 0},
+    "G3_detector": {"min_ap75_delta": 0.0, "min_ap50_delta": -0.002},
+    "G4_controls": {"min_ap75_delta_vs_each": 0.0}
+  },
+  "claim_boundary": "Researcher-adaptive NWPU smoke only. Passing does not establish full-validation AP gain or independent replication."
+}
