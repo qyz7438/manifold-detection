@@ -296,3 +296,105 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Outer train-heldout: 68 images / 471 objects, hash `4e1acfd60ffdc4a528adeb9fc942d4c1867ff9b2117e5e86089e8f84240fa771`.
 - The first random-hash split was rejected because rare classes had only 2-3 outer images. The final split uses deterministic multilabel class-presence plus object-density stratification; all ten classes have at least three images in tune and outer, with mean objects/image `6.14/6.72/6.93`.
 - Six tests lock source hash, manifest hash, disjointness, full coverage, class support, determinism, and density balancing. No GPU or detector validation was used.
+
+## Dense Teacher Component Statistics
+
+- Version: `det.energy.dense_teacher_stats.001`; implementation commit `2ddb0da792b624adf6df502d6f7f5742dc8b057b`.
+- Scope: native post-NMS predictions on the 318-image `inner_fit` split only. `inner_tune`, outer train-heldout, and detector validation were not read.
+- Artifact: `runs/nwpu_dense_teacher_stats_s42_innerfit/eval_metrics.json`, SHA256 `6fd77a0e70b8a2365f441a98fcc19ca3c6260a6727579185807c798e913d2d10`.
+- Provenance: config `c8ff0e29a3d191b2aed0db2883830171c8f60ce379df1a44493342c5b9133496`; checkpoint `de126708...42027`; manifest `ce19316...e080`; clean Git; `CUDA_VISIBLE_DEVICES=2`.
+- Support: 318/318 images have predictions; 2652 predictions, 1952 GT objects, 1420 duplicate edges on 152 images. All five components are finite and non-degenerate.
+- IQRs: coverage `5.19767`; background `0.85394`; class `0.39578`; duplicate `0.19703`; calibration `0.25434`.
+- Important diagnostic: background/class/calibration raw correlations are `0.94028/0.95102/0.88989`. Component support passed, but learnability was not claimed.
+- GPU2 free memory: `42751 MiB` before launch, about `42533 MiB` under detector load, `43340 MiB` after completion. The reserve gate passed and no other process was stopped.
+- DeepSeek agreed that support justifies only a confounding audit, not model fitting; it correctly identified prediction/GT count as a possible common scale factor. Its proposed SciPy implementation was rejected because the project forbids package installation and the same residualization is available in PyTorch.
+
+## Dense Teacher Confounding Result
+
+- Version and commit: `det.energy.dense_teacher_confound.001`, `8a379308...`; source-artifact-only, no images or new split read.
+- Artifact SHA256: `50da6f35fff24de3cdce7be34c5194d9a9a9aaf56e2b06c12903b95e424de181`.
+- Count-only `R^2`: background `0.60060`, class `0.69997`, calibration `0.54877`.
+- After residualizing `log1p(prediction_count)` and `log1p(ground_truth_count)`, maximum penalty correlation remained `0.88793`, above the locked `0.85` gate.
+- Natural-support normalization remained non-degenerate but maximum penalty correlation was `0.85300`, also above the gate.
+- Decision: reject the five-term unit-weight target. Do not relax the threshold or fit lambdas. Calibration becomes diagnostic-only; background and class risks are combined into total error; the first model target uses normalized coverage, total error, and duplicate coordinates.
+
+## Reduced Absolute Endpoint Launch
+
+- Version: `det.energy.dense_endpoint.absolute.001`; implementation commit `80abed6d...`, provenance correction `52c82685...`.
+- Model: 22-D native post-NMS node features, 5-D same-class sparse pair features, 32-D mean-additive unary/pair DeepSets. No ROI action or detector parameter is trained.
+- Teacher: inner-fit median/IQR standardization of `coverage/GT`, `(background+class)/prediction`, and `duplicate/edge`; calibration remains diagnostic-only.
+- Protocol: fit `318`, tune `68`, outer train-heldout `68`; detector validation forbidden. Weight decay is selected on tune for full only, then frozen for feature-alignment, teacher-shuffle, and genuine box-to-node topology-shuffle controls. Outer cache is built once after all models are frozen.
+- Tests: 114 maintained energy-transport tests pass; synthetic two-epoch train/predict path passes.
+- First launch stopped before GPU/data work because the preregistered confounding SHA string was accidentally 62 characters. The artifact itself and all scientific settings were unchanged; commit `52c82685...` corrects only the source hash and adds a 64-character regression assertion.
+- Retry started on physical GPU2 with `43308 MiB` free and estimated peak `6144 MiB`; steady free memory is about `42533 MiB`. Current PID `3155362`; log `runs/nwpu_dense_endpoint_absolute_s42_nested/launcher.log`.
+
+## Reduced Absolute Endpoint Result
+
+- Completed at clean commit `52c826859e5edaecbf7f6121fff7bc2feb6816ee`; artifact `runs/nwpu_dense_endpoint_absolute_s42_nested/eval_metrics.json`, SHA256 `d0e4afb68bd9c6f7636672e501c3638400efe82c91ec24ef5c68740b30043c2f`.
+- Cache provenance: fit+tune `42d72c4...a1d2c`; one-time outer `241ec83...47fa`. `outer_read_count=1`; detector validation was not read. Selected weight decay was `0.001` using tune only.
+- Full outer: MAE `0.34888`, Pearson `0.97847`, pairwise `0.88894`, positive AUROC `0.96140`; best-constant MAE improvement `79.26%`; fit-to-outer pairwise gap `0.04049`.
+- Full beat teacher shuffle by `+0.30158` pairwise / `+1.24496` MAE and topology shuffle by `+0.04697` / `+0.35801`.
+- Full beat feature-alignment shuffle by only `+0.01932` pairwise / `+0.01632` MAE, below both locked `0.03` attribution gates. All absolute/gap/baseline gates passed; both control-attribution gates failed.
+- Decision: `reduced_absolute_endpoint_frozen`. The absolute teacher signal is strongly learnable, but the preregistered experiment did not attribute enough net value to the full feature alignment. No local Delta-Q, identity, action, AP, or detector-validation claim is restored.
+- DeepSeek agreed the numbers and read-once order are internally consistent. It correctly found that the feature control shuffled columns 1-6 but retained conflict geometry columns 18-21. Codex rejects calling those columns teacher leakage: they are detector-only observables, but their survival makes the control too narrow for a global geometry claim.
+
+## Fit/Tune-Only Endpoint Attribution
+
+- Version/commit: `det.energy.dense_endpoint.attribution.001`, `5f8d1f49...`; artifact SHA256 `37ea25835ad2bef2e25aebcb6b0ce91e6c4d59085ee4047581c0bffb7ecfcbbf`.
+- Scope: frozen full checkpoint plus fit/tune cache only; no training, new data, outer cache, or outer aggregate used for the decision.
+- Tune baseline: MAE `0.30081`, pairwise `0.88718`.
+- Zero all box/conflict geometry: MAE `1.01798` (`+0.71717`), pairwise `0.79368` (`-0.09350`).
+- Disable pair branch: MAE `0.98129` (`+0.68048`), pairwise `0.84109` (`-0.04609`).
+- Conflict-only removals were also material: zeroing conflict geometry raised MAE to `0.77644`; raw node conflict columns 18 and 21 correlate with fit target at `-0.66258/-0.65058`.
+- All preregistered diagnostic gates passed. Interpretation: the original feature control preserved major geometry channels, so a fresh strong-control design is scientifically warranted. This remains researcher-adaptive diagnosis, not validation.
+
+## Strong Geometry Control Launch
+
+- Version/commit: `det.energy.dense_endpoint.geometry_control.001`, `c2926418...`.
+- New split is deterministic inside the old 318-image inner-fit pool: fit 254, hash `468ce612...abee7`; holdout 64, hash `cde545e8...ceefe`.
+- The combined fit/tune cache must be deserialized, but its final 68 old-tune records are discarded before statistics, training, evaluation, and gates. Old outer cache and new images are not read.
+- Strong control jointly shuffles node columns 1-6 and 18-21 and uses the precomputed box-to-node topology-shuffled pair graph. A score+class-only arm disables all geometry and the pair branch. Hyperparameters are frozen from the absolute probe.
+- Started on physical GPU2 with `41528 MiB` free, estimated peak `1024 MiB`, steady free `41038 MiB`; PID `3643909`.
+
+## Strong Geometry Control Result
+
+- Completed at commit `c29264184acafb17d436272cd143e079080ac2a0`; artifact SHA256 `ca5fbbef4ee19faa35a925eec6245bac456bc90525c76426e250a24f69b1171d`.
+- Protocol boundary is explicit: the combined cache deserialized 68 old-tune rows but discarded them before all statistics, training, evaluation, and gates. Old outer cache, new images, and detector inference were not read/run.
+- Full 64-image holdout: MAE `0.42829`, Pearson `0.97231`, pairwise `0.87847`, AUROC `0.98438`; constant MAE improvement `73.64%`; fit-to-holdout pairwise gap `0.04945`.
+- Full minus strong node-geometry + pair-topology shuffle: `+0.05655` pairwise and `+0.36842` MAE gain.
+- Full minus score+class-only: `+0.06548` pairwise and `+0.52797` MAE gain.
+- All support, absolute-quality, constant, control, and gap gates passed. Decision: retain a researcher-adaptive train-only geometry endpoint signal and permit one separately preregistered detector-unseen absolute endpoint validation. This is not formal validation, local Delta-Q, action, or AP evidence.
+
+## Detector-Unseen Absolute Endpoint Launch
+
+- Version/commit: `det.energy.dense_endpoint.cleanval.001`, `b0cc5428...`; config SHA256 `82f56e7772042904c6da3dbb8559e630a351a35ccba5582421aeb1d0d8f8d05e`.
+- Training uses all 454 cached NWPU train images. Architecture, teacher basis, optimization, and thresholds are frozen. Arms are full, strong geometry shuffle, score+class-only, and teacher shuffle.
+- The 196-image detector validation IDs, images, and GT teacher targets are materialized once only after all four models freeze. Detector weights remain frozen and no AP/action is evaluated.
+- Started on physical GPU2 with `42365 MiB` free and estimated peak `6144 MiB`; immediate free memory `42739 MiB`; PID `3782055`.
+
+## Detector-Unseen Absolute Endpoint Result
+
+- Completed at clean commit `b0cc54282b50005f81e1e1a11028d5ef7bbec6a7`; artifact SHA256 `024f9ed8cd89a52ac743d35b1bb6a54717772dfd51b2027e47ad30de51f80f8f`; one-time validation cache SHA256 `3d39f276...d7a11`.
+- Runtime evidence shows all four models trained before `detector_validation_read_once` progressed through 196/196 images. `validation_read_count=1`, models frozen before read, detector parameters unchanged, and no actions evaluated.
+- Full validation: MAE `1.76984`, Pearson `0.88461`, pairwise `0.80926`, AUROC `0.93580`; best-constant MAE gain `22.77%`.
+- Pairwise gains: strong geometry shuffle `+0.04150`, score+class-only `+0.05455`, teacher shuffle `+0.30382`. MAE gains were `+0.45970/+0.32361/+1.03049`. Every absolute, support, and control gate passed.
+- Train pairwise was `0.92617`; validation gap `0.11691` exceeded the locked `0.10` gate. Decision: `detector_unseen_absolute_endpoint_frozen`. Do not relax or reinterpret the gate after seeing the result.
+- Narrow evidence retained: relative set-quality ranking and independent geometry/score information transfer to detector-unseen images. Absolute endpoint validation, local Delta-Q, actions, and AP remain unvalidated.
+- DeepSeek agreed the frozen status is procedurally mandatory and highlighted the strong rank/control evidence. Codex rejects using the reviewer's statement that the gate measures the “wrong quantity” to change the result; that is a future protocol-design lesson only.
+
+## Clean-Validation Shift Diagnosis
+
+- Version/commit: `det.energy.dense_endpoint.shift_audit.001`, `b831dcba...`; artifact SHA256 `62fc164491e325926873771a1941da0fd8f2a94cdb231b48fa12033d66096ce1`.
+- Cache-only; no new inference or training; original frozen status unchanged.
+- Validation residual mean is `+1.70739`; oracle mean-centering reduces MAE from `1.76984` to `1.06457` (`39.85%`) while pairwise/AUROC remain unchanged.
+- Coverage/GT shifts down `1.1740` train standard deviations (KS `0.50088`); total-error/prediction shifts up `1.3835` (KS `0.37492`); duplicate/edge is stable (`0.0233` std, KS `0.08943`).
+- Only `11.73%` of validation images exceed the train 95th-percentile 27-D node/pair Mahalanobis distance, below the locked 25% feature-OOD threshold.
+- Diagnosis: `calibration_shift_without_feature_ood`. The model preserves rank but misses a conditional quality-level shift; this motivates shift-invariant local differences, not validation-fitted intercept correction.
+
+## Dense Local Delta-Q Support
+
+- V1 commit `19116060...`, artifact SHA256 `f4277ec117102582c96af5662a6bbd532d37fc0347db8fb77942e15ea571b43c`. All density gates passed, but identity permutation max error `9.54e-7` exceeded `1e-7`; status frozen.
+- Root cause was order-dependent float reduction. The teacher now canonical-sorts prediction and GT sets before reductions; a bitwise permutation-invariance regression test passes. The gate was not relaxed.
+- V2 commit `84bd1f7e...`, config SHA256 `86b2d70495c8174b22fa325ae76ac0410414ce47da643b81bc8376c4cd26ffc6`; artifact SHA256 `10804a48fae1b3d81d7ebac1b51660524f2008f57a333a4da15ed185fe4d3010`.
+- Identity permutation is exactly `Delta-Q=0`. Across 1557 non-identity train-only perturbations: nonzero `94.22%`, positive `27.17%`, negative `67.05%`, 1434 rounded unique values, median absolute Delta-Q `0.02663`, range `[-6.5105, 1.0147]`.
+- All gates passed. Decision: a future train-only shift-invariant local `Q_theta(S') - Q_theta(S)` learner is warranted. This does not restore the frozen absolute endpoint and does not authorize detector actions; perturbations were applied to native kept sets without rerunning NMS.

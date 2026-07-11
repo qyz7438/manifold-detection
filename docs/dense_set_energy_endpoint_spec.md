@@ -72,6 +72,34 @@ calibration_error(S) = sum_i (p_i - q_i)^2
 
 This is a dense Brier-style term, not binned ECE. Raw coverage, background, class-error, duplicate, and calibration terms are robustly standardized using median and IQR from inner-fit only. Temperatures are fixed before fitting; no temperature or weight may be selected from detector validation AP. The first implementation uses unit weights after robust standardization and treats alternative weights as a new endpoint version.
 
+## First Learnability Basis Correction
+
+The fixed inner-fit statistics audit found all five raw components finite and non-degenerate, but the preregistered confounding audit rejected the five-term unit-weight sum. After residualizing log prediction count and log ground-truth count, the maximum penalty correlation remained `0.8879`; support normalization still left a maximum correlation of `0.8530`, above the locked `0.85` limit.
+
+The first absolute learnability probe therefore uses three natural-support coordinates:
+
+```text
+t_cov = coverage / max(number_of_ground_truth_objects, 1)
+t_err = (background_risk + class_risk) / max(number_of_predictions, 1)
+t_dup = duplicate_risk / max(number_of_duplicate_edges, 1)
+```
+
+Each coordinate is standardized with inner-fit median and IQR, and the fixed target is
+
+```text
+Q_reduced = z(t_cov) - z(t_err) - z(t_dup)
+```
+
+Background and wrong-class risks remain separately reported diagnostics, but enter the first quality target only through `t_err`. Calibration error is diagnostic-only because confidence already enters coverage and both error risks; it is not added again to `Q_reduced`. This is a basis reduction driven by a locked negative audit, not a fitted weight choice.
+
+The corresponding detector-only model uses normalized additive contributions:
+
+```text
+Q_theta(S) = bias + mean_i u_theta(z_i) + mean_(i,j) v_theta(e_ij)
+```
+
+The mean factors preserve exact additivity while preventing prediction and edge counts from dominating the reduced target. A successful absolute probe only permits a later local `Delta Q` and identity-basin test; it does not satisfy those gates by itself.
+
 ## Identity Basin
 
 The endpoint must represent identity explicitly. For any candidate perturbation `a`, define

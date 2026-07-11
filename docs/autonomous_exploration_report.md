@@ -3,15 +3,15 @@
 ## Status
 
 - Window: 2026-07-12 03:06 to 11:06 Asia/Shanghai.
-- Current status: evidence synthesis; no further current-endpoint action experiment is authorized.
+- Current status: action line frozen; dense absolute endpoint frozen on its gap gate; shift-invariant local Delta-Q learner is the next warranted train-only experiment.
 - Automation: `manifold-autonomous-8h-20260712`, two-hour heartbeat.
 - Project: `/home/ps/lzz/manifold-detection-energy-transport`, branch `codex/energy-guided-roi-transport`.
-- Dataset/scope: NWPU VHR-10, locked 32 train / 32 validation smoke, seed 42.
+- Dataset/scope: NWPU VHR-10, seed 42; historical 32/32 action smoke plus 454-image train-only endpoint development and a one-time 196-image detector-unseen absolute endpoint validation.
 - Identity smoke reference: AP50 `0.7399366`, AP75 `0.4636476`, precision `0.572165`, recall `0.776224`, FPR `0.427835`, ECE `0.119736`, 194 predictions.
 
 ## Codex Judgment
 
-The explored method line is negative. Detector-only candidates and native postprocessing are now implemented correctly, but the current whole-image Delta-U endpoint does not support a safe, attributable per-proposal action policy.
+The explored action line is negative. Detector-only candidates and native postprocessing are implemented correctly, but the old whole-image Delta-U endpoint does not support a safe, attributable per-proposal action policy.
 
 The main problem is not merely network capacity. The endpoint is an integer event-count utility:
 
@@ -19,7 +19,9 @@ The main problem is not merely network capacity. The endpoint is an integer even
 U = tp75 - 0.25 fp75 - 0.10 fp50 - action energy - action count cost
 ```
 
-For bbox motion, almost every action leaves native output unchanged and receives only action cost. For post-NMS deletion, utility becomes a four-valued TP/FP lattice that encourages suppression without providing a transferable identity basin. The intended low-energy manifold flow is therefore not represented by the current supervision.
+For bbox motion, almost every action leaves native output unchanged and receives only action cost. For post-NMS deletion, utility becomes a four-valued TP/FP lattice that encourages suppression without providing a transferable identity basin. The intended low-energy manifold flow is therefore not represented by that supervision.
+
+The dense set-energy pivot is more promising but not validated as an absolute endpoint. Its detector-unseen ranking and control attribution are strong, while a preregistered train-to-validation gap gate fails because quality prevalence and level shift sharply. A cache-only audit identifies calibration shift without broad feature OOD. The resulting train-only local Delta-Q labels are continuous, bidirectional, and exactly identity-invariant after canonicalization, which warrants the next differential endpoint learner without reviving detector actions.
 
 ## Experiment Matrix
 
@@ -94,3 +96,25 @@ The endpoint draft is now recorded in `docs/dense_set_energy_endpoint_spec.md` a
 The next endpoint's train-only validation boundary is also locked. The 454 NWPU train images are split into 318 inner-fit, 68 inner-tune, and 68 outer train-heldout images using deterministic multilabel class and object-density stratification. All classes have at least three images in tune and outer. The manifest SHA256 is `ce19316aeaef1cbdf85f2c9668c5ae2c8443da8e848de2d22ed0f0f3a687e080`; detector validation remains untouched.
 
 See `docs/autonomous_exploration_ledger.md` for commands, commits, gates, retries, hashes, and reviewer corrections.
+
+## Dense Endpoint Progress
+
+The endpoint work has now moved beyond design. Fixed native post-NMS teacher statistics on all 318 inner-fit images are finite and non-degenerate, with 2652 predictions and 1420 sparse duplicate edges. This is the first evidence in this exploration that the proposed target is not a hard, nearly flat Delta-U lattice.
+
+That positive support did not authorize immediate fitting. A locked count-confounding audit failed: residualized penalty correlation was `0.8879` and support-normalized correlation was `0.8530`, both above the `0.85` limit. The five-term target was therefore reduced without fitting weights: coverage is normalized per GT object, background and class risks are merged and normalized per prediction, duplicate risk is normalized per edge, and calibration remains diagnostic-only.
+
+A minimal absolute endpoint probe is now running on the train-only `318/68/68` nested split. It uses a normalized additive unary/pair DeepSets model and three complete controls. The outer train-heldout set is loaded only after hyperparameters and controls are frozen; detector validation remains untouched. Even a passing result will establish only absolute detector-only teacher learnability, not local Delta-Q, identity safety, actions, AP, or full validation gain.
+
+The absolute probe has since completed with a scientifically mixed result. Full heldout quality prediction is strong (MAE `0.3489`, Pearson `0.9785`, pairwise `0.8889`, AUROC `0.9614`) and beats constants, teacher shuffle, and topology shuffle by large margins. However, it missed both `0.03` gains over the feature-alignment control, so the preregistered endpoint claim remains frozen.
+
+A fit/tune-only ablation then showed why that control was too weak: it shuffled raw box geometry but retained conflict geometry. Removing all geometry from the frozen full model reduced pairwise by `0.0935` and increased MAE by `0.7172`; disabling the pair branch reduced pairwise by `0.0461` and increased MAE by `0.6805`. A fresh 254/64 resplit strong-control experiment is running inside the old inner-fit pool. It jointly breaks node geometry and pair topology and includes a score+class-only control. No old outer or detector validation is reused.
+
+That strong-control resplit passed every gate. Full holdout pairwise was `0.8785` and MAE `0.4283`; it beat joint geometry/topology shuffle by `+0.0565` pairwise and `0.3684` MAE, and beat score+class-only by `+0.0655` and `0.5280`. This supports independent set-geometry information inside the researcher-adaptive train-only pool.
+
+The final endpoint experiment now running is a separately locked detector-unseen validation. It trains fixed full/control models on all 454 train-cache images, then reads the 196-image NWPU detector validation set once. A pass would validate only absolute dense set-quality prediction. Local energy differences, identity safety, useful actions, and detector AP remain untested.
+
+The detector-unseen validation did not pass every gate. Full ranking remained strong (pairwise `0.8093`, AUROC `0.9358`, Pearson `0.8846`) and beat all three controls by the required margins, but the train-to-validation pairwise gap was `0.1169`, above the locked `0.10`. The absolute endpoint is therefore frozen despite substantial transferable information.
+
+A cache-only diagnosis found calibration shift rather than broad feature OOD. Validation coverage/GT fell `1.17` train standard deviations and error/prediction rose `1.38`, while duplicate energy stayed stable. The model's mean residual was `+1.707`; oracle mean-centering reduced MAE by `39.8%`, yet only `11.7%` of validation sets exceeded the train 95th-percentile feature distance. This is evidence to change the endpoint objective, not to calibrate on validation.
+
+The new candidate objective is local and shift-invariant: learn `Q_theta(S') - Q_theta(S)`. A train-only support audit now passes after fixing exact permutation identity. On 1557 bounded set perturbations, `94.2%` of Delta-Q labels are nonzero, `27.2%` positive, `67.1%` negative, with 1434 unique values and median absolute magnitude `0.0266`. This is qualitatively different from the old hard Delta-U lattice and is the strongest next direction, but no local learner or detector action has yet been validated.
