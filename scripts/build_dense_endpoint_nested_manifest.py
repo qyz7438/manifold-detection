@@ -125,10 +125,16 @@ def build_manifest(root: Path, annotation_path: Path) -> dict[str, Any]:
         )
     train_set = set(train_ids)
     image_classes: dict[int, set[int]] = defaultdict(set)
+    object_counts: Counter[int] = Counter()
     for annotation in payload.get("annotations", []):
         image_id = int(annotation["image_id"])
         if image_id in train_set and int(annotation.get("iscrowd", 0)) == 0:
             image_classes[image_id].add(int(annotation["category_id"]))
+            object_counts[image_id] += 1
+    for image_id in train_ids:
+        count = object_counts[image_id]
+        density_bin = 0 if count <= 2 else 1 if count <= 5 else 2 if count <= 10 else 3
+        image_classes[image_id].add(100 + density_bin)
     partitions = partition_train_ids(train_ids, image_classes=image_classes)
     union = set().union(*(set(values) for values in partitions.values()))
     if len(union) != len(train_ids) or any(
@@ -155,6 +161,7 @@ def build_manifest(root: Path, annotation_path: Path) -> dict[str, Any]:
         "dataset": "nwpu_vhr10",
         "data_seed": DATA_SEED,
         "nested_seed": NESTED_SEED,
+        "stratification": "multilabel_class_presence_plus_object_count_bins_0_2_3_5_6_10_gt10",
         "source": {
             "scope": "full_train_only_never_detector_validation",
             "count": len(train_ids),

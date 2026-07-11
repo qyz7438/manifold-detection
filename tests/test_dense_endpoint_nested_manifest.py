@@ -50,3 +50,12 @@ def test_multilabel_partition_balances_rare_class_across_tune_and_outer() -> Non
     assert rare_counts["inner_fit"] >= 6
     assert rare_counts["inner_tune"] >= 1
     assert rare_counts["outer_train_heldout"] >= 1
+
+
+def test_multilabel_partition_balances_density_tags() -> None:
+    image_ids = list(range(1, 121))
+    image_classes = {image_id: {1, 100 + (image_id % 4)} for image_id in image_ids}
+    split = partition_train_ids(image_ids, seed=13, image_classes=image_classes)
+    for values in split.values():
+        supported_bins = {next(tag for tag in image_classes[image_id] if tag >= 100) for image_id in values}
+        assert supported_bins == {100, 101, 102, 103}
