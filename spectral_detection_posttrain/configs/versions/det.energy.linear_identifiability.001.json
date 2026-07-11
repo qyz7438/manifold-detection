@@ -1,0 +1,94 @@
+{
+  "version_id": "det.energy.linear_identifiability.001",
+  "status": "preregistered",
+  "objective": "Test whether a strongly regularized local linear model can predict sparse B=1 Delta-U on an image-group-heldout subset of the locked NWPU train cache.",
+  "probe": {
+    "scope": "train_cache_nested_fit_tune_outer_heldout",
+    "uses_clean_validation": false,
+    "outer_heldout_evaluated_once": true,
+    "researcher_seen_outer_split": true,
+    "claim_boundary": "Train-cache-only B=1 oracle-pool-conditioned identifiability diagnostic. This does not establish detector-only candidate generation, coordinated actions, detector AP gain, or globally unseen generalization."
+  },
+  "dataset": {
+    "name": "nwpu",
+    "seed": 42,
+    "train_images": 454,
+    "train_image_ids_sha256": "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd"
+  },
+  "source_v2_config": {
+    "path": "spectral_detection_posttrain/configs/versions/det.energy.joint_probe.002.json",
+    "sha256": "0b327d1f60e3fac222d1233a7fa35ed60c81abcf44d987a653f71b71189f6938"
+  },
+  "source_train_cache": {
+    "path": "runs/nwpu_joint_delta_u_probe_s42_trainholdout/joint_utility_probe_cache.pt",
+    "sha256": "d30a36631d13d2e95d4340c901d0ea53cac37c7b6d4c30d1a97315105994c6cd",
+    "metadata": "runs/nwpu_joint_delta_u_probe_s42_trainholdout/joint_utility_probe_cache_metadata.json",
+    "metadata_sha256": "b83dcbe9e0317665ca7356104a06cb1af8022fe9b7bde6c819b65c086ac70bb6",
+    "schema_version": 2,
+    "pairing": "same_detector_forward"
+  },
+  "split": {
+    "outer_heldout_fraction": 0.2,
+    "outer_seed": 20260711,
+    "outer_fit_manifest": {
+      "count": 363,
+      "image_ids_sha256": "d878beb39f9da15843c85e3755a6a02a85984beccc20e620d1f4923be25eaa34"
+    },
+    "outer_heldout_manifest": {
+      "count": 91,
+      "image_ids_sha256": "c171513833306609415c7a5d5ce829014b90b2a0f1873a79cc34ec637251ccd0"
+    },
+    "inner_tune_fraction": 0.2,
+    "inner_seed": 20260712
+  },
+  "features": {
+    "roi_pool": "spatial_mean",
+    "roi_pca_dim": 32,
+    "pca_fit_scope": "inner_fit_only",
+    "detector_features": [
+      "class_logits",
+      "predicted_label_one_hot",
+      "score",
+      "normalized_box_geometry"
+    ],
+    "action_features": ["box_delta", "action_energy"],
+    "interactions": "roi_pca_times_box_delta"
+  },
+  "ridge": {
+    "lambdas": [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0],
+    "selection_scope": "inner_tune_only",
+    "selection_rule": "prefer feasible conservative threshold, then mean_delta_u_lcb, minimum pairwise accuracy, negative mae, and stronger regularization"
+  },
+  "calibration": {
+    "target_epsilon": 0.001,
+    "min_selected_actions": 12,
+    "max_action_image_rate": 0.25,
+    "min_positive_precision_lift": 0.05,
+    "min_mean_delta_u_lcb": 0.0,
+    "lcb_z": 1.645
+  },
+  "controls": {
+    "feature_shuffle_seed": 20260713,
+    "label_shuffle_seed": 20260714,
+    "min_changed_row_fraction": 0.9,
+    "shuffle_scope": "within_image"
+  },
+  "arms": [
+    "local_full",
+    "within_image_feature_shuffle",
+    "within_image_label_shuffle"
+  ],
+  "gates": {
+    "min_heldout_candidates": 500,
+    "min_heldout_images": 60,
+    "min_heldout_pairwise": 0.58,
+    "min_selected_actions": 12,
+    "min_mean_delta_u": 0.01,
+    "min_mean_delta_u_lcb": 0.0,
+    "min_positive_precision_lift": 0.05,
+    "max_action_image_rate": 0.25,
+    "max_fit_to_heldout_pairwise_gap": 0.1,
+    "max_tune_to_heldout_pairwise_gap": 0.05,
+    "min_gain_over_controls": 0.02
+  }
+}
