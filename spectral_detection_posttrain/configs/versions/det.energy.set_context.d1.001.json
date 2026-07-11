@@ -1,0 +1,47 @@
+{
+  "version_id": "det.energy.set_context.d1.001",
+  "status": "preregistered_smoke",
+  "source": {
+    "base_config_sha256": "f191933f6299efb3b22af241fbd77b9685f6bb9127b5ea09196418c4352c70a0",
+    "c3b_result": "runs/nwpu_c3b_balanced_smoke_s42/eval_metrics.json",
+    "c3b_result_sha256": "f404ea84770ac19c1054d78761feda0f29ad79e78a8ec34c7e4cf6a43e1e9e6a",
+    "cache": "runs/nwpu_c3_global_delta_u_smoke_s42/global_delta_u_cache.pt",
+    "cache_sha256": "1fa2184945bf5d38b1c47e5b732ffce4bcdd1b57064f4f2eb71d76611304a53e"
+  },
+  "policy_override": {
+    "architecture": "set_context",
+    "hidden_dim": 96,
+    "spatial_size": 2,
+    "loss_type": "balanced_margin",
+    "action_margin": 0.2,
+    "rank_margin": 0.2,
+    "actionability_weight": 1.0,
+    "rank_weight": 1.0
+  },
+  "training_override": {
+    "epochs": 8
+  },
+  "changed_variable": "permutation_equivariant_observable_proposal_set_mean_max_context",
+  "fixed_variables": [
+    "detector",
+    "split",
+    "seed",
+    "C1_action_table",
+    "whole_image_Delta_U_cache",
+    "balanced_margin_loss",
+    "optimizer",
+    "epochs",
+    "feature_and_utility_controls",
+    "native_postprocessing"
+  ],
+  "gates": {
+    "min_selected_count": 3,
+    "min_action_image_rate": 0.10,
+    "max_action_image_rate": 0.90,
+    "min_ap75_delta_vs_identity_exclusive": 0.0,
+    "min_ap50_delta_vs_identity": 0.0,
+    "require_ap75_strictly_above_each_control": true
+  },
+  "decision_rule": "Any gate failure freezes D1 set-context on the locked C3 cache and forbids train-size expansion. All gates passing permits one locked larger-train/full-val confirmation without tuning.",
+  "claim_boundary": "NWPU 32/32 single-seed smoke. A positive result is only a set-context signal, not an AP improvement claim."
+}

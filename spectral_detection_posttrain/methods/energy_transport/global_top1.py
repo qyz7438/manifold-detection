@@ -9,7 +9,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from spectral_detection_posttrain.methods.energy_transport.set_policy import NMSAwareSetPolicyHead
+from spectral_detection_posttrain.methods.energy_transport.set_policy import (
+    NMSAwareSetPolicyHead,
+    class_aware_conflict_statistics,
+)
 
 
 @dataclass(frozen=True)
@@ -101,6 +104,116 @@ class GlobalTop1PolicyHead(nn.Module):
             noop_logit=noop_logit,
             conflict_stats=output.conflict_stats,
         )
+
+
+class SetContextGlobalTop1PolicyHead(nn.Module):
+    """Permutation-equivariant proposal scorer with detector-visible set context."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        num_classes: int,
+        candidate_deltas: torch.Tensor,
+        hidden_dim: int = 96,
+        spatial_size: int = 2,
+        energy_weight: float = 0.05,
+    ) -> None:
+        super().__init__()
+        if in_channels <= 0 or num_classes <= 1 or hidden_dim <= 0 or spatial_size <= 0:
+            raise ValueError("model dimensions must be positive and num_classes must include foreground")
+        if candidate_deltas.ndim != 2 or candidate_deltas.shape[1] != 4 or candidate_deltas.shape[0] < 2:
+            raise ValueError("candidate_deltas must have shape (K, 4) with K >= 2")
+        if candidate_deltas[0].count_nonzero().item() != 0:
+            raise ValueError("candidate index 0 must be no-op")
+        if energy_weight < 0.0:
+            raise ValueError("energy_weight must be non-negative")
+        self.in_channels = int(in_channels)
+        self.num_classes = int(num_classes)
+        self.hidden_dim = int(hidden_dim)
+        self.spatial_size = int(spatial_size)
+        self.energy_weight = float(energy_weight)
+        self.register_buffer("candidate_deltas", candidate_deltas.detach().clone())
+        self.spatial_pool = nn.AdaptiveAvgPool2d((self.spatial_size, self.spatial_size))
+        self.spatial_encoder = nn.Sequential(
+            nn.Linear(self.in_channels * self.spatial_size * self.spatial_size, self.hidden_dim),
+            nn.ReLU(inplace=True),
+        )
+        context_dim = 2 * self.num_classes + 1 + 4 + 4
+        self.context_encoder = nn.Sequential(
+            nn.Linear(context_dim, self.hidden_dim),
+            nn.ReLU(inplace=True),
+        )
+        self.local_trunk = nn.Sequential(
+            nn.Linear(2 * self.hidden_dim, self.hidden_dim),
+            nn.ReLU(inplace=True),
+        )
+        self.set_trunk = nn.Sequential(
+            nn.Linear(3 * self.hidden_dim, self.hidden_dim),
+            nn.ReLU(inplace=True),
+        )
+        self.action_head = nn.Linear(self.hidden_dim, candidate_deltas.shape[0])
+        self.noop_head = nn.Linear(2 * self.hidden_dim, 1)
+        nn.init.zeros_(self.action_head.weight)
+        nn.init.zeros_(self.action_head.bias)
+        nn.init.zeros_(self.noop_head.weight)
+        nn.init.zeros_(self.noop_head.bias)
+
+    def forward(
+        self,
+        spatial_features: torch.Tensor,
+        class_logits: torch.Tensor,
+        labels: torch.Tensor,
+        scores: torch.Tensor,
+        boxes: torch.Tensor,
+        image_size: tuple[int, int] | torch.Tensor,
+        observable_mask: torch.Tensor,
+    ) -> GlobalTop1Output:
+        if spatial_features.ndim != 4 or spatial_features.shape[1] != self.in_channels:
+            raise ValueError("spatial_features shape mismatch")
+        count = spatial_features.shape[0]
+        if class_logits.shape != (count, self.num_classes):
+            raise ValueError("class_logits shape mismatch")
+        if labels.shape != (count,) or scores.shape != (count,) or boxes.shape != (count, 4):
+            raise ValueError("detector vector shape mismatch")
+        if observable_mask.shape != (count,):
+            raise ValueError("observable_mask must have shape (N,)")
+        conflict_stats = class_aware_conflict_statistics(boxes, labels, scores, image_size)
+        normalized_boxes = _normalize_set_boxes(boxes, image_size)
+        label_code = F.one_hot(labels.long(), num_classes=self.num_classes).to(dtype=class_logits.dtype)
+        context = torch.cat(
+            (class_logits, label_code, scores[:, None].to(class_logits.dtype), normalized_boxes, conflict_stats),
+            dim=1,
+        )
+        spatial = self.spatial_encoder(self.spatial_pool(spatial_features).reshape(count, -1))
+        local = self.local_trunk(torch.cat((spatial, self.context_encoder(context)), dim=1))
+        observable = observable_mask.to(device=local.device).bool()
+        if observable.any():
+            visible = local[observable]
+            set_mean = visible.mean(dim=0)
+            set_max = visible.max(dim=0).values
+        else:
+            set_mean = local.new_zeros((self.hidden_dim,))
+            set_max = local.new_zeros((self.hidden_dim,))
+        set_mean_rows = set_mean[None, :].expand(count, -1)
+        set_max_rows = set_max[None, :].expand(count, -1)
+        action_hidden = self.set_trunk(torch.cat((local, set_mean_rows, set_max_rows), dim=1))
+        action_logits = self.action_head(action_hidden)
+        action_energy = self.candidate_deltas.to(dtype=action_logits.dtype).square().sum(dim=1) / 0.04
+        action_logits = action_logits - self.energy_weight * action_energy[None, :]
+        noop_logit = self.noop_head(torch.cat((set_mean, set_max), dim=0)).squeeze(-1)
+        return GlobalTop1Output(action_logits, noop_logit, conflict_stats)
+
+
+def _normalize_set_boxes(
+    boxes: torch.Tensor,
+    image_size: tuple[int, int] | torch.Tensor,
+) -> torch.Tensor:
+    size = torch.as_tensor(image_size, dtype=boxes.dtype, device=boxes.device).flatten()
+    if size.numel() != 2 or (size <= 0).any():
+        raise ValueError("image_size must contain positive height and width")
+    height, width = size[0], size[1]
+    scale = torch.stack((width, height, width, height))
+    return boxes / scale.clamp_min(1.0)
 
 
 def flatten_observable_action_logits(

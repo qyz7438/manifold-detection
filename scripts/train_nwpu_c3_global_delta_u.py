@@ -315,6 +315,7 @@ def train_arm(
 ) -> tuple[torch.nn.Module, dict[str, Any]]:
     from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
         GlobalTop1PolicyHead,
+        SetContextGlobalTop1PolicyHead,
         build_global_top1_target,
         global_top1_balanced_margin_loss,
         global_top1_loss,
@@ -324,7 +325,12 @@ def train_arm(
     seed = int(config["controls"][f"{arm.split('_')[0]}_shuffle_seed"]) if arm != "local_full" else int(config["dataset"]["seed"])
     arm_records = make_control_records(records, arm, seed)
     deltas = build_native_c1_deltas(float(config["candidate_pool"]["step"])).to(device)
-    policy = GlobalTop1PolicyHead(
+    policy_class = (
+        SetContextGlobalTop1PolicyHead
+        if config["policy"].get("architecture") == "set_context"
+        else GlobalTop1PolicyHead
+    )
+    policy = policy_class(
         in_channels=int(records[0]["spatial_features"].shape[1]),
         num_classes=11,
         candidate_deltas=deltas,

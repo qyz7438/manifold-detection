@@ -7,6 +7,7 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     GlobalTop1Output,
     GlobalTop1PolicyHead,
     GlobalTop1Target,
+    SetContextGlobalTop1PolicyHead,
     build_global_top1_target,
     flatten_observable_action_logits,
     global_top1_balanced_margin_loss,
@@ -177,3 +178,37 @@ def test_balanced_margin_loss_separates_noop_and_conditional_action_rank() -> No
     )
     assert noop["loss_rank"].item() == 0.0
     assert noop["predicted_noop"].item() == 1.0
+
+
+def test_set_context_policy_is_permutation_equivariant_with_invariant_noop() -> None:
+    torch.manual_seed(7)
+    policy = SetContextGlobalTop1PolicyHead(
+        in_channels=2,
+        num_classes=3,
+        candidate_deltas=build_native_c1_deltas(0.05),
+        hidden_dim=8,
+        spatial_size=2,
+        energy_weight=0.05,
+    )
+    torch.nn.init.normal_(policy.action_head.weight, std=0.1)
+    torch.nn.init.normal_(policy.noop_head.weight, std=0.1)
+    spatial = torch.randn(3, 2, 3, 3)
+    logits = torch.tensor([[0.0, 2.0, 0.0], [0.0, 0.0, 2.0], [0.0, 1.0, 0.5]])
+    labels = torch.tensor([1, 2, 1])
+    scores = torch.tensor([0.8, 0.7, 0.6])
+    boxes = torch.tensor([[0.0, 0.0, 2.0, 2.0], [1.0, 1.0, 3.0, 3.0], [0.5, 0.5, 2.5, 2.5]])
+    observable = torch.tensor([True, True, True])
+    original = policy(spatial, logits, labels, scores, boxes, (4, 4), observable)
+    permutation = torch.tensor([2, 0, 1])
+    permuted = policy(
+        spatial[permutation],
+        logits[permutation],
+        labels[permutation],
+        scores[permutation],
+        boxes[permutation],
+        (4, 4),
+        observable[permutation],
+    )
+    assert torch.allclose(permuted.action_logits, original.action_logits[permutation], atol=1e-6)
+    assert torch.allclose(permuted.conflict_stats, original.conflict_stats[permutation], atol=1e-6)
+    assert torch.allclose(permuted.noop_logit, original.noop_logit, atol=1e-6)
