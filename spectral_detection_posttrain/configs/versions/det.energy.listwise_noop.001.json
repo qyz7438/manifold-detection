@@ -1,0 +1,56 @@
+{
+  "version_id": "det.energy.listwise_noop.001",
+  "status": "researcher_adaptive_preregistered",
+  "objective": "Directly learn one candidate action or explicit no-op per image with a minimal linear listwise decision model.",
+  "probe": {
+    "scope": "train_cache_nested_listwise_top1_noop",
+    "researcher_adaptive": true,
+    "outer_split_seen_in_prior_analyses": true,
+    "uses_detector_validation": false,
+    "claim_boundary": "Researcher-adaptive oracle-pool-conditioned listwise diagnostic on a reused train-cache outer split. It does not establish fresh generalization, detector-only candidate generation, native NMS behavior, or AP gain."
+  },
+  "source_b3": {
+    "config_path": "spectral_detection_posttrain/configs/versions/det.energy.decomposed_actionability.001.json",
+    "config_sha256": "c059ef07b8a8edc8e4f8854b203672d340b68f09260966b275b05aaa2fdf51b8",
+    "checkpoint_path": "runs/nwpu_decomposed_actionability_s42_nested/selected_decomposed_models.pt",
+    "checkpoint_sha256": "da4fcb664689ddb2a51d870c9333b32eb5634657497a3ae109f4c64b80ced08d"
+  },
+  "targets": {
+    "target_epsilon": 0.001,
+    "target_rule": "argmax_positive_delta_u_else_noop"
+  },
+  "optimization": {
+    "lambdas": [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
+    "max_iter": 80,
+    "optimizer": "torch_lbfgs",
+    "image_weighting": "equal"
+  },
+  "calibration": {
+    "min_selected_actions": 12,
+    "max_action_image_rate": 0.25,
+    "min_positive_precision_lift": 0.05,
+    "min_mean_delta_u_lcb": 0.0,
+    "lcb_z": 1.645
+  },
+  "controls": {
+    "feature_shuffle_seed": 20260718,
+    "label_shuffle_seed": 20260719,
+    "min_changed_row_fraction": 0.9
+  },
+  "arms": [
+    "local_full",
+    "within_image_feature_shuffle",
+    "within_image_label_shuffle"
+  ],
+  "gates": {
+    "min_candidates": 500,
+    "min_images": 60,
+    "min_selected_actions": 12,
+    "max_action_image_rate": 0.25,
+    "min_positive_precision_lift": 0.05,
+    "min_mean_delta_u_lcb": 0.0,
+    "min_paired_gain_lcb": 0.0,
+    "max_fit_to_outer_mean_gap": 0.1,
+    "max_tune_to_outer_mean_gap": 0.05
+  }
+}
