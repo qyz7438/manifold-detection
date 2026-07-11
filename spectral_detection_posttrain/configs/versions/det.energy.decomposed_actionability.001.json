@@ -1,0 +1,90 @@
+{
+  "version_id": "det.energy.decomposed_actionability.001",
+  "status": "researcher_adaptive_preregistered",
+  "objective": "Test whether separating sign actionability, within-image ranking, and safety abstention recovers transferable Delta-U evidence from the fixed B2 spatial representation.",
+  "probe": {
+    "scope": "train_cache_nested_decomposed_actionability",
+    "researcher_adaptive": true,
+    "outer_split_seen_in_prior_analyses": true,
+    "uses_detector_validation": false,
+    "claim_boundary": "Researcher-adaptive train-cache-only oracle-pool-conditioned objective diagnostic on a previously analyzed outer split. This does not establish fresh unseen generalization, detector-only candidates, coordinated actions, or AP gain."
+  },
+  "dataset": {
+    "name": "nwpu",
+    "seed": 42,
+    "train_images": 454,
+    "train_image_ids_sha256": "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd"
+  },
+  "source_train_cache": {
+    "path": "runs/nwpu_joint_delta_u_probe_s42_trainholdout/joint_utility_probe_cache.pt",
+    "sha256": "d30a36631d13d2e95d4340c901d0ea53cac37c7b6d4c30d1a97315105994c6cd",
+    "metadata": "runs/nwpu_joint_delta_u_probe_s42_trainholdout/joint_utility_probe_cache_metadata.json",
+    "metadata_sha256": "b83dcbe9e0317665ca7356104a06cb1af8022fe9b7bde6c819b65c086ac70bb6",
+    "pairing": "same_detector_forward"
+  },
+  "split": {
+    "outer_heldout_fraction": 0.2,
+    "outer_seed": 20260711,
+    "outer_fit_manifest": {
+      "count": 363,
+      "image_ids_sha256": "d878beb39f9da15843c85e3755a6a02a85984beccc20e620d1f4923be25eaa34"
+    },
+    "outer_heldout_manifest": {
+      "count": 91,
+      "image_ids_sha256": "c171513833306609415c7a5d5ce829014b90b2a0f1873a79cc34ec637251ccd0"
+    },
+    "inner_tune_fraction": 0.2,
+    "inner_seed": 20260712
+  },
+  "features": {
+    "source": "b2_structured_full",
+    "spatial_size": 7,
+    "spatial_blocks": 9,
+    "channel_pca_dim": 32,
+    "final_pca_dim": 32,
+    "pca_fit_scope": "inner_fit_only",
+    "final_feature_dim": 68
+  },
+  "targets": {
+    "target_epsilon": 0.001,
+    "rank_min_target_gap": 0.001,
+    "sign_values": [-1.0, 1.0]
+  },
+  "ridge": {
+    "sign_lambdas": [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0],
+    "rank_lambdas": [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0],
+    "selection_scope": "inner_tune_only"
+  },
+  "calibration": {
+    "min_selected_actions": 12,
+    "max_action_image_rate": 0.25,
+    "min_positive_precision_lift": 0.05,
+    "min_mean_delta_u_lcb": 0.0,
+    "lcb_z": 1.645
+  },
+  "controls": {
+    "feature_shuffle_seed": 20260718,
+    "label_shuffle_seed": 20260719,
+    "min_changed_row_fraction": 0.9,
+    "shuffle_scope": "within_image"
+  },
+  "arms": [
+    "local_full",
+    "within_image_feature_shuffle",
+    "within_image_label_shuffle"
+  ],
+  "gates": {
+    "min_heldout_candidates": 500,
+    "min_heldout_images": 60,
+    "min_sign_auroc": 0.58,
+    "min_rank_pairwise": 0.58,
+    "min_selected_actions": 12,
+    "min_mean_delta_u": 0.01,
+    "min_mean_delta_u_lcb": 0.0,
+    "min_positive_precision_lift": 0.05,
+    "max_action_image_rate": 0.25,
+    "max_fit_to_heldout_gap": 0.1,
+    "max_tune_to_heldout_gap": 0.05,
+    "min_gain_over_controls": 0.02
+  }
+}
