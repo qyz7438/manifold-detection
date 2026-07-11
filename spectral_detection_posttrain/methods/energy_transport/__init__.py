@@ -50,6 +50,12 @@ from spectral_detection_posttrain.methods.energy_transport.contracts import (
     PreferenceBatch,
     ROIActionState,
 )
+from spectral_detection_posttrain.methods.energy_transport.dense_set_energy import (
+    DenseTeacherComponents,
+    DenseTeacherConfig,
+    dense_teacher_components,
+    robust_scalar_summary,
+)
 from spectral_detection_posttrain.methods.energy_transport.geometric_constraints import (
     GeometricConstraintConfig,
     bbox_aware_action_loss,
@@ -258,6 +264,10 @@ __all__ = [
     "cross_entropy_energy",
     "decompose_cone_features",
     "deterministic_delta_permutation",
+    "DenseTeacherComponents",
+    "DenseTeacherConfig",
+    "dense_teacher_components",
+    "robust_scalar_summary",
     "fg_bg_sep_action_loss",
     "flatten_observable_action_logits",
     "geometric_transport_loss",

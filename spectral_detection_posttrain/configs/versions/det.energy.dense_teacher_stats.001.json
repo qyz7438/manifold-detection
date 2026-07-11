@@ -1,0 +1,66 @@
+{
+  "version_id": "det.energy.dense_teacher_stats.001",
+  "status": "preregistered_inner_fit_only",
+  "objective": "Audit whether fixed dense teacher-energy components are finite and non-degenerate on native post-NMS NWPU inner-fit prediction sets before fitting any endpoint model.",
+  "dataset": {
+    "name": "nwpu",
+    "split_manifest": "spectral_detection_posttrain/configs/splits/nwpu_dense_endpoint_s42_nested.json",
+    "split_manifest_sha256": "ce19316aeaef1cbdf85f2c9668c5ae2c8443da8e848de2d22ed0f0f3a687e080",
+    "split": "inner_fit",
+    "image_count": 318,
+    "image_ids_sha256": "3314b7d59dccf8df83a11662883b822c874757f7dd6b62356cb91335b434e54f",
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "forbidden_splits": ["inner_tune", "outer_train_heldout", "detector_validation"]
+  },
+  "detector": {
+    "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "num_classes": 11,
+    "min_size": 480,
+    "max_size": 480,
+    "prediction_set": "native_post_nms_detector_output",
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "teacher": {
+    "coverage_temperature": 0.1,
+    "coverage_kappa": 10.0,
+    "target_iou": 0.75,
+    "background_temperature": 0.1,
+    "class_temperature": 0.1,
+    "calibration_temperature": 0.1,
+    "duplicate_temperature": 0.05,
+    "duplicate_nms_reference": 0.5,
+    "duplicate_edge_min_iou": 0.1,
+    "correctness_iou": 0.5,
+    "epsilon": 0.000001,
+    "component_weights": "not_fit_in_this_audit",
+    "ground_truth_scope": "inner_fit_teacher_only_never_candidate_filter"
+  },
+  "statistics": {
+    "unit": "image_equal_weight",
+    "standardization": "median_iqr_inner_fit_only",
+    "min_iqr": 0.000001,
+    "components": ["coverage", "background_risk", "class_risk", "duplicate_risk", "calibration_error"],
+    "required_non_degenerate": ["coverage", "background_risk", "class_risk", "calibration_error"],
+    "duplicate_policy": "diagnostic_gate_then_use_post_nms_or_move_to_class_expanded_prenms_in_next_version"
+  },
+  "gates": {
+    "exact_image_count": 318,
+    "min_images_with_predictions": 300,
+    "min_images_with_duplicate_edges": 30,
+    "all_values_finite": true,
+    "required_components_non_degenerate": true
+  },
+  "resource": {
+    "physical_gpu": 2,
+    "estimated_peak_mib": 6144,
+    "required_post_launch_free_mib_exclusive": 8192,
+    "batch_size": 1,
+    "num_workers": 0
+  },
+  "decision_rule": "If required components degenerate, freeze this teacher formulation. If only duplicate support fails, keep unary components and preregister duplicate evidence on a detector-only class-expanded pre-NMS graph; do not tune thresholds from these statistics.",
+  "claim_boundary": "Train-only inner-fit endpoint diagnostics. Passing establishes component support only; it is not endpoint learnability, action utility, detector AP, or full-validation evidence."
+}
