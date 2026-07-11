@@ -26,5 +26,6 @@ def test_d1_gate_failure_prevents_train_size_expansion() -> None:
 def test_d1_launcher_is_gpu2_only_and_memory_gated() -> None:
     source = LAUNCHER.read_text(encoding="utf-8")
     assert "CUDA_VISIBLE_DEVICES=2" in source
-    assert "free_mb <= 8192" in source
+    assert "estimated_peak_mib=7168" in source
+    assert "free_mb - estimated_peak_mib <= 8192" in source
     assert "/home/ps/lzz/RLimage" not in source

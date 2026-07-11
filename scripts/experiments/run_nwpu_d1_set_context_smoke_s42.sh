@@ -5,8 +5,9 @@ ROOT="/home/ps/lzz/manifold-detection-energy-transport"
 RUN_DIR="$ROOT/runs/nwpu_d1_set_context_smoke_s42"
 cd "$ROOT"
 free_mb=$(nvidia-smi -i 2 --query-gpu=memory.free --format=csv,noheader,nounits | tr -d ' ')
-if (( free_mb <= 8192 )); then
-  echo "GPU2 memory.free=${free_mb} MiB; strictly more than 8192 MiB required"
+estimated_peak_mib=7168
+if (( free_mb - estimated_peak_mib <= 8192 )); then
+  echo "GPU2 memory.free=${free_mb} MiB; estimated peak ${estimated_peak_mib} MiB would violate the 8192 MiB reserve"
   exit 3
 fi
 if [[ -n "$(git status --porcelain)" ]]; then

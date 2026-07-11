@@ -99,3 +99,4 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Controls: local full, within-image ROI feature shuffle, within-image utility shuffle; same initialization seed.
 - Focused verification: 15 tests passed, including proposal permutation equivariance and invariant global no-op.
 - Next action: commit/sync, remote tests, GPU2 reserve gate, launch D1 smoke.
+- Estimated D1 peak: 7168 MiB, based on the same detector/cache/evaluation path as C3b plus a small set-context encoder. Launcher requires `free_mib - 7168 > 8192`.
