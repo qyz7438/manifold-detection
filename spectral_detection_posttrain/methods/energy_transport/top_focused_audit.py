@@ -124,7 +124,7 @@ def top_focused_rank_metrics(
         top_positive += int(selected_value > float(target_epsilon))
         random_positive_rate += float(positive.float().mean().item())
         exact_oracle += int(oracle_value - selected_value <= float(min_target_gap))
-        regrets.append(max(0.0, oracle_value) - selected_value)
+        regrets.append(oracle_value - selected_value)
     image_values = torch.tensor(top_values, dtype=torch.float64)
     mean_delta = float(image_values.mean().item())
     standard_error = (
@@ -189,6 +189,12 @@ def evaluate_top_focused_gates(
         "G0_support": (
             int(support["candidate_count"]) >= int(gates["min_candidates"])
             and int(support["image_count"]) >= int(gates["min_images"])
+            and int(full["median_sign"]["valid_image_count"])
+            >= int(gates["min_median_images"])
+            and int(top_rank["cross_boundary_image_count"])
+            >= int(gates["min_cross_boundary_images"])
+            and int(top_rank["oracle_top_image_count"])
+            >= int(gates["min_oracle_top_images"])
             and int(full["median_sign"]["within_image_pair_count"])
             >= int(gates["min_median_pairs"])
             and int(top_rank["cross_boundary_pair_count"])

@@ -35,6 +35,9 @@
   "gates": {
     "min_candidates": 500,
     "min_images": 60,
+    "min_median_images": 60,
+    "min_cross_boundary_images": 30,
+    "min_oracle_top_images": 60,
     "min_median_pairs": 100,
     "min_cross_boundary_pairs": 100,
     "min_oracle_top_pairs": 100,

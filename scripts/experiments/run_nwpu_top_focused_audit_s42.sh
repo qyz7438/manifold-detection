@@ -5,7 +5,7 @@ ROOT=/home/ps/lzz/manifold-detection-energy-transport
 RUN_DIR="$ROOT/runs/nwpu_top_focused_audit_s42_reused_outer"
 PYTHON=/home/ps/anaconda3/envs/RLimage/bin/python
 RESULT="$RUN_DIR/eval_metrics.json"
-CONFIG_SHA=1bdd7f4e37823bf48f52bfc29abf00b627bb0217523956bb330e4f60366df079
+CONFIG_SHA=f08fcf6b25db1dae15ca97d6289b52ea214050f44018ef2da22c0374487fe2fe
 
 CURRENT_HEAD=$(git -C "$ROOT" rev-parse HEAD)
 if [ -f "$RESULT" ] && "$PYTHON" -c '

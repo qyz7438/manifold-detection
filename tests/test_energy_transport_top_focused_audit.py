@@ -61,11 +61,27 @@ def test_top_focused_rank_metrics_expose_top1_failure() -> None:
     assert metrics["top1_mean_delta_u_lcb"] == pytest.approx(0.0)
 
 
+def test_oracle_regret_is_relative_to_best_candidate_on_all_negative_image() -> None:
+    metrics = top_focused_rank_metrics(
+        torch.tensor([0.0, 1.0]),
+        torch.tensor([-0.1, -0.2]),
+        torch.tensor([0, 0]),
+        target_epsilon=0.001,
+        min_target_gap=0.001,
+        lcb_z=0.0,
+    )
+
+    assert metrics["top1_oracle_regret_mean"] == pytest.approx(0.1)
+
+
 def test_top_focused_gates_require_control_gain_and_actionable_top1() -> None:
     config = {
         "gates": {
             "min_candidates": 500,
             "min_images": 60,
+            "min_median_images": 60,
+            "min_cross_boundary_images": 30,
+            "min_oracle_top_images": 60,
             "min_median_pairs": 100,
             "min_cross_boundary_pairs": 100,
             "min_oracle_top_pairs": 100,
@@ -86,7 +102,9 @@ def test_top_focused_gates_require_control_gain_and_actionable_top1() -> None:
         },
         "top_rank": {
             "cross_boundary_pair_count": 150,
+            "cross_boundary_image_count": 30,
             "oracle_top_pair_count": 200,
+            "oracle_top_image_count": 60,
             "cross_boundary_pairwise_equal_image": 0.68,
             "cross_boundary_pairwise_candidate_weighted": 0.69,
             "oracle_top_pairwise_equal_image": 0.67,
@@ -121,3 +139,5 @@ def test_top_focused_gates_require_control_gain_and_actionable_top1() -> None:
     gates = evaluate_top_focused_gates(payload, config)
 
     assert gates["all_passed"] is True
+    full["median_sign"]["valid_image_count"] = 59
+    assert evaluate_top_focused_gates(payload, config)["gates"]["G0_support"] is False

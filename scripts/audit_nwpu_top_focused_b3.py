@@ -23,7 +23,7 @@ LOCKED_CONFIG = (
     / "versions"
     / "det.energy.top_focused_audit.001.json"
 )
-LOCKED_CONFIG_SHA256 = "1bdd7f4e37823bf48f52bfc29abf00b627bb0217523956bb330e4f60366df079"
+LOCKED_CONFIG_SHA256 = "f08fcf6b25db1dae15ca97d6289b52ea214050f44018ef2da22c0374487fe2fe"
 DEFAULT_RUN_DIR = ROOT / "runs" / "nwpu_top_focused_audit_s42_reused_outer"
 
 
