@@ -1,0 +1,66 @@
+{
+  "version_id": "det.energy.dense_endpoint.geometry_control.001",
+  "status": "preregistered_researcher_adaptive_resplit",
+  "objective": "Test whether reduced teacher quality requires geometry after jointly breaking node geometry alignment and pair topology on a fresh split inside the old inner-fit pool.",
+  "sources": {
+    "attribution_result": "runs/nwpu_dense_endpoint_attribution_s42_fit_tune/eval_metrics.json",
+    "attribution_sha256": "37ea25835ad2bef2e25aebcb6b0ce91e6c4d59085ee4047581c0bffb7ecfcbbf",
+    "required_status": "fresh_geometry_control_design_warranted",
+    "fit_tune_cache": "runs/nwpu_dense_endpoint_absolute_s42_nested/fit_tune_cache.pt",
+    "fit_tune_cache_sha256": "42d72c4c44da6e50689554ee1eaae57ecbc924ad657ea41dc8276fad643a1d2c",
+    "source_inner_fit_count": 318,
+    "source_inner_fit_sha256": "3314b7d59dccf8df83a11662883b822c874757f7dd6b62356cb91335b434e54f",
+    "old_inner_tune_deserialized_but_discarded_before_analysis": true,
+    "old_outer_forbidden": true,
+    "new_data_forbidden": true
+  },
+  "resplit": {
+    "algorithm": "sha256_dense_geometry_control_seed42",
+    "seed": 42,
+    "fit_count": 254,
+    "fit_sha256": "468ce6127ea87ca9662039824a8d6e4ded6b5fb4fadcf9c3bd9a848da45abee7",
+    "holdout_count": 64,
+    "holdout_sha256": "cde545e8fb7b29adad9c3901b8ea1590b50ec8dcb1210e41101685f5fdeceefe"
+  },
+  "model": {
+    "node_dim": 22,
+    "pair_dim": 5,
+    "hidden_dim": 32,
+    "aggregation": "mean_unary_plus_mean_pair_plus_bias"
+  },
+  "training": {
+    "seed": 42,
+    "epochs": 150,
+    "lr": 0.001,
+    "weight_decay": 0.001,
+    "grad_accum_images": 16,
+    "loss": "smooth_l1",
+    "smooth_l1_beta": 1.0,
+    "hyperparameters_frozen_from_absolute_probe": true
+  },
+  "arms": ["local_full", "strong_geometry_shuffle", "score_class_only"],
+  "controls": {
+    "same_initialization_seed": 42,
+    "geometry_shuffle_seed": 442,
+    "strong_geometry_columns": [1, 2, 3, 4, 5, 6, 18, 19, 20, 21],
+    "strong_geometry_pair_source": "precomputed_box_to_node_topology_shuffle",
+    "score_class_columns": [0, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+    "score_class_pair_branch": "disabled"
+  },
+  "gates": {
+    "holdout_count": 64,
+    "full_pairwise_min": 0.6,
+    "full_auroc_min": 0.65,
+    "constant_mae_relative_gain_min": 0.1,
+    "pairwise_gain_over_each_control_min": 0.03,
+    "mae_gain_over_each_control_min": 0.03,
+    "fit_to_holdout_pairwise_gap_max": 0.1
+  },
+  "resource": {
+    "physical_gpu": 2,
+    "estimated_peak_mib": 1024,
+    "required_post_launch_free_mib_exclusive": 8192
+  },
+  "decision_rule": "All gates must pass to retain a researcher-adaptive train-only geometry endpoint signal. Failure freezes geometry-conditioned endpoint work. Passing permits only a separately preregistered fresh detector-unseen endpoint validation, not actions or AP claims.",
+  "claim_boundary": "Researcher-adaptive resplit of previously cached inner-fit images. The combined fit/tune cache is deserialized, but old tune records are discarded before statistics, training, evaluation, or gates. No old outer, detector validation, new images, detector inference, AP, action, or formal endpoint-validation claim."
+}
