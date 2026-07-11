@@ -21,6 +21,7 @@ if (( FREE_MB <= 8192 )); then
 fi
 
 export CUDA_VISIBLE_DEVICES=2
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
 export PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}"
 
 exec "$PYTHON" scripts/analyze_nwpu_joint_delta_u_fit_replay.py \

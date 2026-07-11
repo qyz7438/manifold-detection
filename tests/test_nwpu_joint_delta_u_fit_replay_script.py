@@ -106,6 +106,7 @@ def test_fit_replay_launcher_is_gpu2_only_and_checks_free_memory() -> None:
     source = LAUNCHER.read_text(encoding="utf-8")
 
     assert "CUDA_VISIBLE_DEVICES=2" in source
+    assert "CUBLAS_WORKSPACE_CONFIG=:4096:8" in source
     assert "memory.free" in source
     assert "FREE_MB <= 8192" in source
     assert "analyze_nwpu_joint_delta_u_fit_replay.py" in source
