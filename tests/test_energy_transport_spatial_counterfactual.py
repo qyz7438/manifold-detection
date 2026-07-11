@@ -10,6 +10,7 @@ from spectral_detection_posttrain.methods.energy_transport.spatial_counterfactua
     spatial_counterfactual_blocks,
     spatial_layout_shuffle,
     transform_spatial_features,
+    within_image_delta_alignment_shuffle,
 )
 
 
@@ -51,6 +52,33 @@ def test_delta_alignment_control_changes_only_the_aligned_block() -> None:
     assert torch.equal(original[:, :8], controlled[:, :8])
     assert original[:, 8].item() == pytest.approx(0.6)
     assert controlled[:, 8].item() == pytest.approx(4.2)
+
+
+def test_within_image_delta_shuffle_maximizes_changed_vectors() -> None:
+    image_ids = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1])
+    delta = torch.tensor(
+        [
+            [1.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, -1.0, 0.0, 0.0],
+        ]
+    )
+
+    shuffled, changed_fraction = within_image_delta_alignment_shuffle(
+        delta, image_ids
+    )
+
+    assert changed_fraction == pytest.approx(0.75)
+    for image_id in torch.unique(image_ids):
+        mask = image_ids == image_id
+        assert sorted(map(tuple, shuffled[mask].tolist())) == sorted(
+            map(tuple, delta[mask].tolist())
+        )
 
 
 def _rows() -> SpatialCandidateRows:

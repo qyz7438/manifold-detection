@@ -142,7 +142,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     from spectral_detection_posttrain.methods.energy_transport.linear_identifiability import (
         predict_ridge_regression,
-        within_image_shuffle_order,
     )
     from spectral_detection_posttrain.methods.energy_transport.spatial_counterfactual import (
         evaluate_spatial_counterfactual_gates,
@@ -152,6 +151,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         spatial_counterfactual_blocks,
         spatial_layout_shuffle,
         transform_spatial_features,
+        within_image_delta_alignment_shuffle,
     )
     from spectral_detection_posttrain.utils.seed import resolve_device, set_seed
 
@@ -208,31 +208,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         channel_pca_dim=int(config["features"]["channel_pca_dim"]),
         final_pca_dim=int(config["features"]["structured_pca_dim"]),
     )
-    action_fit_order, _ = within_image_shuffle_order(
-        fit_rows.image_ids, seed=int(config["controls"]["action_shuffle_seed"])
+    fit_alignment_delta, action_fit_fraction = within_image_delta_alignment_shuffle(
+        fit_rows.action_features[:, :4],
+        fit_rows.image_ids,
+        seed=int(config["controls"]["action_shuffle_seed"]),
     )
-    action_tune_order, _ = within_image_shuffle_order(
-        tune_rows.image_ids, seed=int(config["controls"]["action_shuffle_seed"]) + 1
-    )
-    fit_alignment_delta = fit_rows.action_features[
-        action_fit_order.to(device), :4
-    ]
-    tune_alignment_delta = tune_rows.action_features[
-        action_tune_order.to(device), :4
-    ]
-    action_fit_fraction = float(
-        fit_alignment_delta.ne(fit_rows.action_features[:, :4])
-        .any(dim=1)
-        .float()
-        .mean()
-        .item()
-    )
-    action_tune_fraction = float(
-        tune_alignment_delta.ne(tune_rows.action_features[:, :4])
-        .any(dim=1)
-        .float()
-        .mean()
-        .item()
+    tune_alignment_delta, action_tune_fraction = within_image_delta_alignment_shuffle(
+        tune_rows.action_features[:, :4],
+        tune_rows.image_ids,
+        seed=int(config["controls"]["action_shuffle_seed"]) + 1,
     )
     action_fit_blocks = spatial_counterfactual_blocks(
         fit_rows.spatial_features,
@@ -310,18 +294,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     layout_outer_blocks = spatial_counterfactual_blocks(
         shuffled_outer_spatial, outer_rows.action_features
     )
-    action_outer_order, _ = within_image_shuffle_order(
-        outer_rows.image_ids, seed=int(config["controls"]["action_shuffle_seed"]) + 2
-    )
-    outer_alignment_delta = outer_rows.action_features[
-        action_outer_order.to(device), :4
-    ]
-    action_outer_fraction = float(
-        outer_alignment_delta.ne(outer_rows.action_features[:, :4])
-        .any(dim=1)
-        .float()
-        .mean()
-        .item()
+    outer_alignment_delta, action_outer_fraction = (
+        within_image_delta_alignment_shuffle(
+            outer_rows.action_features[:, :4],
+            outer_rows.image_ids,
+            seed=int(config["controls"]["action_shuffle_seed"]) + 2,
+        )
     )
     action_outer_blocks = spatial_counterfactual_blocks(
         outer_rows.spatial_features,

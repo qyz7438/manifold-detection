@@ -59,6 +59,8 @@ def test_delta_control_only_shuffles_alignment_delta() -> None:
     assert "alignment_delta=fit_alignment_delta" in source
     assert "alignment_delta=tune_alignment_delta" in source
     assert "alignment_delta=outer_alignment_delta" in source
+    assert "within_image_shuffle_order" not in source
+    assert "within_image_delta_alignment_shuffle(" in source
 
 
 def test_spatial_launcher_is_gpu2_only_and_idempotent() -> None:

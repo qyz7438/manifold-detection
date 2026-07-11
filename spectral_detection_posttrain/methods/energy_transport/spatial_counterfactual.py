@@ -183,6 +183,46 @@ def spatial_layout_shuffle(
     return shuffled.reshape_as(spatial), changed / (count * height * width)
 
 
+def within_image_delta_alignment_shuffle(
+    delta: torch.Tensor,
+    image_ids: torch.Tensor,
+    *,
+    seed: int = 0,
+) -> tuple[torch.Tensor, float]:
+    values = torch.as_tensor(delta)
+    images = torch.as_tensor(image_ids, device=values.device)
+    if values.ndim != 2 or values.shape[1] != 4 or images.shape != (values.shape[0],):
+        raise ValueError("delta and image_ids must have shapes (N,4) and (N,)")
+    if values.shape[0] == 0 or not torch.isfinite(values).all():
+        raise ValueError("delta rows must be non-empty and finite")
+
+    shuffled = torch.empty_like(values)
+    generator = torch.Generator(device="cpu").manual_seed(int(seed))
+    for image_id in torch.unique(images, sorted=True):
+        image_rows = torch.nonzero(images == image_id, as_tuple=False).flatten()
+        image_delta = values[image_rows]
+        _, inverse, counts = torch.unique(
+            image_delta, dim=0, return_inverse=True, return_counts=True
+        )
+        group_order = torch.randperm(counts.numel(), generator=generator)
+        grouped_local = torch.cat(
+            [
+                torch.nonzero(inverse == group, as_tuple=False).flatten()
+                for group in group_order.to(inverse.device)
+            ]
+        )
+        grouped_rows = image_rows[grouped_local]
+        source_rows = torch.roll(
+            grouped_rows, shifts=-int(counts.max().item()), dims=0
+        )
+        shuffled[grouped_rows] = values[source_rows]
+
+    changed_fraction = float(
+        shuffled.ne(values).any(dim=1).float().mean().item()
+    )
+    return shuffled, changed_fraction
+
+
 def fit_spatial_feature_map(
     rows: SpatialCandidateRows,
     blocks: torch.Tensor,
