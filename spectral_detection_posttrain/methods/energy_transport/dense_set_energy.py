@@ -109,6 +109,18 @@ def _validate_set(name: str, value: Mapping[str, torch.Tensor]) -> tuple[torch.T
     return boxes, labels.long()
 
 
+def _canonical_order(
+    boxes: torch.Tensor, labels: torch.Tensor, scores: torch.Tensor | None = None
+) -> torch.Tensor:
+    order = torch.arange(boxes.shape[0], device=boxes.device)
+    keys = [labels, boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]]
+    if scores is not None:
+        keys.append(scores)
+    for key in reversed(keys):
+        order = order[torch.argsort(key[order], stable=True)]
+    return order
+
+
 def dense_teacher_components(
     prediction: Mapping[str, torch.Tensor],
     target: Mapping[str, torch.Tensor],
@@ -134,6 +146,14 @@ def dense_teacher_components(
         raise ValueError("dense teacher inputs must be finite")
     if ((scores < 0) | (scores > 1)).any():
         raise ValueError("prediction scores must be probabilities in [0, 1]")
+
+    prediction_order = _canonical_order(pred_boxes, pred_labels, scores)
+    pred_boxes = pred_boxes[prediction_order]
+    pred_labels = pred_labels[prediction_order]
+    scores = scores[prediction_order]
+    target_order = _canonical_order(gt_boxes, gt_labels)
+    gt_boxes = gt_boxes[target_order]
+    gt_labels = gt_labels[target_order]
 
     prediction_count = int(pred_boxes.shape[0])
     ground_truth_count = int(gt_boxes.shape[0])

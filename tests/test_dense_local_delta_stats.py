@@ -16,6 +16,7 @@ def _prediction():
 def test_local_delta_config_forbids_detector_validation():
     config = load_config()
 
+    assert config["version_id"] == "det.energy.dense_local_delta_stats.002"
     assert config["dataset"]["detector_validation_forbidden"] is True
     assert config["perturbations"]["top_detections_per_image"] == 3
 

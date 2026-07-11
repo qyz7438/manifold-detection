@@ -22,9 +22,9 @@ CONFIG_PATH = (
     / "spectral_detection_posttrain"
     / "configs"
     / "versions"
-    / "det.energy.dense_local_delta_stats.001.json"
+    / "det.energy.dense_local_delta_stats.002.json"
 )
-CONFIG_SHA256 = "4bbb5d22584667434c7d1b6181110d5cee28db54b1f878d1ee4644d4088e9010"
+CONFIG_SHA256 = "86b2d70495c8174b22fa325ae76ac0410414ce47da643b81bc8376c4cd26ffc6"
 
 
 def sha256_file(path: str | Path) -> str:
@@ -44,7 +44,7 @@ def load_config() -> dict[str, Any]:
     if sha256_file(CONFIG_PATH) != CONFIG_SHA256:
         raise ValueError("canonical dense local Delta-Q config SHA256 mismatch")
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    if config.get("version_id") != "det.energy.dense_local_delta_stats.001":
+    if config.get("version_id") != "det.energy.dense_local_delta_stats.002":
         raise ValueError("dense local Delta-Q version mismatch")
     if config.get("dataset", {}).get("detector_validation_forbidden") is not True:
         raise ValueError("local Delta-Q audit must forbid detector validation")
@@ -132,7 +132,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--run-dir",
         type=Path,
-        default=ROOT / "runs" / "nwpu_dense_local_delta_stats_s42_train64",
+        default=ROOT / "runs" / "nwpu_dense_local_delta_stats_v2_s42_train64",
     )
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--annotation", type=Path)
@@ -159,6 +159,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     import scripts.train_dense_endpoint_geometry_control as geometry
 
     config = load_config()
+    v1_path = (ROOT / config["sources"]["v1_result"]).resolve()
+    if sha256_file(v1_path) != config["sources"]["v1_result_sha256"]:
+        raise ValueError("v1 local Delta-Q result SHA256 mismatch")
+    v1 = json.loads(v1_path.read_text(encoding="utf-8"))
+    failed_v1_gates = [
+        name for name, passed in v1.get("gates", {}).get("gates", {}).items() if not passed
+    ]
+    if (
+        v1.get("scientific_status") != config["sources"]["required_v1_status"]
+        or failed_v1_gates != [config["sources"]["required_only_failed_gate"]]
+    ):
+        raise ValueError("v1 local Delta-Q failure contract mismatch")
     shift_path = (ROOT / config["sources"]["shift_audit_result"]).resolve()
     teacher_checkpoint = (ROOT / config["sources"]["teacher_checkpoint"]).resolve()
     if sha256_file(shift_path) != config["sources"]["shift_audit_sha256"]:

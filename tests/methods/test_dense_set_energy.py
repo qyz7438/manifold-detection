@@ -67,6 +67,32 @@ def test_duplicate_energy_is_permutation_invariant():
     assert left.duplicate_edge_count == right.duplicate_edge_count == 1
 
 
+def test_all_components_are_bitwise_invariant_to_set_permutation():
+    prediction = _prediction(
+        [[0, 0, 10, 10], [1, 1, 9, 9], [20, 20, 30, 30]],
+        [0.91, 0.73, 0.42],
+        [1, 1, 2],
+    )
+    target = _target([[0, 0, 10, 10], [20, 20, 31, 31]], [1, 2])
+    permutation = torch.tensor([2, 0, 1])
+    target_permutation = torch.tensor([1, 0])
+
+    first = dense_teacher_components(prediction, target)
+    second = dense_teacher_components(
+        {key: value[permutation] for key, value in prediction.items()},
+        {key: value[target_permutation] for key, value in target.items()},
+    )
+
+    for name in (
+        "coverage",
+        "background_risk",
+        "class_risk",
+        "duplicate_risk",
+        "calibration_error",
+    ):
+        assert torch.equal(getattr(first, name), getattr(second, name))
+
+
 def test_empty_prediction_and_target_sets_are_finite():
     config = DenseTeacherConfig()
     empty_prediction = _prediction([], [], [])
