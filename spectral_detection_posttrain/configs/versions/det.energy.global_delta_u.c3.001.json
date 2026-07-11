@@ -1,0 +1,93 @@
+{
+  "version_id": "det.energy.global_delta_u.c3.001",
+  "status": "preregistered_smoke",
+  "objective": "Train a unified image-level no-op/top-1 policy from native postprocessing whole-image Delta-U labels over detector-only candidates.",
+  "dataset": {
+    "name": "nwpu",
+    "seed": 42,
+    "data_seed": 42,
+    "train_fraction": 0.7,
+    "train_images": 454,
+    "validation_images": 196,
+    "smoke_train_images": 32,
+    "smoke_validation_images": 32,
+    "smoke_train_image_ids_sha256": "37912bbb682f370f551c80aeae8e6dd600122fbec6a2450360ec2fdd54a81d69",
+    "smoke_val_image_ids_sha256": "bb6bb1764892bcc5b496c8ccbfca60c3d1e745a2901349429af3927a5770f85c",
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "train_image_ids_sha256": "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd",
+    "val_image_ids_sha256": "49f05cc9fa82ccaf924ff3be58a8f6376387c225e020ea6138182a4637219684"
+  },
+  "detector": {
+    "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "min_size": 480,
+    "max_size": 480,
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "source_c1": {
+    "result": "runs/nwpu_native_c1_contract_s42/eval_metrics.json",
+    "result_sha256": "71022f08acf22b0c982929089d9799d0f5f19941cc31428d6ec7d9f795f53b44",
+    "required_all_gates_passed": true
+  },
+  "candidate_pool": {
+    "source": "detector_visible_proposals_only",
+    "builder": "native_c1",
+    "step": 0.05,
+    "candidate_count": 9,
+    "min_score": 0.05,
+    "require_foreground_dominant": true,
+    "max_actions_per_image": 1
+  },
+  "utility": {
+    "endpoint": "native_decode_threshold_class_matching_nms",
+    "target_iou": 0.75,
+    "tp75_weight": 1.0,
+    "fp75_weight": -0.25,
+    "fp50_weight": -0.10,
+    "action_energy_weight": -0.05,
+    "action_count_weight": -0.02,
+    "action_energy_scale": 0.04,
+    "min_delta_u": 0.0,
+    "gt_scope": "train_utility_only_never_candidate_filter"
+  },
+  "policy": {
+    "hidden_dim": 96,
+    "energy_weight": 0.05,
+    "spatial_size": 7,
+    "objective": "single_image_level_cross_entropy"
+  },
+  "training": {
+    "epochs": 4,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "grad_accum_steps": 8,
+    "batch_size": 1
+  },
+  "arms": ["local_full", "feature_shuffle", "utility_shuffle"],
+  "controls": {
+    "scope": "within_image_detector_observable_candidates",
+    "feature_shuffle_seed": 142,
+    "utility_shuffle_seed": 242,
+    "same_initialization_seed": 42
+  },
+  "cache": {
+    "format": "torch_pt",
+    "schema_version": 1,
+    "feature_storage_dtype": "float16",
+    "contains_train_utility_labels": true,
+    "candidate_filter_uses_gt": false,
+    "validation_uses_gt_for_actions": false
+  },
+  "gates": {
+    "G0_c1_contract": {"required": true},
+    "G1_label_support": {"min_noop_images": 2, "min_action_images": 2},
+    "G2_native_parity": {"max_mismatched_images": 0, "max_box_abs_error": 0.0001, "max_score_abs_error": 0.000002},
+    "G3_non_degenerate": {"min_selected_count": 2, "min_action_image_rate": 0.02, "max_action_image_rate": 0.50},
+    "G4_detector": {"min_ap75_delta": 0.0005, "min_ap50_delta": -0.002, "max_fpr_delta": 0.01, "max_prediction_relative_delta": 0.02},
+    "G5_controls": {"min_ap75_delta_vs_each": 0.0005}
+  },
+  "claim_boundary": "NWPU 32/32 researcher-adaptive smoke. A positive gate is only a smoke signal warranting a locked larger train/full-val confirmation; it is not an AP improvement claim."
+}
