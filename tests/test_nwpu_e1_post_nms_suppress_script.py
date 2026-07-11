@@ -32,6 +32,8 @@ def test_e1_gates_detector_metrics_and_controls() -> None:
     assert 'fpr_delta <= float(required["max_fpr_delta"])' in source
     assert "post_nms_suppress_signal_detected" in source
     assert "post_nms_suppress_frozen" in source
+    assert 'row["accuracy"]' in source
+    assert 'row["correct"]' not in source
 
 
 def test_e1_launcher_enforces_gpu2_reserve_and_provenance() -> None:

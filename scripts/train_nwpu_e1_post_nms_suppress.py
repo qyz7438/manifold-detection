@@ -238,7 +238,7 @@ def train_arm(
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
             losses.append(float(row["loss_total"].detach().item()))
-            accuracies.append(float(row["correct"].detach().item()))
+            accuracies.append(float(row["accuracy"].detach().item()))
         mean_loss = sum(losses) / max(1, len(losses))
         history.append({"epoch": epoch + 1, "loss": mean_loss, "accuracy": sum(accuracies) / max(1, len(accuracies))})
         snapshot = {"state_dict": policy.state_dict(), "epoch": epoch + 1, "config_sha256": CONFIG_SHA256, "arm": arm}
