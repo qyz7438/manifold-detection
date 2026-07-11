@@ -14,6 +14,7 @@ def test_d2b_reuses_locked_delta_u_and_builds_detector_only_native_topology() ->
     assert "targets=None" in source
     assert "native_topology" in source
     assert "cache_alignment" in source
+    assert 'max_cache_alignment_abs_error=float(config["gates"]["max_cache_alignment_abs_error"])' in source
 
 
 def test_d2b_keeps_topology_control_shuffled_during_evaluation() -> None:

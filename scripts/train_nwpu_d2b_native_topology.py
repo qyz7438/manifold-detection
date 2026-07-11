@@ -73,6 +73,8 @@ def build_native_topology_records(
     train_loader: Any,
     config: dict[str, Any],
     device: torch.device,
+    *,
+    max_cache_alignment_abs_error: float,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     from spectral_detection_posttrain.methods.energy_transport.native_contract import build_native_c1_deltas
     from spectral_detection_posttrain.methods.energy_transport.native_topology import (
@@ -103,7 +105,7 @@ def build_native_topology_records(
             raise RuntimeError("D2b predicted-label alignment failed")
         row_error = max(errors)
         maximum_error = max(maximum_error, row_error)
-        if row_error > float(config["gates"]["max_cache_alignment_abs_error"]):
+        if row_error > float(max_cache_alignment_abs_error):
             raise RuntimeError(f"D2b detector/cache alignment error {row_error:.6g}")
         observable = locked["observable_mask"].to(device)
         decoded_boxes = detector.roi_heads.box_coder.decode(batch.box_regression, batch.proposals).clone()
@@ -195,6 +197,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         train_loader,
         effective,
         device,
+        max_cache_alignment_abs_error=float(config["gates"]["max_cache_alignment_abs_error"]),
     )
     if len(cache_alignment["feature_names"]) != int(effective["policy"]["topology_dim"]):
         raise RuntimeError("D2b topology feature dimension drift")
