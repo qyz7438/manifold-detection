@@ -520,15 +520,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     outer_feature_order, outer_feature_fraction = within_image_shuffle_order(
         outer_rows.image_ids, seed=int(config["controls"]["feature_shuffle_seed"]) + 2
     )
-    outer_label_order, outer_label_fraction = within_image_shuffle_order(
-        outer_rows.image_ids, seed=int(config["controls"]["label_shuffle_seed"]) + 2
-    )
-    control_fractions.update(
-        {
-            "feature_outer": outer_feature_fraction,
-            "label_outer": outer_label_fraction,
-        }
-    )
+    if outer_feature_fraction < float(
+        config["controls"]["min_changed_row_fraction"]
+    ):
+        raise ValueError("B3 outer feature control coverage below locked minimum")
+    control_fractions["feature_outer"] = outer_feature_fraction
     outer_arm_features = {
         "local_full": outer_features,
         "within_image_feature_shuffle": outer_features[

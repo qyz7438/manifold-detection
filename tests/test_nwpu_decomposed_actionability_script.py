@@ -50,6 +50,8 @@ def test_runner_separates_sign_rank_and_frozen_abstention_without_detector() -> 
     assert "fit_rank_head" in source
     assert "calibrate_ranked_abstention" in source
     assert '"outer_evaluated_after_freeze": True' in source
+    assert "outer_label_order" not in source
+    assert "if outer_feature_fraction < float(" in source
 
 
 def test_launcher_is_gpu2_only_idempotent_and_strictly_gated() -> None:
