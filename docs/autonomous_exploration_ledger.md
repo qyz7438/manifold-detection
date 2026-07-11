@@ -267,3 +267,21 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Decision: freeze post-NMS suppress-only transport. Do not calibrate thresholds, retune loss/capacity, expand seeds, or reinterpret the small FPR improvement as a detector gain.
 - DeepSeek agreed the information is dominated by fatal abstention collapse and recommended stopping rather than opening score modulation on the same whole-image Delta-U endpoint. Codex agrees: the full arm's control advantage is real numerically but scientifically insufficient inside a universal-suppression regime.
 - Research conclusion for this cycle: stop all per-proposal actions driven by the current whole-image Delta-U endpoint. Any future restart must change the endpoint or supervision semantics, not the action representation.
+
+## Endpoint Lattice Audit
+
+- Tool: `scripts/analyze_action_cache_lattice.py`; output `runs/autonomous_action_lattice_summary.json`, SHA256 `30a764e7f06d24136f8ac1908d20d68e5a9fab23a2a8af5facefe63a96f46d8c`.
+- C3 0.05 fixed actions: 7824 candidates, only 53 positive (`0.6774%`) across 12 images. `7680/7824` actions share exactly `Delta-U=-0.023125`, meaning native output was unchanged and only action cost remained. There are only 11 rounded utility values.
+- D3 0.02 fixed actions: 7824 candidates, only 23 positive (`0.2940%`) across 10 images. `7778/7824` share `Delta-U=-0.0205`; only seven rounded utility values.
+- D4 graph consensus: 803 candidates, one positive (`0.1245%`) on one image. Continuous energy cost creates 751 rounded values, but almost all remain negative because the set outcome does not improve.
+- E1 post-NMS suppression: 276 candidates, 153 positive (`55.43%`) across 17 images, but Delta-U has only four rounded values: `-1.02`, `-0.92`, `0.23`, and `0.33`. This is a coarse TP/FP count lattice, not a smooth low-energy field.
+- Root cause synthesis: the current endpoint combines integer `tp75/fp75/fp50` counts with action penalties. For bbox actions it is nearly flat; for suppression it is highly discontinuous and over-rewards deleting any counted FP without supplying a transferable abstention geometry.
+- Future endpoint requirement: replace hard count events with a dense set-quality energy that preserves candidate independence and safety. It should include continuous localization quality near IoU 0.75, calibrated class confidence, explicit duplicate/coverage terms, and an identity basin. Until such an endpoint is specified and train-only controls are preregistered, no additional action learner should run.
+
+## Dense Endpoint Specification Review
+
+- Draft: `docs/dense_set_energy_endpoint_spec.md`.
+- DeepSeek correctly identified undefined calibration, overlap semantics, temperature normalization, architecture decomposition, and identity-control definitions.
+- Accepted corrections: calibration is now a dense soft Brier term; background and wrong-class risks are separate; unary/pair contributions add exactly to global DeepSets energy; uncertainty comes from inner-tune residual quantiles; identity controls require strict native-output equality.
+- Rejected reviewer suggestions: binned ECE is not a smooth per-set teacher; all-class IoU alone misses classification errors; `tau=1/std(log p)` is dimensionally arbitrary; MC dropout is not calibrated evidence; fixed two-pixel/0.02-confidence jitter is not identity-equivalent near detector boundaries.
+- Implementation remains blocked until temperatures, robust standardization statistics, edge sparsification, and nested split manifests are concretely versioned and hashed. No endpoint model was trained in this autonomous window.

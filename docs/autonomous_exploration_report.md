@@ -1,37 +1,94 @@
 # Autonomous Research Exploration Report
 
-Status: active
+## Status
 
-Window: 2026-07-12 03:06 to 11:06 Asia/Shanghai.
+- Window: 2026-07-12 03:06 to 11:06 Asia/Shanghai.
+- Current status: evidence synthesis; no further current-endpoint action experiment is authorized.
+- Automation: `manifold-autonomous-8h-20260712`, two-hour heartbeat.
+- Project: `/home/ps/lzz/manifold-detection-energy-transport`, branch `codex/energy-guided-roi-transport`.
+- Dataset/scope: NWPU VHR-10, locked 32 train / 32 validation smoke, seed 42.
+- Identity smoke reference: AP50 `0.7399366`, AP75 `0.4636476`, precision `0.572165`, recall `0.776224`, FPR `0.427835`, ECE `0.119736`, 194 predictions.
 
-The two-hour heartbeat automation is active as `manifold-autonomous-8h-20260712`.
+## Codex Judgment
 
-Cycle 0 implemented D1 proposal-set context under the locked C3 whole-image Delta-U cache. The model is permutation-equivariant over detector-observable proposals and uses set mean/max context while preserving the C3b endpoint, action table, balanced loss, optimizer, split, and controls. Focused verification currently passes 15 tests. Remote execution is pending commit and GPU2 reserve checks.
+The explored method line is negative. Detector-only candidates and native postprocessing are now implemented correctly, but the current whole-image Delta-U endpoint does not support a safe, attributable per-proposal action policy.
 
-D1 completed and failed its preregistered detector/control gates. The policy was non-degenerate (9/32 actions) but full metrics were exactly identity, and AP75 did not beat feature shuffle. D1 is frozen without train-size expansion. The next queue item is D2 explicit detector-boundary/NMS topology evidence, subject to DeepSeek review that it is a genuinely new observable signal rather than capacity tuning.
+The main problem is not merely network capacity. The endpoint is an integer event-count utility:
 
-DeepSeek agreed with the freeze, but its cheapest static boundary proposal overlaps D1's existing conflict statistics. Codex therefore refined D2 to action-conditioned NMS topology: post-action higher-score same-class overlap, survival margin, and topology change for each action, with a dedicated topology-shuffle control. This changes observable information rather than merely model capacity.
+```text
+U = tp75 - 0.25 fp75 - 0.10 fp50 - action energy - action count cost
+```
 
-D2 is now implemented and preregistered. It reuses the locked detector-only C3 candidate cache and whole-image Delta-U endpoint; no GT candidate filtering or larger offline probe was introduced. The only added information is action-conditioned native-NMS topology. Its dedicated control destroys proposal/action alignment while preserving the topology-feature values. Local focused/regression verification passes 46 tests; remote execution remains gated on review, a clean synchronized commit, and the GPU2 reserve calculation.
+For bbox motion, almost every action leaves native output unchanged and receives only action cost. For post-NMS deletion, utility becomes a four-valued TP/FP lattice that encourages suppression without providing a transferable identity basin. The intended low-energy manifold flow is therefore not represented by the current supervision.
 
-D2 pairwise-proxy smoke completed with native parity and non-degenerate policies, but all three arms were exactly equal to identity on detector metrics. A post-run Terra audit then identified that the implementation was not an exact native-NMS topology test and that the shuffle control was restored to true topology at evaluation. The result is therefore retained as a negative result for the pairwise top-1 proxy only, not as evidence against native topology. D2b is a bounded correctness repair: class-expanded native kept-set observables and persistent train/eval shuffle, with no new images, actions, GT filtering, loss tuning, or offline capacity expansion.
+## Experiment Matrix
 
-D2b is implemented with a torchvision-equivalent class-expanded postprocessing trace and an exact-zero identity contract. It enriches the same locked C3 records only after detector/cache alignment checks, leaving Delta-U untouched. The new topology control is shuffled in both train and validation. Focused tests currently pass 27 checks; the next step is the clean remote smoke under the unchanged GPU2 reserve gate.
+| Run | Changed variable | Train support | Full action rate | Delta AP50 | Delta AP75 | Control gate | Decision |
+|---|---|---:|---:|---:|---:|---|---|
+| C3b | balanced global loss | 12 action / 20 noop | 0.250 | +0.00955 | -0.00869 | fail | freeze same-cache loss tuning |
+| D1 | proposal-set mean/max context | 12 / 20 | 0.281 | 0.00000 | 0.00000 | fail | freeze set-context |
+| D2 | top-1 pairwise topology proxy | 12 / 20 | 0.281 | 0.00000 | 0.00000 | invalid audit | proxy only; not native claim |
+| D2b | exact class-expanded native-NMS topology | 12 / 20 | 0.281 | -0.00015 | -0.01589 | fail | freeze topology |
+| D3 | fixed axes, 0.05 to 0.02 | 10 / 22 | 0.219 | 0.00000 | 0.00000 | fail | freeze fixed-grid actions |
+| D4 | adaptive proposal-graph consensus bbox action | 1 / 31 | not trained | n/a | n/a | label support fail | freeze all bbox actions |
+| E1 | post-NMS suppress/no-op | 17 / 15 | 1.000 | -0.11981 | -0.10096 | pass | freeze: detector/safety/abstention fail |
 
-Pre-launch review caught a subtle identity drift from applying a mathematically zero box transform. D2b now reuses the baseline trace exactly for candidate 0, and its launcher rejects stale artifacts whose HEAD, clean state, source hash, config hash, or scope do not match. The native smoke remains pending commit and remote verification.
+All metric rows are 32-image smoke results and are not full-val AP claims. D2 is retained only as an implementation diagnostic because review found it was not a true native topology test; D2b is the corrected experiment.
 
-D2b completed with exact detector/cache alignment and parity, but failed decisively: AP75 fell from `0.46365` to `0.44776`, while topology- and utility-shuffle controls remained near identity. All arms acted on 9/32 images, so the control comparison is not a no-op-rate artifact. Native topology is frozen under the locked 0.05 C1 endpoint. D3 will test one preregistered finer 0.02 action magnitude using the same C3b balanced policy and same 32 detector-only images; there will be no step sweep.
+## Endpoint Audit
 
-D3 is now preregistered and implemented as that single action-resolution test. It rebuilds native whole-image Delta-U for the same detector-only train images and changes no policy, loss, control, split, or optimization variable from C3b. Local focused verification passes 18 tests; remote execution is pending clean commit/sync and GPU2 reserve checks.
+Artifact: `runs/autonomous_action_lattice_summary.json`, SHA256 `30a764e7f06d24136f8ac1908d20d68e5a9fab23a2a8af5facefe63a96f46d8c`.
 
-D3 completed with valid labels, parity, and non-degenerate action selection, but full AP50/AP75 remained exactly identity and did not beat controls. Training accuracy reached 93.75%, so this is another train-to-native-validation transfer failure rather than an optimizer collapse. The fixed-grid branch is frozen. One final bounded D4 will replace fixed axes with detector-only proposal-graph consensus deltas; if it fails, the bbox-adjustment line stops.
+| Cache | Candidates | Positive candidates | Positive images | Dominant structure |
+|---|---:|---:|---:|---|
+| C3 0.05 fixed bbox | 7824 | 53 (0.677%) | 12/32 | 7680 values equal `-0.023125` |
+| D3 0.02 fixed bbox | 7824 | 23 (0.294%) | 10/32 | 7778 values equal `-0.0205` |
+| D4 graph consensus | 803 | 1 (0.125%) | 1/32 | continuous action cost, no set benefit |
+| E1 post-NMS suppress | 276 | 153 (55.4%) | 17/32 | only four values: `-1.02`, `-0.92`, `0.23`, `0.33` |
 
-D4 is implemented as a deterministic low-energy graph flow: each proposal may move once toward a stronger overlapping same-class proposal consensus, while the learned component only selects top-1/no-op. It uses the same native whole-image endpoint and equal-capacity controls. Focused verification passes 23 tests; a Terra read-only audit is in progress before remote launch.
+This reconciles the apparent contradiction between bbox inaction and suppression over-action. Bbox supervision is nearly flat; suppression supervision is coarse and action-heavy. Neither resembles a smooth low-energy transport field.
 
-D4 found 803 detector-only graph actions across every train image but only one action-positive image. The label-support gate correctly stopped before training or validation. Together with D1-D3, this freezes the entire pre-NMS single-box bbox-adjustment interface. The next pivot changes the intervention point: one deterministic post-NMS suppress/no-op decision over native kept detections, with boxes, thresholds, and NMS unchanged.
+## Engineering Corrections
 
-E1 is implemented as that structural pivot. It learns a global set-energy decision over the stable native kept set, using detector-only confidence, box, class, and conflict features. Suppression removes exactly one output and cannot trigger an NMS cascade. Local focused verification passes seven checks; remote launch remains gated on broad regression tests, review, clean synchronization, and GPU2 reserve.
+- Strict zero-action native parity passes with zero mismatched images and zero box/score error.
+- D2b reproduces torchvision class expansion, thresholding, small-box removal, class-aware NMS, and top-k.
+- Candidate index 0 reuses the native baseline trace exactly; `apply_box_delta(0)` is not used because it introduces coordinate drift around `1.5e-5`.
+- Topology shuffle remains shuffled in both training and validation.
+- All maintained runs use detector-only candidates; train GT is utility-only after candidate fixation.
+- Cache manifests lock config, commit, clean state, detector/annotation hashes, and split manifests.
+- GPU work used physical GPU2 only and always passed the estimated-peak plus 8192 MiB reserve rule. No pre-existing process was stopped.
 
-E1 completed and exposed weak ranking information but fatal abstention failure. Full beat both shuffled controls on AP75, yet every arm suppressed on every validation image; full AP75 fell by `0.10096` and recall by `0.12587` for only a `0.00191` FPR reduction. The post-NMS interface is frozen. The combined evidence now supports stopping all per-proposal action learning under the current whole-image Delta-U endpoint; future work must change endpoint/supervision semantics rather than action parameterization.
+## DeepSeek Review
 
-See `docs/autonomous_exploration_ledger.md` for the authoritative queue, commands, gates, and artifacts.
+DeepSeek agreed with each final branch freeze and with stopping score modulation on the same endpoint. Its strongest useful point is that D4's candidate-support failure is structurally earlier than a learning failure, while E1 proves that even a deterministic post-NMS action cannot learn safe abstention from this target.
+
+Codex rejected several reviewer misreads:
+
+- D2b controls selected the same number of actions as full; they did not collapse to no-op.
+- The C1 table contains only single-axis magnitude 0.05, not mixed 0.05/0.10 actions.
+- D3 feature shuffle changed one prediction, so 0.02 actions were not universally bitwise inert.
+- Historical `/home/ps/lzz/RLimage` guidance is superseded by the explicit current manifold-only workspace contract.
+
+## Frozen Claims
+
+- No AP gain is established for action-local transport.
+- No current evidence supports prototype attraction, native topology, fixed-grid bbox motion, graph-consensus bbox motion, or post-NMS suppression as a deployable correction.
+- Offline or train-cache utility, ranking, geometry, or loss convergence must not be described as detector improvement.
+- Seeds 2024/999, larger train, and full validation are not justified for these failed smoke branches.
+
+## Next Legitimate Direction
+
+Future work must change the endpoint before changing the policy again. A candidate endpoint should be a dense global set energy with:
+
+1. continuous localization quality around IoU 0.75 rather than a hard TP count;
+2. calibrated class-confidence quality;
+3. pairwise duplicate/exclusion energy;
+4. coverage preservation so removing a unique detection is expensive;
+5. an explicit identity basin and train-only abstention controls;
+6. native full-set evaluation after the endpoint passes feature/utility shuffles on a fresh nested split.
+
+Until that endpoint is mathematically specified and preregistered, the correct action is to stop, not to add another head, action table, threshold, or seed.
+
+The endpoint draft is now recorded in `docs/dense_set_energy_endpoint_spec.md` and has received a DeepSeek read-only critique. Calibration was changed from an undefined term to soft Brier quality; background and wrong-class risks were separated; identity controls now require strict native-output equivalence. This is a design artifact only. No positive endpoint or detector claim follows from it.
+
+See `docs/autonomous_exploration_ledger.md` for commands, commits, gates, retries, hashes, and reviewer corrections.
