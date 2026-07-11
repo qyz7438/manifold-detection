@@ -9,6 +9,7 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     GlobalTop1Target,
     build_global_top1_target,
     flatten_observable_action_logits,
+    global_top1_balanced_margin_loss,
     global_top1_loss,
     select_global_top1_action,
 )
@@ -133,3 +134,46 @@ def test_unified_image_level_loss_backpropagates_to_action_and_noop_scores() -> 
     assert policy.noop_bias.grad is not None
     assert policy.proposal_policy.action_head.weight.grad is not None
     assert policy.proposal_policy.move_head.weight.grad is None
+
+
+def test_balanced_margin_loss_separates_noop_and_conditional_action_rank() -> None:
+    observable = torch.tensor([True, True])
+    output = GlobalTop1Output(
+        action_logits=torch.tensor(
+            [
+                [0.0, 0.2, 0.1],
+                [0.0, 0.3, 0.8],
+            ],
+            requires_grad=True,
+        ),
+        noop_logit=torch.tensor(0.4, requires_grad=True),
+        conflict_stats=torch.zeros(2, 4),
+    )
+    action = global_top1_balanced_margin_loss(
+        output,
+        observable,
+        GlobalTop1Target(False, proposal_index=1, candidate_index=2, delta_u=1.0),
+        action_margin=0.2,
+        rank_margin=0.2,
+    )
+    assert action["predicted_noop"].item() == 0.0
+    assert action["accuracy"].item() == 1.0
+    assert action["loss_actionability"].item() > 0.0
+    assert action["loss_rank"].item() > 0.0
+    action["loss_total"].backward()
+    assert output.action_logits.grad is not None
+    assert output.noop_logit.grad is not None
+
+    noop = global_top1_balanced_margin_loss(
+        GlobalTop1Output(
+            action_logits=torch.tensor([[0.0, 0.1, 0.0]]),
+            noop_logit=torch.tensor(0.5),
+            conflict_stats=torch.zeros(1, 4),
+        ),
+        torch.tensor([True]),
+        GlobalTop1Target(True, proposal_index=-1, candidate_index=0, delta_u=0.0),
+        action_margin=0.2,
+        rank_margin=0.2,
+    )
+    assert noop["loss_rank"].item() == 0.0
+    assert noop["predicted_noop"].item() == 1.0

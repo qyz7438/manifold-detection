@@ -316,6 +316,7 @@ def train_arm(
     from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
         GlobalTop1PolicyHead,
         build_global_top1_target,
+        global_top1_balanced_margin_loss,
         global_top1_loss,
     )
     from spectral_detection_posttrain.methods.energy_transport.native_contract import build_native_c1_deltas
@@ -365,7 +366,18 @@ def train_arm(
                 record["image_size"],
                 record["observable_mask"],
             )
-            row = global_top1_loss(output, record["observable_mask"], target)
+            if config["policy"].get("loss_type", "flat_cross_entropy") == "balanced_margin":
+                row = global_top1_balanced_margin_loss(
+                    output,
+                    record["observable_mask"],
+                    target,
+                    action_margin=float(config["policy"]["action_margin"]),
+                    rank_margin=float(config["policy"]["rank_margin"]),
+                    actionability_weight=float(config["policy"]["actionability_weight"]),
+                    rank_weight=float(config["policy"]["rank_weight"]),
+                )
+            else:
+                row = global_top1_loss(output, record["observable_mask"], target)
             (row["loss_total"] / grad_accum).backward()
             if position % grad_accum == 0 or position == len(order):
                 optimizer.step()

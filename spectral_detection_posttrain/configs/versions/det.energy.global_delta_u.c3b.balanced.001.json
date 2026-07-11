@@ -1,0 +1,31 @@
+{
+  "version_id": "det.energy.global_delta_u.c3b.balanced.001",
+  "status": "preregistered_final_smoke_attempt",
+  "source": {
+    "base_config_sha256": "f191933f6299efb3b22af241fbd77b9685f6bb9127b5ea09196418c4352c70a0",
+    "result": "runs/nwpu_c3_global_delta_u_smoke_s42/eval_metrics.json",
+    "result_sha256": "442ad04e688f4162d536206f68e71d8925270701b3e1c68f0056743d5a00a76c",
+    "cache": "runs/nwpu_c3_global_delta_u_smoke_s42/global_delta_u_cache.pt",
+    "cache_sha256": "1fa2184945bf5d38b1c47e5b732ffce4bcdd1b57064f4f2eb71d76611304a53e"
+  },
+  "policy_override": {
+    "loss_type": "balanced_margin",
+    "action_margin": 0.2,
+    "rank_margin": 0.2,
+    "actionability_weight": 1.0,
+    "rank_weight": 1.0
+  },
+  "training_override": {
+    "epochs": 8
+  },
+  "gates": {
+    "min_selected_count": 3,
+    "min_action_image_rate": 0.10,
+    "max_action_image_rate": 0.90,
+    "min_ap75_delta_vs_identity_exclusive": 0.0,
+    "min_ap50_delta_vs_identity": 0.0,
+    "require_ap75_strictly_above_each_control": true
+  },
+  "decision_rule": "Any gate failure freezes the current native-C1-action plus ROI-representation plus whole-image-Delta-U route; no further same-cache loss tuning.",
+  "claim_boundary": "Final same-cache 32/32 smoke attempt. Even all gates passing is only a smoke signal requiring one locked larger-train/full-val confirmation."
+}

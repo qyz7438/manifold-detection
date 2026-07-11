@@ -187,6 +187,59 @@ def global_top1_loss(
     }
 
 
+def global_top1_balanced_margin_loss(
+    output: GlobalTop1Output,
+    observable_mask: torch.Tensor,
+    target: GlobalTop1Target,
+    *,
+    action_margin: float = 0.2,
+    rank_margin: float = 0.2,
+    actionability_weight: float = 1.0,
+    rank_weight: float = 1.0,
+) -> dict[str, torch.Tensor]:
+    """Balance no-op/action decisions and conditionally rank action candidates."""
+    if action_margin < 0.0 or rank_margin < 0.0:
+        raise ValueError("margins must be non-negative")
+    if actionability_weight < 0.0 or rank_weight < 0.0:
+        raise ValueError("loss weights must be non-negative")
+    flattened = flatten_observable_action_logits(output, observable_mask)
+    noop_logit = flattened.logits[0]
+    action_logits = flattened.logits[1:]
+    if target.is_noop:
+        target_index = 0
+        if action_logits.numel():
+            loss_actionability = F.softplus(action_logits.max() - noop_logit + float(action_margin))
+        else:
+            loss_actionability = noop_logit * 0.0
+        loss_rank = noop_logit * 0.0
+    else:
+        matches = flattened.proposal_indices.eq(target.proposal_index) & flattened.candidate_indices.eq(
+            target.candidate_index
+        )
+        if int(matches.sum().item()) != 1:
+            raise ValueError("target action is not in the detector-observable candidate set")
+        target_index = int(torch.nonzero(matches, as_tuple=False).flatten()[0].item())
+        target_logit = flattened.logits[target_index]
+        loss_actionability = F.softplus(noop_logit - target_logit + float(action_margin))
+        action_target_index = target_index - 1
+        if action_logits.numel() > 1:
+            negative_mask = torch.ones_like(action_logits, dtype=torch.bool)
+            negative_mask[action_target_index] = False
+            hard_negative = action_logits[negative_mask].max()
+            loss_rank = F.softplus(hard_negative - target_logit + float(rank_margin))
+        else:
+            loss_rank = target_logit * 0.0
+    loss_total = float(actionability_weight) * loss_actionability + float(rank_weight) * loss_rank
+    prediction = int(flattened.logits.argmax().item())
+    return {
+        "loss_total": loss_total,
+        "loss_actionability": loss_actionability,
+        "loss_rank": loss_rank,
+        "accuracy": loss_total.detach().new_tensor(float(prediction == target_index)),
+        "predicted_noop": loss_total.detach().new_tensor(float(prediction == 0)),
+    }
+
+
 def select_global_top1_action(
     output: GlobalTop1Output,
     candidate_deltas: torch.Tensor,

@@ -68,6 +68,7 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     GlobalTop1Target,
     build_global_top1_target,
     flatten_observable_action_logits,
+    global_top1_balanced_margin_loss,
     global_top1_loss,
     select_global_top1_action,
 )
@@ -240,6 +241,7 @@ __all__ = [
     "high_water_mark_action_loss",
     "group_heldout_split",
     "global_top1_loss",
+    "global_top1_balanced_margin_loss",
     "intra_tp_action_loss",
     "inter_class_relation_energy",
     "inter_class_separation_energy",
