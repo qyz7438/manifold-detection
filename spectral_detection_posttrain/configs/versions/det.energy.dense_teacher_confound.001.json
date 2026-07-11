@@ -1,0 +1,35 @@
+{
+  "version_id": "det.energy.dense_teacher_confound.001",
+  "status": "preregistered_source_artifact_only",
+  "objective": "Determine whether dense teacher penalty components retain distinct non-degenerate structure after removing prediction-count and ground-truth-count scale effects.",
+  "source": {
+    "result": "runs/nwpu_dense_teacher_stats_s42_innerfit/eval_metrics.json",
+    "result_sha256": "6fd77a0e70b8a2365f441a98fcc19ca3c6260a6727579185807c798e913d2d10",
+    "version_id": "det.energy.dense_teacher_stats.001",
+    "git_commit": "2ddb0da792b624adf6df502d6f7f5742dc8b057b",
+    "image_count": 318,
+    "image_ids_sha256": "3314b7d59dccf8df83a11662883b822c874757f7dd6b62356cb91335b434e54f",
+    "forbidden_new_data": true
+  },
+  "analysis": {
+    "residual_controls": ["log1p_prediction_count", "log1p_ground_truth_count"],
+    "penalty_components": ["background_risk", "class_risk", "calibration_error"],
+    "support_normalization": {
+      "coverage": "ground_truth_count",
+      "background_risk": "prediction_count",
+      "class_risk": "prediction_count",
+      "calibration_error": "prediction_count",
+      "duplicate_risk": "duplicate_edge_count_or_one"
+    },
+    "min_iqr": 0.000001,
+    "max_abs_penalty_correlation": 0.85
+  },
+  "gates": {
+    "exact_image_count": 318,
+    "normalized_required_components_non_degenerate": true,
+    "residualized_penalty_max_abs_correlation_lte": 0.85,
+    "normalized_penalty_max_abs_correlation_lte": 0.85
+  },
+  "decision_rule": "If both residualized and support-normalized penalty correlations are at most 0.85 and normalized required components remain non-degenerate, allow only a minimal fixed-unit-weight endpoint learnability probe. Otherwise reduce the penalty basis before any model fitting.",
+  "claim_boundary": "Researcher-adaptive analysis of a locked inner-fit artifact. It reads no new images or split and establishes neither endpoint learnability nor detector gain."
+}
