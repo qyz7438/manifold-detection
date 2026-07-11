@@ -135,3 +135,33 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Verification: 46 focused and regression tests passed; Python compilation and `git diff --check` passed.
 - Estimated GPU peak: 7680 MiB. Launcher requires `free_mib - 7680 > 8192` and records immediate/steady reserve checks.
 - Next action: independent Terra read-only review, commit/sync, remote tests, then launch the locked D2 smoke if GPU2 reserve passes.
+
+### D2 Pairwise-Proxy Result And Audit
+
+- Remote completion: 2026-07-12 03:33 Asia/Shanghai, commit `fd57cba347cdc5b92a4c581bc4fc66cf5e0ecce6`.
+- Run: `runs/nwpu_d2_action_topology_smoke_s42`.
+- Artifact SHA256: `cf7075d5b0764a4b8ad7e10bff7b6eca3a8af8b46def4dc3e95b6ec92a595f7d`.
+- Checkpoints: local full `69d9c76c349e5a22b036a6f6bed19c5c9d9c333fe259ddbbd0cce3f52d7d371f`; topology shuffle `f8a826beb7133a2ec4d9b92097a68d2fb9213bd15af65127dd9279ef66cacbb8`; utility shuffle `836a43d4cbbe48dcea638cef00c3ca605d2c66edb1f73020f2ccdb1e8c5e317a`.
+- GPU2: 43372 MiB free before launch and after completion. Estimated peak 7680 MiB; reserve gate passed. No other process was stopped or modified.
+- Support: 12 action / 20 no-op images. Full selected 9/32 actions; topology and utility controls also selected 9/32.
+- Identity, full, topology-shuffle, and utility-shuffle all produced AP50 `0.7399366`, AP75 `0.4636476`, precision `0.572165`, recall `0.776224`, FPR `0.427835`, ECE `0.119736`, and 194 predictions.
+- Native zero-action parity passed with zero mismatched images and zero box/score error. Non-degeneracy passed; detector and control gates failed.
+- Initial gate decision: no expansion and no positive topology claim.
+- Terra post-run audit found two interpretation defects. First, the topology-shuffle arm received shuffled topology during training but true topology during evaluation. Second, the feature was a top-1-label pairwise overlap proxy, not torchvision-equivalent class-expanded greedy NMS topology. It omitted non-top-1 class boxes, score/small-box filtering, and the fact that a higher-score peer can itself be suppressed.
+- Scientific correction: this run freezes only the pairwise top-1 topology proxy. It does not constitute a valid negative test of native NMS topology. No GT/Delta-U feature leakage was found.
+- Next action: D2b must compute detector-only class-expanded native kept-set topology under the same 32 images, C1 actions, Delta-U endpoint, loss, and capacity. Its shuffle control must remain shuffled at train and evaluation. This is a correctness repair, not a capacity or offline-probe expansion. If D2b fails, move to D3.
+
+### D2b Native Kept-Set Implementation Milestone
+
+- Time: 2026-07-12 autonomous cycle 1.
+- Config: `det.energy.native_topology.d2b.001`, SHA256 `1b07a3f3862cc49945b0a972a8ed96298c1924ced23638f0d09b7debb7836f92`.
+- Native topology exactly follows the detector boundary: class-expanded decoded boxes, clipping, background removal, score threshold, small-box removal, class-aware `batched_nms`, and detections-per-image cap.
+- Per proposal/action observables: acted candidate kept, identity kept, kept-state delta, max IoU to the actual final kept higher-score same-class set, NMS margin, max-IoU delta, normalized kept rank, and rank delta.
+- Identity action index 0 is required to be exactly zero. Tests cover manual native-NMS kept parity, non-top-1 class competition, clipping/degenerate removal, and proposal permutation equivariance.
+- The same locked C3 Delta-U records are copied unchanged. A detector-only enrichment pass on the same 32 train images recomputes only native topology and rejects any image-order, label, score, box, or logit misalignment above `1e-4`.
+- The topology-shuffle arm remains shuffled during both training and validation with deterministic per-image seeds. Utility shuffle retains true topology and shuffles only locked utility labels.
+- Architecture, balanced loss, eight epochs, action table, splits, detector, optimizer, and gates remain fixed from D2. No GT field other than image identity is read; candidate extraction explicitly uses `targets=None`.
+- Verification at this milestone: 27 focused tests passed, direct config hash load passed, and Python compilation plus `git diff --check` passed.
+- Estimated peak remains 7680 MiB because D2b enumerates native postprocessing serially and retains only one detector plus three small policy heads. Launcher requires more than 8192 MiB remaining after that estimate.
+- Terra pre-launch review found that calling `apply_box_delta` with the zero vector is not bitwise identity (observed max coordinate drift `1.5258789e-05`). Candidate index 0 now directly reuses the baseline trace; a mock-guarded regression test proves no box transform is called. The launcher also validates existing artifacts against current HEAD, clean status, source-cache hash, config hash, and scope before idempotent exit.
+- Post-fix focused verification: 19 tests passed. Terra otherwise confirmed torchvision operation ordering, no GT candidate leakage, persistent train/eval topology shuffle, and the GPU2 reserve gate.

@@ -1,0 +1,44 @@
+{
+  "version_id": "det.energy.native_topology.d2b.001",
+  "status": "preregistered_correctness_smoke",
+  "source": {
+    "base_config_sha256": "f191933f6299efb3b22af241fbd77b9685f6bb9127b5ea09196418c4352c70a0",
+    "cache": "runs/nwpu_c3_global_delta_u_smoke_s42/global_delta_u_cache.pt",
+    "cache_sha256": "1fa2184945bf5d38b1c47e5b732ffce4bcdd1b57064f4f2eb71d76611304a53e",
+    "d2_proxy_result": "runs/nwpu_d2_action_topology_smoke_s42/eval_metrics.json",
+    "d2_proxy_result_sha256": "cf7075d5b0764a4b8ad7e10bff7b6eca3a8af8b46def4dc3e95b6ec92a595f7d"
+  },
+  "policy_override": {
+    "architecture": "native_action_topology",
+    "topology_dim": 8,
+    "hidden_dim": 96,
+    "spatial_size": 2,
+    "loss_type": "balanced_margin",
+    "action_margin": 0.2,
+    "rank_margin": 0.2,
+    "actionability_weight": 1.0,
+    "rank_weight": 1.0
+  },
+  "training_override": {"epochs": 8},
+  "controls_override": {"topology_shuffle_seed": 342},
+  "arms": ["local_full", "topology_shuffle", "utility_shuffle"],
+  "native_topology_cache": {
+    "schema_version": 1,
+    "same_train_images": 32,
+    "copies_locked_delta_u": true,
+    "uses_gt": false,
+    "requires_proposal_alignment": true
+  },
+  "fixed_variables": ["detector", "split", "seed", "C1_actions", "Delta_U_labels", "balanced_loss", "optimizer", "epochs", "native_postprocessing"],
+  "gates": {
+    "min_selected_count": 3,
+    "min_action_image_rate": 0.10,
+    "max_action_image_rate": 0.90,
+    "min_ap75_delta_vs_identity_exclusive": 0.0,
+    "min_ap50_delta_vs_identity": 0.0,
+    "require_ap75_strictly_above_each_control": true,
+    "max_cache_alignment_abs_error": 0.0001
+  },
+  "decision_rule": "Any gate failure freezes native kept-set topology on the locked endpoint and moves to D3. All gates passing permits one locked larger-train/full-val confirmation without tuning.",
+  "claim_boundary": "NWPU 32/32 single-seed correctness smoke. A positive result is only native-topology information gain, not an AP improvement claim."
+}

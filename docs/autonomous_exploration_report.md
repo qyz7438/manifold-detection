@@ -14,4 +14,10 @@ DeepSeek agreed with the freeze, but its cheapest static boundary proposal overl
 
 D2 is now implemented and preregistered. It reuses the locked detector-only C3 candidate cache and whole-image Delta-U endpoint; no GT candidate filtering or larger offline probe was introduced. The only added information is action-conditioned native-NMS topology. Its dedicated control destroys proposal/action alignment while preserving the topology-feature values. Local focused/regression verification passes 46 tests; remote execution remains gated on review, a clean synchronized commit, and the GPU2 reserve calculation.
 
+D2 pairwise-proxy smoke completed with native parity and non-degenerate policies, but all three arms were exactly equal to identity on detector metrics. A post-run Terra audit then identified that the implementation was not an exact native-NMS topology test and that the shuffle control was restored to true topology at evaluation. The result is therefore retained as a negative result for the pairwise top-1 proxy only, not as evidence against native topology. D2b is a bounded correctness repair: class-expanded native kept-set observables and persistent train/eval shuffle, with no new images, actions, GT filtering, loss tuning, or offline capacity expansion.
+
+D2b is implemented with a torchvision-equivalent class-expanded postprocessing trace and an exact-zero identity contract. It enriches the same locked C3 records only after detector/cache alignment checks, leaving Delta-U untouched. The new topology control is shuffled in both train and validation. Focused tests currently pass 27 checks; the next step is the clean remote smoke under the unchanged GPU2 reserve gate.
+
+Pre-launch review caught a subtle identity drift from applying a mathematically zero box transform. D2b now reuses the baseline trace exactly for candidate 0, and its launcher rejects stale artifacts whose HEAD, clean state, source hash, config hash, or scope do not match. The native smoke remains pending commit and remote verification.
+
 See `docs/autonomous_exploration_ledger.md` for the authoritative queue, commands, gates, and artifacts.

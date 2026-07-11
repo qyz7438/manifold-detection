@@ -9,6 +9,7 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     GlobalTop1Target,
     SetContextGlobalTop1PolicyHead,
     ActionTopologyGlobalTop1PolicyHead,
+    NativeActionTopologyGlobalTop1PolicyHead,
     action_conditioned_nms_topology,
     build_global_top1_target,
     flatten_observable_action_logits,
@@ -262,3 +263,40 @@ def test_action_topology_policy_is_proposal_permutation_equivariant() -> None:
     )
     assert torch.allclose(permuted.action_logits, original.action_logits[permutation], atol=1e-6)
     assert torch.allclose(permuted.noop_logit, original.noop_logit, atol=1e-6)
+
+
+def test_native_topology_policy_requires_aligned_topology_and_is_permutation_equivariant() -> None:
+    torch.manual_seed(17)
+    policy = NativeActionTopologyGlobalTop1PolicyHead(
+        in_channels=2,
+        num_classes=3,
+        candidate_deltas=build_native_c1_deltas(0.05),
+        hidden_dim=8,
+        spatial_size=2,
+        topology_dim=8,
+    )
+    torch.nn.init.normal_(policy.topology_head[-1].weight, std=0.1)
+    spatial = torch.randn(3, 2, 3, 3)
+    logits = torch.randn(3, 3)
+    labels = torch.tensor([1, 2, 1])
+    scores = torch.tensor([0.8, 0.7, 0.6])
+    boxes = torch.tensor([[0.0, 0.0, 2.0, 2.0], [1.0, 1.0, 3.0, 3.0], [0.5, 0.5, 2.5, 2.5]])
+    observable = torch.ones(3, dtype=torch.bool)
+    topology = torch.randn(3, 9, 8)
+    original = policy(
+        spatial, logits, labels, scores, boxes, (4, 4), observable,
+        native_topology=topology,
+    )
+    permutation = torch.tensor([2, 0, 1])
+    permuted = policy(
+        spatial[permutation], logits[permutation], labels[permutation], scores[permutation],
+        boxes[permutation], (4, 4), observable[permutation],
+        native_topology=topology[permutation],
+    )
+    assert torch.allclose(permuted.action_logits, original.action_logits[permutation], atol=1e-6)
+    assert torch.allclose(permuted.noop_logit, original.noop_logit, atol=1e-6)
+    with pytest.raises(ValueError, match="native_topology"):
+        policy(
+            spatial, logits, labels, scores, boxes, (4, 4), observable,
+            native_topology=torch.randn(3, 8, 8),
+        )

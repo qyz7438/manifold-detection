@@ -329,6 +329,75 @@ class ActionTopologyGlobalTop1PolicyHead(nn.Module):
         )
 
 
+class NativeActionTopologyGlobalTop1PolicyHead(nn.Module):
+    """Set-context policy consuming class-expanded native-NMS topology."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        num_classes: int,
+        candidate_deltas: torch.Tensor,
+        hidden_dim: int = 96,
+        spatial_size: int = 2,
+        energy_weight: float = 0.05,
+        topology_dim: int = 8,
+    ) -> None:
+        super().__init__()
+        if topology_dim <= 0:
+            raise ValueError("topology_dim must be positive")
+        self.base = SetContextGlobalTop1PolicyHead(
+            in_channels=in_channels,
+            num_classes=num_classes,
+            candidate_deltas=candidate_deltas,
+            hidden_dim=hidden_dim,
+            spatial_size=spatial_size,
+            energy_weight=energy_weight,
+        )
+        self.topology_dim = int(topology_dim)
+        self.topology_head = nn.Sequential(
+            nn.Linear(self.topology_dim, hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, 1),
+        )
+        nn.init.zeros_(self.topology_head[-1].weight)
+        nn.init.zeros_(self.topology_head[-1].bias)
+
+    def forward(
+        self,
+        spatial_features: torch.Tensor,
+        class_logits: torch.Tensor,
+        labels: torch.Tensor,
+        scores: torch.Tensor,
+        boxes: torch.Tensor,
+        image_size: tuple[int, int] | torch.Tensor,
+        observable_mask: torch.Tensor,
+        *,
+        native_topology: torch.Tensor,
+        topology_shuffle_seed: int | None = None,
+    ) -> GlobalTop1Output:
+        output = self.base(
+            spatial_features,
+            class_logits,
+            labels,
+            scores,
+            boxes,
+            image_size,
+            observable_mask,
+        )
+        expected = (boxes.shape[0], self.base.candidate_deltas.shape[0], self.topology_dim)
+        if native_topology.shape != expected:
+            raise ValueError(f"native_topology must have shape {expected}")
+        topology = native_topology.to(device=boxes.device, dtype=spatial_features.dtype)
+        if topology_shuffle_seed is not None:
+            topology = _shuffle_observable_action_topology(topology, observable_mask, topology_shuffle_seed)
+        topology_logits = self.topology_head(topology).squeeze(-1)
+        return GlobalTop1Output(
+            action_logits=output.action_logits + topology_logits,
+            noop_logit=output.noop_logit,
+            conflict_stats=output.conflict_stats,
+        )
+
+
 def _shuffle_observable_action_topology(
     topology: torch.Tensor,
     observable_mask: torch.Tensor,

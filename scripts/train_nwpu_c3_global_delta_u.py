@@ -319,6 +319,7 @@ def train_arm(
         GlobalTop1PolicyHead,
         SetContextGlobalTop1PolicyHead,
         ActionTopologyGlobalTop1PolicyHead,
+        NativeActionTopologyGlobalTop1PolicyHead,
         build_global_top1_target,
         global_top1_balanced_margin_loss,
         global_top1_loss,
@@ -329,7 +330,9 @@ def train_arm(
     arm_records = make_control_records(records, arm, seed)
     deltas = build_native_c1_deltas(float(config["candidate_pool"]["step"])).to(device)
     architecture = config["policy"].get("architecture")
-    if architecture == "action_topology":
+    if architecture == "native_action_topology":
+        policy_class = NativeActionTopologyGlobalTop1PolicyHead
+    elif architecture == "action_topology":
         policy_class = ActionTopologyGlobalTop1PolicyHead
     elif architecture == "set_context":
         policy_class = SetContextGlobalTop1PolicyHead
@@ -338,6 +341,8 @@ def train_arm(
     policy_kwargs = {}
     if architecture == "action_topology":
         policy_kwargs["nms_threshold"] = float(config["detector"]["nms_threshold"])
+    elif architecture == "native_action_topology":
+        policy_kwargs["topology_dim"] = int(config["policy"]["topology_dim"])
     policy = policy_class(
         in_channels=int(records[0]["spatial_features"].shape[1]),
         num_classes=11,
@@ -373,7 +378,9 @@ def train_arm(
                 float(config["utility"]["min_delta_u"]),
             )
             forward_kwargs = {}
-            if architecture == "action_topology" and "topology_shuffle_seed" in record:
+            if architecture == "native_action_topology":
+                forward_kwargs["native_topology"] = record["native_topology"]
+            if architecture in {"action_topology", "native_action_topology"} and "topology_shuffle_seed" in record:
                 forward_kwargs["topology_shuffle_seed"] = int(record["topology_shuffle_seed"])
             output = policy(
                 record["spatial_features"].float(),
@@ -453,7 +460,8 @@ def evaluate_policies(
         for arm in policies
     }
     parity = {"passed": True, "mismatched_images": 0, "max_box_abs_error": 0.0, "max_score_abs_error": 0.0}
-    for images, targets in loader:
+    architecture = config["policy"].get("architecture")
+    for evaluation_image_index, (images, targets) in enumerate(loader):
         images_device = [image.to(device) for image in images]
         target = {key: value.to(device) if torch.is_tensor(value) else value for key, value in targets[0].items()}
         batch = extract_proposal_action_batch(model, images_device, targets=None, box_base="decoded")
@@ -474,7 +482,29 @@ def evaluate_policies(
         predictions["identity"].append(identity_prediction)
         targets_for_metrics.append({key: value.detach().cpu() if torch.is_tensor(value) else value for key, value in target.items()})
         observable = m1._observable_mask(batch.state.logits, batch.state.scores, float(config["candidate_pool"]["min_score"]))
+        native_topology = None
+        if architecture == "native_action_topology":
+            from spectral_detection_posttrain.methods.energy_transport.native_topology import native_action_nms_topology
+
+            decoded_boxes = model.roi_heads.box_coder.decode(batch.box_regression, batch.proposals).clone()
+            class_probabilities = torch.nn.functional.softmax(batch.class_logits, dim=-1)
+            native_topology = native_action_nms_topology(
+                decoded_boxes,
+                class_probabilities,
+                batch.state.labels,
+                batch.image_sizes[0],
+                deltas,
+                observable,
+                score_threshold=float(config["detector"]["score_threshold"]),
+                nms_threshold=float(config["detector"]["nms_threshold"]),
+                detections_per_img=int(config["detector"]["detections_per_image"]),
+            )
         for arm, policy in policies.items():
+            forward_kwargs = {}
+            if native_topology is not None:
+                forward_kwargs["native_topology"] = native_topology
+                if arm == "topology_shuffle":
+                    forward_kwargs["topology_shuffle_seed"] = int(config["controls"]["topology_shuffle_seed"]) + 1009 * evaluation_image_index
             output = policy(
                 batch.spatial_features.float(),
                 batch.class_logits,
@@ -483,6 +513,7 @@ def evaluate_policies(
                 batch.state.boxes,
                 batch.image_sizes[0],
                 observable,
+                **forward_kwargs,
             )
             selection = select_global_top1_action(output, deltas, observable, allow_noop=allow_noop)
             actions = _zero_actions(batch.state)

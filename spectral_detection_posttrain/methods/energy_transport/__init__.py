@@ -68,12 +68,17 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     GlobalTop1Target,
     SetContextGlobalTop1PolicyHead,
     ActionTopologyGlobalTop1PolicyHead,
+    NativeActionTopologyGlobalTop1PolicyHead,
     action_conditioned_nms_topology,
     build_global_top1_target,
     flatten_observable_action_logits,
     global_top1_balanced_margin_loss,
     global_top1_loss,
     select_global_top1_action,
+)
+from spectral_detection_posttrain.methods.energy_transport.native_topology import (
+    NATIVE_TOPOLOGY_FEATURE_NAMES,
+    native_action_nms_topology,
 )
 from spectral_detection_posttrain.methods.energy_transport.high_water_mark import (
     HighWaterMarkLossConfig,
@@ -185,6 +190,8 @@ __all__ = [
     "GlobalTop1Target",
     "SetContextGlobalTop1PolicyHead",
     "ActionTopologyGlobalTop1PolicyHead",
+    "NativeActionTopologyGlobalTop1PolicyHead",
+    "NATIVE_TOPOLOGY_FEATURE_NAMES",
     "FlattenedGlobalLogits",
     "HighWaterMarkLossConfig",
     "HighWaterMarkModuleSnapshot",
@@ -284,5 +291,6 @@ __all__ = [
     "transport_action_energy",
     "action_benefit_energy_loss",
     "action_conditioned_nms_topology",
+    "native_action_nms_topology",
     "set_policy_loss",
 ]
