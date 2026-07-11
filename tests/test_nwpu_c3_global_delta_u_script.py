@@ -121,3 +121,11 @@ def test_source_and_launcher_lock_native_candidate_boundary_and_gpu2() -> None:
     assert "/home/ps/lzz/RLimage" not in launcher
     args = _module().parse_args([])
     assert args.limit_train is None and args.limit_val is None
+
+
+def test_generic_path_supports_detector_only_adaptive_consensus() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert 'architecture == "adaptive_consensus"' in source
+    assert 'forward_kwargs["adaptive_deltas"]' in source
+    assert "proposal_graph_consensus_deltas" in source
+    assert "select_adaptive_consensus_action" in source

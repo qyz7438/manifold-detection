@@ -320,6 +320,7 @@ def train_arm(
         SetContextGlobalTop1PolicyHead,
         ActionTopologyGlobalTop1PolicyHead,
         NativeActionTopologyGlobalTop1PolicyHead,
+        AdaptiveConsensusGlobalTop1PolicyHead,
         build_global_top1_target,
         global_top1_balanced_margin_loss,
         global_top1_loss,
@@ -330,7 +331,9 @@ def train_arm(
     arm_records = make_control_records(records, arm, seed)
     deltas = build_native_c1_deltas(float(config["candidate_pool"]["step"])).to(device)
     architecture = config["policy"].get("architecture")
-    if architecture == "native_action_topology":
+    if architecture == "adaptive_consensus":
+        policy_class = AdaptiveConsensusGlobalTop1PolicyHead
+    elif architecture == "native_action_topology":
         policy_class = NativeActionTopologyGlobalTop1PolicyHead
     elif architecture == "action_topology":
         policy_class = ActionTopologyGlobalTop1PolicyHead
@@ -343,15 +346,17 @@ def train_arm(
         policy_kwargs["nms_threshold"] = float(config["detector"]["nms_threshold"])
     elif architecture == "native_action_topology":
         policy_kwargs["topology_dim"] = int(config["policy"]["topology_dim"])
-    policy = policy_class(
-        in_channels=int(records[0]["spatial_features"].shape[1]),
-        num_classes=11,
-        candidate_deltas=deltas,
-        hidden_dim=int(config["policy"]["hidden_dim"]),
-        spatial_size=int(config["policy"]["spatial_size"]),
-        energy_weight=float(config["policy"]["energy_weight"]),
+    policy_init = {
+        "in_channels": int(records[0]["spatial_features"].shape[1]),
+        "num_classes": 11,
+        "hidden_dim": int(config["policy"]["hidden_dim"]),
+        "spatial_size": int(config["policy"]["spatial_size"]),
+        "energy_weight": float(config["policy"]["energy_weight"]),
         **policy_kwargs,
-    ).to(device)
+    }
+    if architecture != "adaptive_consensus":
+        policy_init["candidate_deltas"] = deltas
+    policy = policy_class(**policy_init).to(device)
     optimizer = torch.optim.AdamW(
         [parameter for parameter in policy.parameters() if parameter.requires_grad],
         lr=float(config["training"]["lr"]),
@@ -380,6 +385,8 @@ def train_arm(
             forward_kwargs = {}
             if architecture == "native_action_topology":
                 forward_kwargs["native_topology"] = record["native_topology"]
+            elif architecture == "adaptive_consensus":
+                forward_kwargs["adaptive_deltas"] = record["adaptive_deltas"]
             if architecture in {"action_topology", "native_action_topology"} and "topology_shuffle_seed" in record:
                 forward_kwargs["topology_shuffle_seed"] = int(record["topology_shuffle_seed"])
             output = policy(
@@ -443,7 +450,10 @@ def evaluate_policies(
     allow_noop: bool = True,
 ) -> dict[str, Any]:
     from spectral_detection_posttrain.eval.detection_metrics import evaluate_detection_predictions
-    from spectral_detection_posttrain.methods.energy_transport.global_top1 import select_global_top1_action
+    from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
+        select_adaptive_consensus_action,
+        select_global_top1_action,
+    )
     from spectral_detection_posttrain.methods.energy_transport.native_contract import build_native_c1_deltas
     from spectral_detection_posttrain.trainers.detection.action_local_transport import (
         action_batch_to_predictions,
@@ -482,7 +492,9 @@ def evaluate_policies(
         predictions["identity"].append(identity_prediction)
         targets_for_metrics.append({key: value.detach().cpu() if torch.is_tensor(value) else value for key, value in target.items()})
         observable = m1._observable_mask(batch.state.logits, batch.state.scores, float(config["candidate_pool"]["min_score"]))
+        policy_observable = observable
         native_topology = None
+        adaptive_deltas = None
         if architecture == "native_action_topology":
             from spectral_detection_posttrain.methods.energy_transport.native_topology import native_action_nms_topology
 
@@ -499,12 +511,28 @@ def evaluate_policies(
                 nms_threshold=float(config["detector"]["nms_threshold"]),
                 detections_per_img=int(config["detector"]["detections_per_image"]),
             )
+        elif architecture == "adaptive_consensus":
+            from spectral_detection_posttrain.methods.energy_transport.adaptive_consensus import (
+                proposal_graph_consensus_deltas,
+            )
+
+            adaptive_deltas = proposal_graph_consensus_deltas(
+                batch.state.boxes,
+                batch.state.labels,
+                batch.state.scores,
+                observable,
+                min_peer_iou=float(config["adaptive_consensus"]["min_peer_iou"]),
+                max_abs_delta=float(config["adaptive_consensus"]["max_abs_delta"]),
+            )
+            policy_observable = observable & adaptive_deltas.abs().amax(dim=1).gt(0.0)
         for arm, policy in policies.items():
             forward_kwargs = {}
             if native_topology is not None:
                 forward_kwargs["native_topology"] = native_topology
                 if arm == "topology_shuffle":
                     forward_kwargs["topology_shuffle_seed"] = int(config["controls"]["topology_shuffle_seed"]) + 1009 * evaluation_image_index
+            elif adaptive_deltas is not None:
+                forward_kwargs["adaptive_deltas"] = adaptive_deltas
             output = policy(
                 batch.spatial_features.float(),
                 batch.class_logits,
@@ -512,10 +540,18 @@ def evaluate_policies(
                 batch.state.scores,
                 batch.state.boxes,
                 batch.image_sizes[0],
-                observable,
+                policy_observable,
                 **forward_kwargs,
             )
-            selection = select_global_top1_action(output, deltas, observable, allow_noop=allow_noop)
+            if adaptive_deltas is not None:
+                selection = select_adaptive_consensus_action(
+                    output,
+                    adaptive_deltas,
+                    policy_observable,
+                    allow_noop=allow_noop,
+                )
+            else:
+                selection = select_global_top1_action(output, deltas, policy_observable, allow_noop=allow_noop)
             actions = _zero_actions(batch.state)
             actions.box_delta.copy_(selection.box_delta)
             prediction = action_batch_to_predictions(

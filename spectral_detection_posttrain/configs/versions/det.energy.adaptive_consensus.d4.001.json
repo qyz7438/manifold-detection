@@ -1,0 +1,40 @@
+{
+  "version_id": "det.energy.adaptive_consensus.d4.001",
+  "status": "preregistered_final_bbox_action_smoke",
+  "source": {
+    "base_config_sha256": "f191933f6299efb3b22af241fbd77b9685f6bb9127b5ea09196418c4352c70a0",
+    "d3_result": "runs/nwpu_d3_fine_action_smoke_s42/eval_metrics.json",
+    "d3_result_sha256": "dd4d00d2a37e168cecc26482eb715e12fbd846bd71856c3ff323a54e086d1a11"
+  },
+  "adaptive_consensus": {
+    "min_peer_iou": 0.30,
+    "max_abs_delta": 0.05,
+    "peer_rule": "observable_same_class_strictly_higher_score",
+    "weight": "score_times_iou",
+    "candidate_count_per_proposal": 1,
+    "max_actions_per_image": 1
+  },
+  "policy_override": {
+    "architecture": "adaptive_consensus",
+    "loss_type": "balanced_margin",
+    "action_margin": 0.2,
+    "rank_margin": 0.2,
+    "actionability_weight": 1.0,
+    "rank_weight": 1.0
+  },
+  "training_override": {"epochs": 8},
+  "arms": ["local_full", "feature_shuffle", "utility_shuffle"],
+  "gates": {
+    "min_candidate_images": 8,
+    "min_noop_images": 2,
+    "min_action_images": 2,
+    "min_selected_count": 3,
+    "min_action_image_rate": 0.10,
+    "max_action_image_rate": 0.90,
+    "min_ap75_delta_vs_identity_exclusive": 0.0,
+    "min_ap50_delta_vs_identity": 0.0,
+    "require_ap75_strictly_above_each_control": true
+  },
+  "decision_rule": "Any gate failure permanently freezes the bbox-adjustment action line. No consensus-rule, IoU-threshold, magnitude, representation, seed, or same-cache tuning. All gates passing permits one locked larger-train/full-val confirmation.",
+  "claim_boundary": "NWPU 32/32 single-seed final bbox-action smoke. A positive result is only adaptive manifold-action information gain, not an AP improvement claim."
+}

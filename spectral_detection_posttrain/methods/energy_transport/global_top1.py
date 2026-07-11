@@ -107,6 +107,99 @@ class GlobalTop1PolicyHead(nn.Module):
         )
 
 
+class AdaptiveConsensusGlobalTop1PolicyHead(nn.Module):
+    """Global top-1/no-op policy for one detector-derived delta per proposal."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        num_classes: int,
+        hidden_dim: int = 96,
+        spatial_size: int = 7,
+        energy_weight: float = 0.05,
+    ) -> None:
+        super().__init__()
+        self.energy_weight = float(energy_weight)
+        self.base = GlobalTop1PolicyHead(
+            in_channels=in_channels,
+            num_classes=num_classes,
+            candidate_deltas=torch.zeros((2, 4)),
+            hidden_dim=hidden_dim,
+            spatial_size=spatial_size,
+            energy_weight=0.0,
+        )
+        self.delta_head = nn.Sequential(
+            nn.Linear(4, hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, 1),
+        )
+        nn.init.zeros_(self.delta_head[-1].weight)
+        nn.init.zeros_(self.delta_head[-1].bias)
+
+    def forward(
+        self,
+        spatial_features: torch.Tensor,
+        class_logits: torch.Tensor,
+        labels: torch.Tensor,
+        scores: torch.Tensor,
+        boxes: torch.Tensor,
+        image_size: tuple[int, int] | torch.Tensor,
+        observable_mask: torch.Tensor,
+        *,
+        adaptive_deltas: torch.Tensor,
+    ) -> GlobalTop1Output:
+        if adaptive_deltas.shape != (boxes.shape[0], 4):
+            raise ValueError("adaptive_deltas must have shape (N, 4)")
+        output = self.base(
+            spatial_features,
+            class_logits,
+            labels,
+            scores,
+            boxes,
+            image_size,
+            observable_mask,
+        )
+        deltas = adaptive_deltas.to(device=boxes.device, dtype=output.action_logits.dtype)
+        action_logits = output.action_logits.clone()
+        adaptive_score = self.delta_head(deltas).squeeze(1)
+        adaptive_score = adaptive_score - self.energy_weight * deltas.square().sum(dim=1) / 0.04
+        available = deltas.abs().amax(dim=1).gt(0.0) & observable_mask.to(device=boxes.device).bool()
+        action_logits[:, 1] = torch.where(
+            available,
+            action_logits[:, 1] + adaptive_score,
+            action_logits.new_full((boxes.shape[0],), -1e9),
+        )
+        return GlobalTop1Output(action_logits, output.noop_logit, output.conflict_stats)
+
+
+def select_adaptive_consensus_action(
+    output: GlobalTop1Output,
+    adaptive_deltas: torch.Tensor,
+    observable_mask: torch.Tensor,
+    *,
+    allow_noop: bool = True,
+) -> GlobalTop1Selection:
+    count = output.action_logits.shape[0]
+    if output.action_logits.shape != (count, 2):
+        raise ValueError("adaptive output action_logits must have shape (N, 2)")
+    if adaptive_deltas.shape != (count, 4) or observable_mask.shape != (count,):
+        raise ValueError("adaptive_deltas and observable_mask must align with proposals")
+    available = observable_mask.to(device=output.action_logits.device).bool()
+    available = available & adaptive_deltas.to(device=output.action_logits.device).abs().amax(dim=1).gt(0.0)
+    rows = torch.nonzero(available, as_tuple=False).flatten()
+    if rows.numel() == 0:
+        return GlobalTop1Selection(True, -1, 0, float(output.noop_logit.item()), adaptive_deltas.new_zeros(adaptive_deltas.shape))
+    scores = output.action_logits[rows, 1]
+    best_position = int(scores.argmax().item())
+    best_row = int(rows[best_position].item())
+    best_logit = float(scores[best_position].item())
+    if allow_noop and float(output.noop_logit.item()) >= best_logit:
+        return GlobalTop1Selection(True, -1, 0, float(output.noop_logit.item()), adaptive_deltas.new_zeros(adaptive_deltas.shape))
+    box_delta = adaptive_deltas.new_zeros(adaptive_deltas.shape)
+    box_delta[best_row] = adaptive_deltas[best_row]
+    return GlobalTop1Selection(False, best_row, 1, best_logit, box_delta)
+
+
 class SetContextGlobalTop1PolicyHead(nn.Module):
     """Permutation-equivariant proposal scorer with detector-visible set context."""
 

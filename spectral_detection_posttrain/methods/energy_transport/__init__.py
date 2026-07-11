@@ -68,6 +68,7 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     GlobalTop1Target,
     SetContextGlobalTop1PolicyHead,
     ActionTopologyGlobalTop1PolicyHead,
+    AdaptiveConsensusGlobalTop1PolicyHead,
     NativeActionTopologyGlobalTop1PolicyHead,
     action_conditioned_nms_topology,
     build_global_top1_target,
@@ -75,10 +76,14 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     global_top1_balanced_margin_loss,
     global_top1_loss,
     select_global_top1_action,
+    select_adaptive_consensus_action,
 )
 from spectral_detection_posttrain.methods.energy_transport.native_topology import (
     NATIVE_TOPOLOGY_FEATURE_NAMES,
     native_action_nms_topology,
+)
+from spectral_detection_posttrain.methods.energy_transport.adaptive_consensus import (
+    proposal_graph_consensus_deltas,
 )
 from spectral_detection_posttrain.methods.energy_transport.high_water_mark import (
     HighWaterMarkLossConfig,
@@ -190,6 +195,7 @@ __all__ = [
     "GlobalTop1Target",
     "SetContextGlobalTop1PolicyHead",
     "ActionTopologyGlobalTop1PolicyHead",
+    "AdaptiveConsensusGlobalTop1PolicyHead",
     "NativeActionTopologyGlobalTop1PolicyHead",
     "NATIVE_TOPOLOGY_FEATURE_NAMES",
     "FlattenedGlobalLogits",
@@ -280,6 +286,7 @@ __all__ = [
     "select_min_energy_box_actions",
     "select_joint_delta_u_actions",
     "select_global_top1_action",
+    "select_adaptive_consensus_action",
     "select_set_policy_actions",
     "set_outcome_from_prediction",
     "should_update_high_water_mark",
@@ -292,5 +299,6 @@ __all__ = [
     "action_benefit_energy_loss",
     "action_conditioned_nms_topology",
     "native_action_nms_topology",
+    "proposal_graph_consensus_deltas",
     "set_policy_loss",
 ]

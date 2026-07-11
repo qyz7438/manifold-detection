@@ -26,4 +26,6 @@ D3 is now preregistered and implemented as that single action-resolution test. I
 
 D3 completed with valid labels, parity, and non-degenerate action selection, but full AP50/AP75 remained exactly identity and did not beat controls. Training accuracy reached 93.75%, so this is another train-to-native-validation transfer failure rather than an optimizer collapse. The fixed-grid branch is frozen. One final bounded D4 will replace fixed axes with detector-only proposal-graph consensus deltas; if it fails, the bbox-adjustment line stops.
 
+D4 is implemented as a deterministic low-energy graph flow: each proposal may move once toward a stronger overlapping same-class proposal consensus, while the learned component only selects top-1/no-op. It uses the same native whole-image endpoint and equal-capacity controls. Focused verification passes 23 tests; a Terra read-only audit is in progress before remote launch.
+
 See `docs/autonomous_exploration_ledger.md` for the authoritative queue, commands, gates, and artifacts.

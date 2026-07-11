@@ -9,6 +9,7 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     GlobalTop1Target,
     SetContextGlobalTop1PolicyHead,
     ActionTopologyGlobalTop1PolicyHead,
+    AdaptiveConsensusGlobalTop1PolicyHead,
     NativeActionTopologyGlobalTop1PolicyHead,
     action_conditioned_nms_topology,
     build_global_top1_target,
@@ -16,6 +17,7 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     global_top1_balanced_margin_loss,
     global_top1_loss,
     select_global_top1_action,
+    select_adaptive_consensus_action,
 )
 from spectral_detection_posttrain.methods.energy_transport.native_contract import build_native_c1_deltas
 
@@ -300,3 +302,38 @@ def test_native_topology_policy_requires_aligned_topology_and_is_permutation_equ
             spatial, logits, labels, scores, boxes, (4, 4), observable,
             native_topology=torch.randn(3, 8, 8),
         )
+
+
+def test_adaptive_consensus_policy_and_selection_are_proposal_aligned() -> None:
+    torch.manual_seed(23)
+    policy = AdaptiveConsensusGlobalTop1PolicyHead(
+        in_channels=2,
+        num_classes=3,
+        hidden_dim=8,
+        spatial_size=2,
+        energy_weight=0.05,
+    )
+    spatial = torch.randn(3, 2, 3, 3)
+    logits = torch.randn(3, 3)
+    labels = torch.tensor([1, 2, 1])
+    scores = torch.tensor([0.8, 0.7, 0.6])
+    boxes = torch.tensor([[0.0, 0.0, 2.0, 2.0], [1.0, 1.0, 3.0, 3.0], [0.5, 0.5, 2.5, 2.5]])
+    observable = torch.ones(3, dtype=torch.bool)
+    deltas = torch.tensor([[0.05, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [-0.05, 0.0, 0.0, 0.0]])
+    output = policy(
+        spatial, logits, labels, scores, boxes, (4, 4), observable,
+        adaptive_deltas=deltas,
+    )
+    assert output.action_logits.shape == (3, 2)
+    assert output.action_logits[1, 1].item() < -1e8
+    forced = GlobalTop1Output(
+        action_logits=torch.tensor([[0.0, 1.0], [0.0, 100.0], [0.0, 2.0]]),
+        noop_logit=torch.tensor(0.5),
+        conflict_stats=output.conflict_stats,
+    )
+    selection = select_adaptive_consensus_action(forced, deltas, observable)
+    assert not selection.is_noop
+    assert selection.proposal_index == 2
+    assert selection.candidate_index == 1
+    assert torch.equal(selection.box_delta[2], deltas[2])
+    assert selection.box_delta[:2].count_nonzero().item() == 0
