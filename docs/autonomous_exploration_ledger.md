@@ -195,3 +195,20 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Focused verification: 18 tests pass; config SHA loads directly; Python compilation and `git diff --check` pass.
 - Estimated GPU peak: 7680 MiB with strict `free - peak > 8192 MiB` launcher gate.
 - Luna's quick review raised the historical `AGENTS.md` RLimage path as a blocker. Codex rejects that finding: the user's repeated current instruction and active autonomous contract explicitly require `/home/ps/lzz/manifold-detection-energy-transport` and forbid writing `/home/ps/lzz/RLimage`. The launcher path is therefore correct.
+
+### D3 Fine-Action Result
+
+- Commit: `c6d4860d3edca247f09bd62547dcfb079cc6742e`.
+- Run: `runs/nwpu_d3_fine_action_smoke_s42`.
+- Artifact SHA256: `dd4d00d2a37e168cecc26482eb715e12fbd846bd71856c3ff323a54e086d1a11`.
+- Recomputed 0.02 Delta-U cache SHA256: `92fe5403a6e6ead3cf7240e1df5e1979ab5bb819ab33eb1f3e759c3c866b0155`.
+- Checkpoints: full `0e5fdb2f17140cfa054ba6000f56fb2d320f597eb8f01cbe46a12d505d56ba86`; feature shuffle `d9e17b1a20a4349fa75fcf98287a81c5e60a436aeaed73346a0a48a7a9155326`; utility shuffle `14f6a7bb7feccc2b9a42b3a6a4d911862867bf11e24c59d8e9019bf93619fe39`.
+- GPU2: 43372 MiB free before launch, 42605 MiB during cache construction, and 43372 MiB after completion. Reserve gate passed; no other process was stopped.
+- Support: 10 action / 22 no-op images. Full selected 7/32 actions, feature shuffle 7/32, utility shuffle 6/32. Full action rate `0.21875`.
+- Full training loss fell `1.0396 -> 0.2073` and accuracy reached `0.9375`; optimization was not degenerate.
+- Identity/full metrics were exactly equal: AP50 `0.7399366`, AP75 `0.4636476`, precision `0.572165`, recall `0.776224`, FPR `0.427835`, ECE `0.119736`, predictions `194`.
+- Feature shuffle: AP50 `0.7404088`, AP75 `0.4637405`, predictions `193`; utility shuffle was exactly identity. Full AP75 minus controls: `-0.0000929` and `0.0`.
+- Gates: label support, native parity, and non-degeneracy passed; detector and control gates failed.
+- Decision: freeze the fixed-grid single-axis action branch. No additional step sweep, seed expansion, or same-cache tuning.
+- DeepSeek agreed with the freeze and proposed one final genuinely different adaptive-consensus action test. Codex rejects its statement that 0.02 actions changed no output at all: the feature-shuffle arm changed prediction count and metrics, while full happened to be metric-inert. The more defensible conclusion is that learned full actions did not create attributable validation benefit.
+- Next hypothesis D4: replace the global fixed action table with one deterministic detector-only graph-consensus delta per proposal, bounded at max absolute `0.05`; learn only top-1/no-op selection under native whole-image Delta-U. This tests an adaptive manifold-flow action rather than another magnitude or representation sweep. One smoke failure freezes the bbox-adjustment action line.

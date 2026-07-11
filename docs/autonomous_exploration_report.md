@@ -24,4 +24,6 @@ D2b completed with exact detector/cache alignment and parity, but failed decisiv
 
 D3 is now preregistered and implemented as that single action-resolution test. It rebuilds native whole-image Delta-U for the same detector-only train images and changes no policy, loss, control, split, or optimization variable from C3b. Local focused verification passes 18 tests; remote execution is pending clean commit/sync and GPU2 reserve checks.
 
+D3 completed with valid labels, parity, and non-degenerate action selection, but full AP50/AP75 remained exactly identity and did not beat controls. Training accuracy reached 93.75%, so this is another train-to-native-validation transfer failure rather than an optimizer collapse. The fixed-grid branch is frozen. One final bounded D4 will replace fixed axes with detector-only proposal-graph consensus deltas; if it fails, the bbox-adjustment line stops.
+
 See `docs/autonomous_exploration_ledger.md` for the authoritative queue, commands, gates, and artifacts.
