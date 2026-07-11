@@ -1,0 +1,67 @@
+{
+  "version_id": "det.energy.dense_local_delta_stats.001",
+  "status": "preregistered_train_only_local_endpoint_diagnostic",
+  "objective": "Test whether the reduced dense teacher supplies continuous bidirectional local Delta-Q labels under detector-only set perturbations after absolute calibration failed.",
+  "sources": {
+    "shift_audit_result": "runs/nwpu_dense_endpoint_shift_audit_s42/eval_metrics.json",
+    "shift_audit_sha256": "62fc164491e325926873771a1941da0fd8f2a94cdb231b48fa12033d66096ce1",
+    "required_status": "calibration_shift_without_feature_ood",
+    "teacher_checkpoint": "runs/nwpu_dense_endpoint_cleanval_s42/local_full/endpoint.pth",
+    "teacher_checkpoint_sha256": "df373ee8611cf3c0e5194d7bf46f176cb3816c4fcee71c37128187e2764f4725"
+  },
+  "dataset": {
+    "scope": "geometry_control_holdout_train_images_only",
+    "image_count": 64,
+    "image_ids_sha256": "cde545e8fb7b29adad9c3901b8ea1590b50ec8dcb1210e41101685f5fdeceefe",
+    "annotation_sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+    "detector_validation_forbidden": true
+  },
+  "detector": {
+    "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "checkpoint": "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+    "checkpoint_sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+    "num_classes": 11,
+    "min_size": 480,
+    "max_size": 480,
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "teacher": {
+    "coverage_temperature": 0.1,
+    "coverage_kappa": 10.0,
+    "target_iou": 0.75,
+    "background_temperature": 0.1,
+    "class_temperature": 0.1,
+    "calibration_temperature": 0.1,
+    "duplicate_temperature": 0.05,
+    "duplicate_nms_reference": 0.5,
+    "duplicate_edge_min_iou": 0.1,
+    "correctness_iou": 0.5,
+    "epsilon": 0.000001
+  },
+  "perturbations": {
+    "top_detections_per_image": 3,
+    "score_step": 0.02,
+    "box_step_fraction": 0.02,
+    "families": ["identity_permutation", "score_down", "score_up", "translate_left", "translate_right", "translate_up", "translate_down", "scale_down", "scale_up", "drop"]
+  },
+  "gates": {
+    "min_images": 60,
+    "identity_max_abs_delta": 0.0000001,
+    "nonzero_fraction_min": 0.5,
+    "positive_fraction_min": 0.1,
+    "negative_fraction_min": 0.1,
+    "unique_rounded_1e6_min": 100,
+    "median_abs_delta_min": 0.01
+  },
+  "resource": {
+    "physical_gpu": 2,
+    "estimated_peak_mib": 6144,
+    "required_post_launch_free_mib_exclusive": 8192,
+    "batch_size": 1,
+    "num_workers": 0
+  },
+  "decision_rule": "All gates must pass to justify a future train-only shift-invariant local Delta-Q learner. Failure freezes the local dense-difference formulation. Passing does not restore the frozen absolute endpoint or authorize detector actions.",
+  "claim_boundary": "Train-only local teacher-label density diagnostic. Perturbations are applied to native post-NMS sets without rerunning detector NMS and are not deployment actions. No model training, detector validation, AP, action utility, or manifold-correction claim."
+}
