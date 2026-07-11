@@ -250,3 +250,20 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Estimated peak: 6144 MiB; launcher requires `free - 6144 > 8192 MiB` on physical GPU2.
 - Broad maintained regression: 106 tests pass. Terra found no other P0/P1 and confirmed detector-only kept candidates, train-utility-only GT, exact suppress/no-op behavior, controls, loss/eval, and hash chain. Its repeated historical RLimage-path warning is rejected under the explicit current manifold-only workspace contract.
 - First remote launch built the clean cache but failed before a completed training arm because the new runner logged balanced-loss accuracy using `row["correct"]` instead of the canonical `row["accuracy"]`. The metric key is now locked by a source regression test; retry count is 1/2.
+
+### E1 Post-NMS Suppress Result
+
+- Completed on retry 1/2 at commit `35ece286a1d356f9624f0dc702ec9cde5c4ae408`.
+- Run: `runs/nwpu_e1_post_nms_suppress_smoke_s42`.
+- Artifact SHA256: `f2e1a65d2fe54f8e85db8db9fc7ab629654514b211f856b04480e3dabf2e7e46`.
+- Cache SHA256: `62c2e6b37414289e925a4904659d74d8ef8ecfd169d75175a1d2b7f59eda27b0`.
+- Checkpoints: full `1d97843427aefaa208632d8e5c57966aa303ba6575908d221eb8b2533abc19cf`; feature shuffle `652429b73a3b555c92949bf158ce59d008ab4e178741860dfafab2879f293f83`; utility shuffle `b0d3bcb71b77914bff3ffa967d761e0e94862ad41d7cce07c5c55a15dcfedc6b`.
+- Candidate support: 276 native post-NMS detections across all 32 train images. Label support: 17 action / 15 no-op images.
+- All three validation policies suppressed on 32/32 images; non-degeneracy failed because action rate was `1.0` versus the locked maximum `0.50`.
+- Full: AP50 `0.620131` (`-0.119806`), AP75 `0.362689` (`-0.100959`), precision `0.574074`, recall `0.650350` (`-0.125874`), FPR `0.425926` (`-0.001909`), ECE `0.125600`, predictions `162` (`-32`).
+- Feature shuffle AP75 `0.352333`; utility shuffle AP75 `0.332512`. Full beat controls by `+0.010356` and `+0.030177`, so the control gate passed despite catastrophic detector/safety failure.
+- Full training loss only fell `1.21793 -> 1.15473`; accuracy ended `0.25`, versus `0.1875/0.15625` controls. This is weak suppress-which information with failed action/no-op separation, not a successful policy.
+- Gates: candidate support, label support, native parity, and control attribution passed; non-degeneracy, detector, and safety gates failed.
+- Decision: freeze post-NMS suppress-only transport. Do not calibrate thresholds, retune loss/capacity, expand seeds, or reinterpret the small FPR improvement as a detector gain.
+- DeepSeek agreed the information is dominated by fatal abstention collapse and recommended stopping rather than opening score modulation on the same whole-image Delta-U endpoint. Codex agrees: the full arm's control advantage is real numerically but scientifically insufficient inside a universal-suppression regime.
+- Research conclusion for this cycle: stop all per-proposal actions driven by the current whole-image Delta-U endpoint. Any future restart must change the endpoint or supervision semantics, not the action representation.

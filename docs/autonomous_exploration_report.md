@@ -32,4 +32,6 @@ D4 found 803 detector-only graph actions across every train image but only one a
 
 E1 is implemented as that structural pivot. It learns a global set-energy decision over the stable native kept set, using detector-only confidence, box, class, and conflict features. Suppression removes exactly one output and cannot trigger an NMS cascade. Local focused verification passes seven checks; remote launch remains gated on broad regression tests, review, clean synchronization, and GPU2 reserve.
 
+E1 completed and exposed weak ranking information but fatal abstention failure. Full beat both shuffled controls on AP75, yet every arm suppressed on every validation image; full AP75 fell by `0.10096` and recall by `0.12587` for only a `0.00191` FPR reduction. The post-NMS interface is frozen. The combined evidence now supports stopping all per-proposal action learning under the current whole-image Delta-U endpoint; future work must change endpoint/supervision semantics rather than action parameterization.
+
 See `docs/autonomous_exploration_ledger.md` for the authoritative queue, commands, gates, and artifacts.
