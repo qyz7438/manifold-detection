@@ -223,6 +223,19 @@ def test_policy_output_diagnostics_separate_gate_margin_and_budget() -> None:
     assert bypassed["eligible_before_budget"] == 2
 
 
+def test_action_margin_only_ablation_removes_move_logits_only() -> None:
+    module = _load_module()
+    output = SimpleNamespace(
+        action_logits=torch.tensor([[0.0, 1.0]]),
+        move_logits=torch.tensor([-3.0]),
+        conflict_stats=torch.tensor([[0.2, 0.0, 0.0, 0.0]]),
+    )
+    ablated = module.action_margin_only_output(output)
+    assert torch.equal(ablated.action_logits, output.action_logits)
+    assert torch.equal(ablated.move_logits, torch.zeros_like(output.move_logits))
+    assert torch.equal(ablated.conflict_stats, output.conflict_stats)
+
+
 def test_beam_labels_map_to_local_candidate_indices_and_identity_is_observable() -> None:
     module = _load_module()
     pool = [

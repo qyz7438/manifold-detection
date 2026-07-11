@@ -462,6 +462,15 @@ def policy_output_diagnostics(
     }
 
 
+def action_margin_only_output(output: Any) -> Any:
+    """Remove the learned move gate while preserving action-vs-noop logits."""
+    return type(output)(
+        action_logits=output.action_logits,
+        move_logits=torch.zeros_like(output.move_logits),
+        conflict_stats=output.conflict_stats,
+    )
+
+
 @torch.no_grad()
 def build_train_cache(model: torch.nn.Module, loader: Any, config: dict[str, Any], device: torch.device, cache_path: Path) -> dict[str, Any]:
     m0 = _load_m0()
@@ -552,6 +561,7 @@ def evaluate_validation(
     device: torch.device,
     *,
     include_move_gate_bypass: bool = False,
+    include_action_margin_only: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     from spectral_detection_posttrain.eval.detection_metrics import evaluate_detection_predictions
     from spectral_detection_posttrain.trainers.detection.action_local_transport import action_batch_to_predictions, extract_proposal_action_batch
@@ -561,6 +571,8 @@ def evaluate_validation(
     modes = list(config["modes"])
     if include_move_gate_bypass:
         modes.append("move_gate_bypass")
+    if include_action_margin_only:
+        modes.append("action_margin_only")
     predictions = {mode: [] for mode in modes}
     targets_for_metrics: list[dict[str, torch.Tensor]] = []
     parity = {"mismatched_images": 0, "max_box_abs_error": 0.0, "max_score_abs_error": 0.0, "passed": True}
@@ -603,7 +615,9 @@ def evaluate_validation(
                     generator = torch.Generator(device=spatial.device).manual_seed(31415 + image_id)
                     spatial = spatial[torch.randperm(spatial.shape[0], generator=generator, device=spatial.device)]
                 output = policy(spatial, batch.class_logits, batch.state.labels, batch.state.scores, batch.state.boxes, image_size=batch.image_sizes[0], energy_weight=0.0 if mode == "energy_zero" else float(config["policy"]["energy_weight"]))
-                require_move_gate = mode != "move_gate_bypass"
+                if mode == "action_margin_only":
+                    output = action_margin_only_output(output)
+                require_move_gate = mode not in {"move_gate_bypass", "action_margin_only"}
                 selected = select_set_policy_actions(
                     output,
                     candidates,
