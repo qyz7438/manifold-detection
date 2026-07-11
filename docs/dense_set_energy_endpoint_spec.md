@@ -106,6 +106,17 @@ Required outputs:
 
 Use a new nested split entirely within NWPU train images:
 
+```text
+manifest: spectral_detection_posttrain/configs/splits/nwpu_dense_endpoint_s42_nested.json
+SHA256: ce19316aeaef1cbdf85f2c9668c5ae2c8443da8e848de2d22ed0f0f3a687e080
+source train: 454 images, SHA256 7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd
+inner-fit: 318 images, SHA256 3314b7d59dccf8df83a11662883b822c874757f7dd6b62356cb91335b434e54f
+inner-tune: 68 images, SHA256 48dc60dacdcfa3e532bc61ca87e08c2dad36ded90ff5dcc82b7a6764188174d0
+outer train-heldout: 68 images, SHA256 4e1acfd60ffdc4a528adeb9fc942d4c1867ff9b2117e5e86089e8f84240fa771
+```
+
+The manifest uses deterministic multilabel stratification over class presence plus object-count bins. Every class has at least three images in inner-tune and outer heldout. Detector validation IDs are absent.
+
 1. inner-fit trains `Q_theta`;
 2. inner-tune selects regularization and a conservative uncertainty threshold;
 3. outer train-heldout is read once for endpoint validation;

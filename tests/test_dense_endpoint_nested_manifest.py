@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 from scripts.build_dense_endpoint_nested_manifest import manifest_hash, partition_train_ids, summarize_split
+
+
+ROOT = Path(__file__).resolve().parents[1]
+LOCKED_MANIFEST = ROOT / "spectral_detection_posttrain" / "configs" / "splits" / "nwpu_dense_endpoint_s42_nested.json"
+LOCKED_MANIFEST_SHA256 = "ce19316aeaef1cbdf85f2c9668c5ae2c8443da8e848de2d22ed0f0f3a687e080"
 
 
 def test_manifest_script_adds_repository_root_for_direct_cli() -> None:
@@ -59,3 +66,21 @@ def test_multilabel_partition_balances_density_tags() -> None:
     for values in split.values():
         supported_bins = {next(tag for tag in image_classes[image_id] if tag >= 100) for image_id in values}
         assert supported_bins == {100, 101, 102, 103}
+
+
+def test_locked_dense_endpoint_manifest_is_train_only_disjoint_and_supported() -> None:
+    assert hashlib.sha256(LOCKED_MANIFEST.read_bytes()).hexdigest() == LOCKED_MANIFEST_SHA256
+    payload = json.loads(LOCKED_MANIFEST.read_text(encoding="utf-8"))
+    assert payload["source"] == {
+        "scope": "full_train_only_never_detector_validation",
+        "count": 454,
+        "image_ids_sha256": "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd",
+    }
+    splits = payload["splits"]
+    assert [splits[name]["count"] for name in ("inner_fit", "inner_tune", "outer_train_heldout")] == [318, 68, 68]
+    id_sets = [set(splits[name]["image_ids"]) for name in ("inner_fit", "inner_tune", "outer_train_heldout")]
+    assert not id_sets[0] & id_sets[1] and not id_sets[0] & id_sets[2] and not id_sets[1] & id_sets[2]
+    assert len(set().union(*id_sets)) == 454
+    for name in ("inner_tune", "outer_train_heldout"):
+        assert set(splits[name]["class_image_support"]) == {str(value) for value in range(1, 11)}
+        assert min(splits[name]["class_image_support"].values()) >= 3

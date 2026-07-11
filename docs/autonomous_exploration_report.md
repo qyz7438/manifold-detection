@@ -91,4 +91,6 @@ Until that endpoint is mathematically specified and preregistered, the correct a
 
 The endpoint draft is now recorded in `docs/dense_set_energy_endpoint_spec.md` and has received a DeepSeek read-only critique. Calibration was changed from an undefined term to soft Brier quality; background and wrong-class risks were separated; identity controls now require strict native-output equivalence. This is a design artifact only. No positive endpoint or detector claim follows from it.
 
+The next endpoint's train-only validation boundary is also locked. The 454 NWPU train images are split into 318 inner-fit, 68 inner-tune, and 68 outer train-heldout images using deterministic multilabel class and object-density stratification. All classes have at least three images in tune and outer. The manifest SHA256 is `ce19316aeaef1cbdf85f2c9668c5ae2c8443da8e848de2d22ed0f0f3a687e080`; detector validation remains untouched.
+
 See `docs/autonomous_exploration_ledger.md` for commands, commits, gates, retries, hashes, and reviewer corrections.
