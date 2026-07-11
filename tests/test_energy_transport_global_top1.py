@@ -92,6 +92,16 @@ def test_global_selection_materializes_at_most_one_c1_action() -> None:
     assert no_action.is_noop is True
     assert no_action.box_delta.count_nonzero().item() == 0
 
+    forced = select_global_top1_action(
+        GlobalTop1Output(output.action_logits, torch.tensor(3.0), output.conflict_stats),
+        deltas,
+        observable_mask=torch.tensor([True, True]),
+        allow_noop=False,
+    )
+    assert forced.is_noop is False
+    assert forced.proposal_index == 1
+    assert forced.candidate_index == 2
+
 
 def test_unified_image_level_loss_backpropagates_to_action_and_noop_scores() -> None:
     deltas = build_native_c1_deltas(0.05)

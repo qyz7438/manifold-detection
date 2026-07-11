@@ -191,6 +191,8 @@ def select_global_top1_action(
     output: GlobalTop1Output,
     candidate_deltas: torch.Tensor,
     observable_mask: torch.Tensor,
+    *,
+    allow_noop: bool = True,
 ) -> GlobalTop1Selection:
     if candidate_deltas.ndim != 2 or candidate_deltas.shape[1] != 4:
         raise ValueError("candidate_deltas must have shape (K, 4)")
@@ -199,7 +201,10 @@ def select_global_top1_action(
     if candidate_deltas[0].count_nonzero().item() != 0:
         raise ValueError("candidate index 0 must be no-op")
     flattened = flatten_observable_action_logits(output, observable_mask)
-    selected_index = int(flattened.logits.argmax().item())
+    if not allow_noop and flattened.logits.numel() > 1:
+        selected_index = int(flattened.logits[1:].argmax().item()) + 1
+    else:
+        selected_index = int(flattened.logits.argmax().item())
     proposal_index = int(flattened.proposal_indices[selected_index].item())
     candidate_index = int(flattened.candidate_indices[selected_index].item())
     box_delta = output.action_logits.new_zeros((output.action_logits.shape[0], 4))

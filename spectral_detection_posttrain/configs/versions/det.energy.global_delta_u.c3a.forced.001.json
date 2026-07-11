@@ -1,0 +1,26 @@
+{
+  "version_id": "det.energy.global_delta_u.c3a.forced.001",
+  "status": "researcher_adaptive_checkpoint_ablation",
+  "source": {
+    "result": "runs/nwpu_c3_global_delta_u_smoke_s42/eval_metrics.json",
+    "result_sha256": "442ad04e688f4162d536206f68e71d8925270701b3e1c68f0056743d5a00a76c",
+    "cache_sha256": "1fa2184945bf5d38b1c47e5b732ffce4bcdd1b57064f4f2eb71d76611304a53e",
+    "checkpoints": {
+      "local_full": "31cf64c00c45641b8b569b21e5565709d28cd9857c2178dc7965265555a01c7f",
+      "feature_shuffle": "57cbc49f1f58077e2a28718bc1de7f15be3d7af2042594d2367475dd8c93fd85",
+      "utility_shuffle": "e1ad0f4409806415ba33828eb4e46e4cf7f9aed12b54c758ff8a8a6e0ca935b0"
+    }
+  },
+  "selection": {
+    "allow_noop": false,
+    "max_actions_per_image": 1,
+    "validation_images": 32
+  },
+  "gates": {
+    "min_selected_count": 2,
+    "min_ap75_delta_vs_identity": 0.0005,
+    "min_ap50_delta_vs_identity": -0.002,
+    "min_ap75_delta_vs_each_control": 0.0005
+  },
+  "claim_boundary": "Reuses C3 smoke checkpoints and validation split to diagnose conditional action ranking. It cannot establish a detector improvement."
+}

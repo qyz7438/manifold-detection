@@ -401,6 +401,8 @@ def evaluate_policies(
     loader: Any,
     config: dict[str, Any],
     device: torch.device,
+    *,
+    allow_noop: bool = True,
 ) -> dict[str, Any]:
     from spectral_detection_posttrain.eval.detection_metrics import evaluate_detection_predictions
     from spectral_detection_posttrain.methods.energy_transport.global_top1 import select_global_top1_action
@@ -451,7 +453,7 @@ def evaluate_policies(
                 batch.image_sizes[0],
                 observable,
             )
-            selection = select_global_top1_action(output, deltas, observable)
+            selection = select_global_top1_action(output, deltas, observable, allow_noop=allow_noop)
             actions = _zero_actions(batch.state)
             actions.box_delta.copy_(selection.box_delta)
             prediction = action_batch_to_predictions(
