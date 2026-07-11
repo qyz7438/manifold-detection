@@ -28,4 +28,6 @@ D3 completed with valid labels, parity, and non-degenerate action selection, but
 
 D4 is implemented as a deterministic low-energy graph flow: each proposal may move once toward a stronger overlapping same-class proposal consensus, while the learned component only selects top-1/no-op. It uses the same native whole-image endpoint and equal-capacity controls. Focused verification passes 23 tests; a Terra read-only audit is in progress before remote launch.
 
+D4 found 803 detector-only graph actions across every train image but only one action-positive image. The label-support gate correctly stopped before training or validation. Together with D1-D3, this freezes the entire pre-NMS single-box bbox-adjustment interface. The next pivot changes the intervention point: one deterministic post-NMS suppress/no-op decision over native kept detections, with boxes, thresholds, and NMS unchanged.
+
 See `docs/autonomous_exploration_ledger.md` for the authoritative queue, commands, gates, and artifacts.

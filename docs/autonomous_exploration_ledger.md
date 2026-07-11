@@ -224,3 +224,16 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Hard stop: any support, parity, action-rate, detector, or control gate failure permanently freezes bbox adjustment. No consensus threshold, weight, magnitude, representation, or seed tuning.
 - Focused verification: 23 tests pass, including graph motion, exclusions, bound/permutation equivariance, adaptive selection alignment, generic train/eval integration, config hash, and launcher contract. Compilation and `git diff --check` pass.
 - Terra found no GT candidate leakage and accepted the graph bound, but noted that cache provenance did not distinguish a dirty run at the same commit. `git_dirty` is now part of the cache manifest, so a clean launcher cannot reuse a dirty-generated cache. Terra again cited the historical RLimage path; Codex rejects that stale instruction in favor of the user's explicit current manifold-only workspace contract.
+
+### D4 Adaptive Consensus Result
+
+- Commit: `678c8f4cf6874ab91f923b5f951c1f8b2944433e`.
+- Run: `runs/nwpu_d4_adaptive_consensus_smoke_s42`.
+- Artifact SHA256: `6f437f7c9e05c718f80dda8ec5f9d1d4e230288f0d2f73207d8e452356c92223`.
+- Cache SHA256: `e8bc77a4ab0b966a47c2705a1440998e753bd62e4cff84e39dd11b08ca44a84c`.
+- Candidate support: 803 detector-only graph actions across all 32 train images; gate passed.
+- Label support: only 1 action-positive image and 31 no-op images; gate failed. No policy was trained, no checkpoint was written, and validation was not read.
+- GPU2 remained above reserve; run ended with 43342 MiB free. Remote tracked worktree remained clean.
+- Decision: permanently freeze pre-NMS bbox-adjustment actions for this detector/checkpoint/endpoint. This includes fixed axes, finer steps, graph consensus, topology variants, and single-box spatial deltas. No threshold/magnitude/consensus/seed/capacity tuning.
+- DeepSeek agreed the early stop is the most informative negative because the candidate set itself is utility-barren. Codex qualifies the strongest wording: D4 disproves this specified higher-score graph-consensus generator, while the combined D1-D4 evidence is what supports freezing the broader single-box bbox interface.
+- Next structural pivot E1: leave native boxes and NMS untouched, then learn at most one post-NMS suppress/no-op action over the stable native kept set. This is a discrete global set-energy decision with deterministic consequences, not another bbox action or NMS-threshold adjustment.
