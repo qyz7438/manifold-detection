@@ -1,0 +1,26 @@
+{
+  "version_id": "det.energy.dense_local_delta_family_audit.001",
+  "status": "locked_posthoc_train_only_diagnostic",
+  "source": {
+    "run_dir": "runs/nwpu_dense_local_delta_learner_s42_48_16",
+    "eval_metrics_sha256": "a7570b9e89e733174272cd06956e6c2646b3fc73274c46e8b04ed71d5f969f30",
+    "pair_cache_sha256": "16758625844bebb617b6ed2552adccb2d58a722966b277677b422ad2ff063c41",
+    "required_status": "train_only_local_delta_learner_frozen",
+    "checkpoint_sha256": {
+      "local_full": "2a1555f275751fbe9850105fcb62756ff95bd144f0a6d223cc8fe1489453e636",
+      "strong_geometry_shuffle": "b11428464a62c8fbef8c666051d93f61445e78ae292a550baa7127fb0e0cf302",
+      "utility_shuffle": "050cf354683d58a4ef817214d85d4e1b4eb99f07c4d3f58da6d1f12632b93d3a"
+    }
+  },
+  "split": "tune_only",
+  "arms": ["local_full", "strong_geometry_shuffle", "utility_shuffle"],
+  "margin_boundaries": [0.000001, 0.01, 0.05],
+  "reporting": {
+    "family_pairs": "all unordered pairs including same-family pairs",
+    "aggregation": ["image_equal", "candidate_weighted"],
+    "minimum_descriptive_support_images": 4,
+    "minimum_descriptive_support_pairs": 20
+  },
+  "decision_rule": "This audit is descriptive only. It cannot change the failed 0.60 pairwise gate, remove difficult perturbation families, reopen the frozen learner, or authorize detector validation/native actions.",
+  "claim_boundary": "Post-hoc analysis of the already reused train-only 16-image tune split. No new training, detector inference, validation data, AP, action utility, or teacher-noise ceiling claim."
+}
