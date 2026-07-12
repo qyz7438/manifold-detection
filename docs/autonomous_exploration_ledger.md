@@ -428,3 +428,12 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Neural and family-prior predictions correlate only `0.24049`; this is descriptive disagreement, not an explained-variance estimate.
 - Decision: no content-conditioned local Delta-Q gain is established. Freeze capacity growth, loss retuning, and family-ID augmentation on the reused split. A future experiment, if pursued, must fit the family prior on fit only, learn only residual `Delta-Q - mean_family`, and evaluate on newly locked train-only images with zero-residual and shuffle controls.
 - DeepSeek agreed that the exact learner should remain frozen and that the family prior is the decisive baseline. Codex rejects three reviewer errors: global-mean pairwise is `0.5`, not `0`; prediction correlation is not variance explained; a constant negative prediction alone has AUROC `0.5`, not `0.69`.
+
+## Residual Protocol Split Gate
+
+- Draft: `docs/dense_local_delta_residual_preregistration.md`; one-shot split builder commit `df400296...`.
+- Fixed source: the 254-image geometry-control fit pool, excluding the old 64-image local-learner source. Proposed capacities were 96 fit, 32 tune, 126 untouched reserve; seed `52042`; rare-first greedy multilabel class+density assignment.
+- The builder was run once on the remote annotation and failed before writing a manifest. Tune class-image support was class 3=`1` and class 8=`1`, below the locked minimum `3`. Fit class 8 support was `3`. All four density bins were represented.
+- Rejected deterministic hashes: fit `098cf446...3113`, tune `4053f4a6...f1b7`, reserve `cb73c0ae...1069`. These identify the failed split only; they are not an authorized manifest.
+- No cache, detector inference, teacher call, training, GPU job, old inner-tune/outer read, or detector-validation read occurred. The seed, capacities, and support gate were not changed and no alternative split was generated.
+- Decision: the proposed residual confirmation is blocked at its preregistered data-support gate. Combined with the stronger family-prior baseline, this ends the current synthetic post-NMS local Delta-Q learner branch.

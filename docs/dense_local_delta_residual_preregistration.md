@@ -2,9 +2,11 @@
 
 ## Status
 
-Design only. This is not yet an executable preregistration. No cache, model, detector inference, validation read, or action run is authorized by this document.
+Blocked design. No cache, model, detector inference, validation read, or action run is authorized by this document.
 
-Before execution, a separate committed config and split manifest must lock the exact 128 image IDs, 96/32 split, source/exclusion hashes, stratification algorithm and version, seed, density bins, tie-breaks, all numerical training parameters, and cache schema. Until those artifacts exist and their SHA256 values are embedded in the runner, this document must not be described as a locked experiment.
+The one-shot split builder at commit `df400296...` was executed once with seed `52042` and failed before writing a manifest: the 32-image tune split contained only one image for class 3 and one for class 8, below the locked minimum of three. Fit class 8 support was also only three images. Density-bin support was complete. Per the no-alternative-manifest rule, the seed, capacities, and threshold were not changed and no second split was generated. This protocol is not executable.
+
+Any future residual study must be proposed as a new researcher-adaptive protocol, not as a repair or continuation of this blocked design.
 
 The preceding learner is frozen. Its tune pairwise accuracy was `0.57469` against a locked `0.60` gate, and a fit-only perturbation-family mean baseline outperformed it on pairwise accuracy, MAE, and sign AUROC. This protocol must not reinterpret that result.
 
