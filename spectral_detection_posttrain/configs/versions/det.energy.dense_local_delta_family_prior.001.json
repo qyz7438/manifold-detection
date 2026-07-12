@@ -1,0 +1,18 @@
+{
+  "version_id": "det.energy.dense_local_delta_family_prior.001",
+  "status": "locked_posthoc_train_only_diagnostic",
+  "source": {
+    "run_dir": "runs/nwpu_dense_local_delta_learner_s42_48_16",
+    "eval_metrics_sha256": "a7570b9e89e733174272cd06956e6c2646b3fc73274c46e8b04ed71d5f969f30",
+    "pair_cache_sha256": "16758625844bebb617b6ed2552adccb2d58a722966b277677b422ad2ff063c41",
+    "local_full_checkpoint_sha256": "2a1555f275751fbe9850105fcb62756ff95bd144f0a6d223cc8fe1489453e636",
+    "required_status": "train_only_local_delta_learner_frozen"
+  },
+  "baseline": {
+    "estimator": "per_family_fit_mean_delta_q",
+    "unseen_family_fallback": "global_fit_mean_delta_q",
+    "identity_prediction": 0.0
+  },
+  "decision_rule": "Descriptive attribution only. The family prior cannot change the failed learner gate or authorize a new learner, detector validation, native actions, or AP claims.",
+  "claim_boundary": "Family means use only the original 48 fit images and are evaluated once on the already reused 16-image train-only tune split. No new detector/teacher inference or training."
+}
