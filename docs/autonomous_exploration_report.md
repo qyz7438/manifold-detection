@@ -126,3 +126,12 @@ The decisive final control is a fit-only perturbation-family prior. A nine-value
 This closes the present local learner branch. A legitimate future test must residualize the fit-only family prior and ask whether detector features predict `Delta-Q - mean_family` on newly locked train-only images. It must beat a zero-residual baseline and both feature/utility shuffles with image-paired uncertainty. Reusing the current 16-image tune split, adding family one-hot features, increasing endpoint capacity, or changing the failed `0.60` gate would be post-hoc optimization and is not authorized.
 
 A residual protocol draft was reviewed and tightened, then its one-shot 96/32 split builder was executed before any cache or training. The split failed the locked class-support gate: tune classes 3 and 8 had only one image each, below the required three. No alternative seed or manifest was tried. The residual confirmation is therefore blocked before GPU work, reinforcing the decision to close this branch rather than optimize around observed results.
+
+## Final Verification
+
+- Final synchronized commit: `b56e00cbbc02f07fdef11b533fbf6b42c106af48` on local, GitHub, and `/home/ps/lzz/manifold-detection-energy-transport`.
+- Maintained test suite: local `549 passed` with UTF-8 subprocess mode; remote `549 passed`. Focused dense/energy/NWPU suite: `191 passed`.
+- Unscoped repository discovery still collects ten historical errors from `legacy/`, archived defense/segmentation modules, and two scripts requiring absent generated `.npz` files. These are outside the maintained `tests/` suite and were not hidden or repaired as part of this research branch.
+- Remote worktree is clean and has no process running from the manifold workspace. GPU2 had `42463 MiB` free at the pre-final audit; other GPU utilization was left untouched.
+- Local worktree differs only by the user's untracked `docs/energy_transport_vs_fpn_sm_analysis.md`, which was never staged or modified.
+- Final artifact hashes: learner `a7570b9e...f30`, family/margin audit `4c0a150e...9b53`, family-prior audit `2d578fd5...481c`.

@@ -437,3 +437,9 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - Rejected deterministic hashes: fit `098cf446...3113`, tune `4053f4a6...f1b7`, reserve `cb73c0ae...1069`. These identify the failed split only; they are not an authorized manifest.
 - No cache, detector inference, teacher call, training, GPU job, old inner-tune/outer read, or detector-validation read occurred. The seed, capacities, and support gate were not changed and no alternative split was generated.
 - Decision: the proposed residual confirmation is blocked at its preregistered data-support gate. Combined with the stronger family-prior baseline, this ends the current synthetic post-NMS local Delta-Q learner branch.
+
+## Final Engineering Audit
+
+- Canonical manifold evaluation shim now binds canonical evaluator globals (`b56e00cb...`), fixing the maintained monkeypatch contract without changing legacy training behavior.
+- Local and remote maintained suites both pass `549` tests; the focused dense/energy/NWPU selection passes `191` tests.
+- Local/GitHub/remote HEAD are synchronized. The remote worktree is clean with no manifold-workspace process. The user's untracked analysis document remains untouched locally.
