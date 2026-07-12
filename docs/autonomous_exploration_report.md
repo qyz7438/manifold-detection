@@ -3,7 +3,7 @@
 ## Status
 
 - Window: 2026-07-12 03:06 to 11:06 Asia/Shanghai.
-- Current status: action line frozen; dense absolute endpoint frozen on its gap gate; shift-invariant local Delta-Q learner is the next warranted train-only experiment.
+- Current status: action line and dense absolute endpoint are frozen; the first shift-invariant local Delta-Q learner also failed its locked pairwise gate and is frozen.
 - Automation: `manifold-autonomous-8h-20260712`, two-hour heartbeat.
 - Project: `/home/ps/lzz/manifold-detection-energy-transport`, branch `codex/energy-guided-roi-transport`.
 - Dataset/scope: NWPU VHR-10, seed 42; historical 32/32 action smoke plus 454-image train-only endpoint development and a one-time 196-image detector-unseen absolute endpoint validation.
@@ -21,7 +21,7 @@ U = tp75 - 0.25 fp75 - 0.10 fp50 - action energy - action count cost
 
 For bbox motion, almost every action leaves native output unchanged and receives only action cost. For post-NMS deletion, utility becomes a four-valued TP/FP lattice that encourages suppression without providing a transferable identity basin. The intended low-energy manifold flow is therefore not represented by that supervision.
 
-The dense set-energy pivot is more promising but not validated as an absolute endpoint. Its detector-unseen ranking and control attribution are strong, while a preregistered train-to-validation gap gate fails because quality prevalence and level shift sharply. A cache-only audit identifies calibration shift without broad feature OOD. The resulting train-only local Delta-Q labels are continuous, bidirectional, and exactly identity-invariant after canonicalization, which warrants the next differential endpoint learner without reviving detector actions.
+The dense set-energy pivot is more informative than the hard action utility, but it is not validated as an absolute or local endpoint. Detector-unseen absolute ranking transfers, yet its preregistered gap gate fails under a quality-level shift. Local Delta-Q labels are continuous, bidirectional, and exactly identity-invariant, but the first differential learner reaches only `0.5747` pooled within-image pairwise accuracy against a locked `0.60` gate. This preserves a weak sign/MAE signal while freezing the learner and all downstream action claims.
 
 ## Experiment Matrix
 
@@ -117,4 +117,10 @@ The detector-unseen validation did not pass every gate. Full ranking remained st
 
 A cache-only diagnosis found calibration shift rather than broad feature OOD. Validation coverage/GT fell `1.17` train standard deviations and error/prediction rose `1.38`, while duplicate energy stayed stable. The model's mean residual was `+1.707`; oracle mean-centering reduced MAE by `39.8%`, yet only `11.7%` of validation sets exceeded the train 95th-percentile feature distance. This is evidence to change the endpoint objective, not to calibrate on validation.
 
-The new candidate objective is local and shift-invariant: learn `Q_theta(S') - Q_theta(S)`. A train-only support audit now passes after fixing exact permutation identity. On 1557 bounded set perturbations, `94.2%` of Delta-Q labels are nonzero, `27.2%` positive, `67.1%` negative, with 1434 unique values and median absolute magnitude `0.0266`. This is qualitatively different from the old hard Delta-U lattice and is the strongest next direction, but no local learner or detector action has yet been validated.
+The local candidate objective was `Q_theta(S') - Q_theta(S)`. Its support audit passed after fixing exact permutation identity: among 1557 bounded perturbations, `94.2%` of labels were nonzero with median absolute magnitude `0.0266`. The subsequent minimal learner did not pass. On the 16-image train-only tune split it improved MAE over zero by `21.9%` and reached sign AUROC `0.6901`, but pooled within-image pairwise accuracy was `0.5747`, below the locked `0.60` gate.
+
+A zero-training family audit reproduced that value and found true image-equal accuracy `0.5715`, so unequal pair counts were not responsible. Accuracy was `0.6429/0.4894/0.6246` across near-zero/medium/large target-margin bands, refuting the idea that tiny target differences alone caused the failure. The image-paired gain over strong geometry shuffle was only `+0.0250` with 95% CI `[-0.0126, 0.0665]`. The learner is therefore frozen rather than enlarged or retuned. The remaining evidence is limited to weak train-only differential predictability; it is not an endpoint validation, action policy, manifold correction, or AP result.
+
+The decisive final control is a fit-only perturbation-family prior. A nine-value lookup table, estimated only on the 48 fit images, achieves tune pairwise `0.6724`, MAE `0.0772`, and sign AUROC `0.7084`; the neural endpoint reaches only `0.5747`, `0.0858`, and `0.6901`. The dominant `drop` family has mean Delta-Q `-0.478`, while score changes are near zero and geometric families occupy intermediate fixed ranges. Current predictability is therefore better explained by action-family identity than by learned image-conditioned set geometry.
+
+This closes the present local learner branch. A legitimate future test must residualize the fit-only family prior and ask whether detector features predict `Delta-Q - mean_family` on newly locked train-only images. It must beat a zero-residual baseline and both feature/utility shuffles with image-paired uncertainty. Reusing the current 16-image tune split, adding family one-hot features, increasing endpoint capacity, or changing the failed `0.60` gate would be post-hoc optimization and is not authorized.

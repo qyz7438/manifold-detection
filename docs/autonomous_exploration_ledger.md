@@ -398,3 +398,33 @@ Learn bounded detector actions when the class-conditioned endpoint is unknown. T
 - V2 commit `84bd1f7e...`, config SHA256 `86b2d70495c8174b22fa325ae76ac0410414ce47da643b81bc8376c4cd26ffc6`; artifact SHA256 `10804a48fae1b3d81d7ebac1b51660524f2008f57a333a4da15ed185fe4d3010`.
 - Identity permutation is exactly `Delta-Q=0`. Across 1557 non-identity train-only perturbations: nonzero `94.22%`, positive `27.17%`, negative `67.05%`, 1434 rounded unique values, median absolute Delta-Q `0.02663`, range `[-6.5105, 1.0147]`.
 - All gates passed. Decision: a future train-only shift-invariant local `Q_theta(S') - Q_theta(S)` learner is warranted. This does not restore the frozen absolute endpoint and does not authorize detector actions; perturbations were applied to native kept sets without rerunning NMS.
+
+## Dense Local Delta-Q Learner Result
+
+- Version/commit: `det.energy.dense_local_delta_learner.001`, `58908126...`; train-only researcher-adaptive split `48/16` inside the locked 64-image source pool.
+- Artifact: `runs/nwpu_dense_local_delta_learner_s42_48_16/eval_metrics.json`, SHA256 `a7570b9e89e733174272cd06956e6c2646b3fc73274c46e8b04ed71d5f969f30`; pair cache SHA256 `16758625844bebb617b6ed2552adccb2d58a722966b277677b422ad2ff063c41`.
+- Full tune metrics: MAE `0.08585` versus zero predictor `0.10997` (`21.94%` relative gain), sign AUROC `0.69011`, exact identity error `0`, and pooled within-image pairwise accuracy `0.57469`.
+- Full-control differences passed the original point-estimate gates: pairwise `+0.03302/+0.05195` and MAE `+0.01298/+0.02334` versus strong-geometry/utility shuffle. Fit-to-tune pairwise gap was `0.06933`.
+- The locked absolute pairwise gate was `0.60`; `0.57469` failed it. Decision: `train_only_local_delta_learner_frozen`. The sign and MAE evidence show weak differential signal, but do not authorize a larger confirmation, detector validation, actions, or AP claims.
+- DeepSeek agreed that freezing is procedurally mandatory and highlighted the Smooth-L1/ranking mismatch. Codex rejects its stronger wording that the result is merely underpowered: only 16 tune images were available, but uncertainty and control attribution must be measured rather than assumed.
+
+## Post-Hoc Family And Margin Audit
+
+- Version/commit: `det.energy.dense_local_delta_family_audit.001`, `923db6a7...`; no new training, detector inference, teacher call, NMS, or validation read.
+- Artifact: `runs/nwpu_dense_local_delta_learner_s42_48_16/family_audit_metrics.json`, SHA256 `4c0a150e97135d44c3eca5b6caeaf74c28a298b6ed0ccd1314f0f5747a399b53`.
+- The original metric name was misleading: it pools eligible pairs across images. Replayed pooled accuracy is exactly `0.57469`; a true per-image-equal aggregation is `0.57147`. Therefore unequal image pair counts do not explain the failure.
+- Margin-stratified image-equal accuracy is `0.6429` for `(1e-6,0.01]`, `0.4894` for `(0.01,0.05]`, and `0.6246` for `>0.05`. Near-zero differences are not the aggregate bottleneck; the medium band is.
+- Image-paired full-minus-strong-geometry gain is `+0.02497`, bootstrap 95% CI `[-0.01264, 0.06651]`; full-minus-utility gain is `+0.04612`, CI `[-0.00610, 0.10028]`. Neither overall interval excludes zero on 16 images.
+- Family behavior is highly heterogeneous. `score_down|translate_up` is `0.28472`, while `score_down|score_up` is `0.88889` and `drop|scale_up` is `0.79861`. Some apparently strong cells are equally strong under controls; they cannot justify deleting difficult families or claiming learned geometry.
+- Decision: the post-hoc audit does not reopen the learner. It refutes image-weighting and near-zero-margin explanations, and it weakens the geometry-attribution story. No larger learner or loss retuning is launched from this reused split.
+
+## Fit-Only Perturbation-Family Prior
+
+- Version/commit: `det.energy.dense_local_delta_family_prior.001`, `d81b27a6...`; no neural training, detector/teacher inference, NMS, or validation read.
+- Artifact: `runs/nwpu_dense_local_delta_learner_s42_48_16/family_prior_metrics.json`, SHA256 `2d578fd55f64f28f5fb2d363dc4d8df7be8997aa9487ae12ca9caa8e016481c6`.
+- A nine-entry lookup table was fitted using only the 48 fit images: each perturbation family maps to its mean fit Delta-Q. It was evaluated once on the already reused 16-image tune split.
+- Family prior versus neural endpoint: pairwise `0.67241` versus `0.57469`; MAE `0.07722` versus `0.08585`; sign AUROC `0.70841` versus `0.69008`. The family prior also improves MAE over zero by `29.78%`, compared with `21.94%` for the neural endpoint.
+- The largest family mean is `drop=-0.47800`; score changes are near zero (`-0.00051/-0.00162`), while scale/translation means range from about `-0.0182` to `-0.0455`. Much of the apparent Delta-Q predictability is therefore explained by perturbation identity rather than image content.
+- Neural and family-prior predictions correlate only `0.24049`; this is descriptive disagreement, not an explained-variance estimate.
+- Decision: no content-conditioned local Delta-Q gain is established. Freeze capacity growth, loss retuning, and family-ID augmentation on the reused split. A future experiment, if pursued, must fit the family prior on fit only, learn only residual `Delta-Q - mean_family`, and evaluate on newly locked train-only images with zero-residual and shuffle controls.
+- DeepSeek agreed that the exact learner should remain frozen and that the family prior is the decisive baseline. Codex rejects three reviewer errors: global-mean pairwise is `0.5`, not `0`; prediction correlation is not variance explained; a constant negative prediction alone has AUROC `0.5`, not `0.69`.
