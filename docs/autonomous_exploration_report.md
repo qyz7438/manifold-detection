@@ -129,7 +129,7 @@ A residual protocol draft was reviewed and tightened, then its one-shot 96/32 sp
 
 ## Final Verification
 
-- Final synchronized commit: `b56e00cbbc02f07fdef11b533fbf6b42c106af48` on local, GitHub, and `/home/ps/lzz/manifold-detection-energy-transport`.
+- Code-under-test commit: `b56e00cbbc02f07fdef11b533fbf6b42c106af48`; only final audit documentation commits follow it.
 - Maintained test suite: local `549 passed` with UTF-8 subprocess mode; remote `549 passed`. Focused dense/energy/NWPU suite: `191 passed`.
 - Unscoped repository discovery still collects ten historical errors from `legacy/`, archived defense/segmentation modules, and two scripts requiring absent generated `.npz` files. These are outside the maintained `tests/` suite and were not hidden or repaired as part of this research branch.
 - Remote worktree is clean and has no process running from the manifold workspace. GPU2 had `42463 MiB` free at the pre-final audit; other GPU utilization was left untouched.
