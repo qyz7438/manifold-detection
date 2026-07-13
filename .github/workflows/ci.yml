@@ -1,0 +1,43 @@
+name: CPU repository checks
+
+on:
+  push:
+    branches: [main, master, codex/repository-research-state-refactor]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  maintained-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Install maintained test requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate repository state
+        run: python scripts/dev/validate_repository_state.py
+
+      - name: Check import boundaries
+        run: python scripts/dev/check_import_boundaries.py
+
+      - name: Check documentation integrity
+        run: python scripts/dev/check_docs.py
+
+      - name: Verify generated research docs are up to date
+        run: python scripts/dev/generate_research_docs.py --check
+
+      - name: Run maintained test suite
+        run: python -m pytest tests -q
+
+  # Legacy and optional-dependency modules are not run in CI.
+  # They require scikit-learn and may depend on local artifacts; run them
+  # manually with: python -m pytest legacy/tests tests -q --optional-only

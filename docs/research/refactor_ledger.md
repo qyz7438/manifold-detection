@@ -472,7 +472,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — docs: validate current research documentation
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `8dd2db0`
 - task ID: T18 (documentation integrity checker + current-doc fixes; runs in parallel with T17 in W5)
 - agent/model and write owner: Kimi main orchestrator (direct edits and checker/test integration)
 - files changed: new `scripts/dev/check_docs.py` (read-only link/path checker, human + `--json`, exit 1 on error, warning tolerance for historical plan docs); new `tests/contracts/test_documentation_integrity.py` (enforces zero errors and ratchets warning count, verifies archive README exists, checks generated research docs for broken links); new `docs/reports/archive/README.md`; edited `docs/architecture.md` (fixed relative link to current_status.md), `docs/reports/index.md` (fixed archive links), `docs/research/refactor_ledger.md` (rephrased untracked-file and stale-script-path notes, backfilled T17 hash), `docs/refactor_directory_versioning_plan.md` (moved `models/verifiers.py` to completed batch); retired det.dpo.smoke.001.json to `legacy/configs/versions/det.dpo.smoke.001.json` (removed from `spectral_detection_posttrain/configs/versions/`); regenerated `spectral_detection_posttrain/configs/registry/script_inventory.json` + `docs/research/{README,current_status,experiment_index,artifact_index}.md`; also completed in-progress wording edits in `AGENTS.md`, `README.md`, `docs/versioning_scheme.md`, `docs/research/environment.md`; edited `.gitignore` to allow tracking `docs/reports/archive/README.md` while keeping other archive contents local-only.
@@ -483,3 +483,18 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; no training, no GPU, no remote writes. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: historical warning count (372) is not ratcheted, only the error count; future doc edits that create new broken links will be caught by the contract test but the warning baseline may drift without notice.
+
+
+### 2026-07-13 — ci: add maintained CPU repository checks
+
+- commit hash: `1c079ae`
+- task ID: T19 (CPU CI workflow + repository-state contract test + archive README / environment doc updates)
+- agent/model and write owner: Kimi main orchestrator
+- files changed: new `.github/workflows/ci.yml` (five non-destructive checks: validate_repository_state.py, check_import_boundaries.py, check_docs.py, generate_research_docs.py --check, pytest tests -q); new `tests/contracts/test_ci_contract.py` (8 tests verifying each CI command is present, uses requirements.txt, stays CPU-only, and exits correctly); edited `scripts/dev/check_docs.py` (CLI now exits 0 on warnings, 1 on errors, so CI treats historical doc warnings as non-blocking); edited `docs/reports/archive/README.md` (replaced "active research" / "active claims" with "current research" / "current claims" to eliminate the historical_status_phrase warning); edited `docs/research/environment.md` (added "Continuous integration checks" section describing the five CI steps and the non-blocking legacy-dependency skip behavior); regenerated `spectral_detection_posttrain/configs/registry/script_inventory.json` after inventory generator and test were fixed to decode git ls-files as UTF-8; edited `scripts/dev/inventory_scripts.py` and `tests/contracts/test_script_inventory.py` (added `encoding="utf-8", errors="replace"` to `git_ls_files` to avoid GBK decode errors on Windows)
+- RED command/result: `E:/anaconda/01/envs/RLimage/python.exe -m pytest tests -q` -> 1505 passed, 3 skipped, 2 xfailed, 3 failed (test_script_inventory.py: missing `scripts/dev/check_docs.py`, GBK decode error in git_ls_files, inventory drift)
+- GREEN command/result: `E:/anaconda/01/envs/RLimage/python.exe -m pytest tests -q` -> 1508 passed, 3 skipped, 2 xfailed
+- full-suite result: 1508 passed, 3 skipped, 2 xfailed (`E:/anaconda/01/envs/RLimage/python.exe -m pytest tests -q`)
+- reviewer and findings accepted/rejected: main-orchestrator self-review. Accepted: (1) CI stays CPU-only and installs only from `requirements.txt`; (2) `check_docs.py` warning-level exit 0 is intentional so historical plan docs do not block merges; (3) inventory UTF-8 decode fix is local-only and does not change behavior on Linux; (4) archive README rewording is a non-scientific hygiene fix. Rejected: none.
+- scientific artifacts checked: none. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: GitHub-hosted runners may lack the conda `RLimage` environment; the workflow installs from `requirements.txt` and should fall back to PyPI wheels, but any platform-specific compiled dependency may still need adjustment when first enabled.

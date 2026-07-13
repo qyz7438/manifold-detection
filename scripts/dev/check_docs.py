@@ -671,18 +671,26 @@ def main(argv: list[str] | None = None) -> int:
 
     result = run_all(args.root)
 
+    errors = [f for f in result["findings"] if f.get("severity") == "error"]
+    error_free = len(errors) == 0
+
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         if result["ok"]:
             print("No documentation integrity findings.")
+        elif error_free:
+            print("Documentation integrity findings (warnings only):")
+            for finding in result["findings"]:
+                print(_format_finding(finding))
+            print("\nSummary:", result["summary"])
         else:
             print("Documentation integrity findings:")
             for finding in result["findings"]:
                 print(_format_finding(finding))
             print("\nSummary:", result["summary"])
 
-    return 0 if result["ok"] else 1
+    return 0 if error_free else 1
 
 
 if __name__ == "__main__":

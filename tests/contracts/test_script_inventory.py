@@ -80,6 +80,8 @@ def git_ls_files(*pathspecs: str) -> list[str]:
         cwd=ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     )
     return [line for line in result.stdout.splitlines() if line]

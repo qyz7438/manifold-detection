@@ -75,6 +75,27 @@ are documented there as comments and recorded in the snapshots as semantic
 notes — they are never installed by default, and no unverified CUDA wheel
 URLs are pinned.
 
+## Continuous integration checks
+
+The maintained CPU check workflow `.github/workflows/ci.yml` runs on every
+push and pull request. It performs five non-destructive repository checks:
+
+1. `python scripts/dev/validate_repository_state.py` — verifies git state,
+   required directories, and environment snapshot presence.
+2. `python scripts/dev/check_import_boundaries.py` — enforces that maintained
+   packages do not import from legacy paths.
+3. `python scripts/dev/check_docs.py` — reports documentation hygiene issues;
+   errors fail the check, historical warnings are reported but do not fail.
+4. `python scripts/dev/generate_research_docs.py --check` — validates that
+   generated research docs are up to date with their sources.
+5. `pytest tests -q` — runs the maintained CPU test suite.
+
+The workflow installs from `requirements.txt`, so it covers only the maintained
+runtime. Tests that require optional legacy dependencies (for example the
+legacy raw-iFFT verifier and dimensionality modules that import scikit-learn)
+are skipped automatically when those packages are absent; this is expected and
+does not indicate a failure.
+
 ## Regenerating the snapshots
 
 Local (Windows, Git Bash):
