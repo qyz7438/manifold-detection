@@ -178,7 +178,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — docs: backfill critical experiment provenance
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `a260d97`
 - task ID: T10 family 3/6 (set-policy)
 - agent/model and write owner: same pipeline as family 1 (coder builder, Terra review, main commit); no new builder output in this commit
 - files changed: `spectral_detection_posttrain/configs/registry/artifacts/det.energy.set_policy.m1.001.json`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, `docs/research/refactor_ledger.md`
@@ -189,3 +189,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: remote cross-check recorded in the family-1 entry covers the M1 result JSON; local run directory hash independently matches. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: 11 manifests remain in the hold directory; transitional suite red persists until family 6.
+
+### 2026-07-13 — docs: backfill critical experiment provenance
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T10 family 4/6 (native-actions)
+- agent/model and write owner: same pipeline as family 1 (coder builder, Terra review, main commit); no new builder output in this commit
+- files changed: `spectral_detection_posttrain/configs/registry/artifacts/det.energy.global_delta_u.c3b.balanced.001.json`, `.../det.energy.native_topology.d2b.001.json`, `.../det.energy.post_nms_suppress.e1.001.json`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, `docs/research/refactor_ledger.md`
+- RED command/result: covered by the family-1 entry
+- GREEN command/result: `pytest tests/experiments/test_artifact_manifest.py tests/experiments/test_generated_research_docs.py tests/contracts/test_script_inventory.py -q` -> 141 passed, 1 skipped; docs generator `--check` clean after regeneration
+- full-suite result: 834 passed + 1 skipped; 12 failed + 9 errors, ALL transitional inside `test_backfilled_artifacts.py` (8 held-out manifests now; shrank by exactly 3 from family 3 as designed)
+- reviewer and findings accepted/rejected: Terra verdict for all three native-actions manifests: ACCEPT. Spot-checks against `docs/autonomous_exploration_ledger.md`: d2b (commit `6a3634d`, artifact sha, identity/full APs, gates, 32-image smoke — all match); c3b (ledger "AP75 fell 0.008688" = manifest `-0.008687760351983542`); all three carry smoke scope with `limit_train/limit_val=32/32` and non-formal wording — no smoke-vs-full-val conflation.
+- scientific artifacts checked: remote cross-check recorded in the family-1 entry covers all three result JSONs. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: 8 manifests remain in the hold directory; transitional suite red persists until family 6.

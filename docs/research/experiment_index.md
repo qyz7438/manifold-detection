@@ -2,6 +2,9 @@
 <!-- generation inputs:
      spectral_detection_posttrain/configs/registry/research_lines.json sha256=8fca2dc9756a973cc5f18c298d9b1dd4edd533fbfb8519f1dcd52285003712dc
      spectral_detection_posttrain/configs/registry/experiments.json sha256=bf983727105c70398a6bcf388ebe0667bfe88f9b3f7c7a9f844d221fd1741cb7
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.global_delta_u.c3b.balanced.001.json sha256=92366b78d4c8fa6a5d65b6e988d0cf666f29bee2d7d469250553ef7fb02028a1
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.native_topology.d2b.001.json sha256=3c1ffe28c276de54d81ba9eea10652ddd142cdc1273b6f2e587af5745540683f
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.post_nms_suppress.e1.001.json sha256=cc6a35c734b7d9b6013bb92f0c2ff6a6d497affc7d52ec350661de54553c2e5c
      spectral_detection_posttrain/configs/registry/artifacts/det.energy.set_policy.m1.001.json sha256=35903ce4991b204b6299160b01d3e9cc6a315b0ae04c818d481de842e38e859c
      spectral_detection_posttrain/configs/registry/artifacts/native_zero_parity_baseline.json sha256=0c5712b8e44fb9a0ee54902bbea11410c10c6cd4ac60180719dbb2e4c0730204
      spectral_detection_posttrain/configs/registry/artifacts/native_zero_parity_fullft.json sha256=588fab40be106cf04f562d22a7687f4eb6af1f8ebc789633a978f4bbbd171b26

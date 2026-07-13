@@ -1,0 +1,73 @@
+{
+  "completion": "completed",
+  "environment": {
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": 64,
+    "kind": "smoke",
+    "limit_train": 32,
+    "limit_val": 32
+  },
+  "experiment_id": "det.energy.post_nms_suppress.e1.001",
+  "gates": {
+    "all_passed": false,
+    "candidate_support": true,
+    "control_delta": true,
+    "detector_delta": false,
+    "label_support": true,
+    "native_parity": true,
+    "non_degenerate": false,
+    "safety": false
+  },
+  "git_commit": "35ece286a1d356f9624f0dc702ec9cde5c4ae408",
+  "git_dirty": false,
+  "inputs": [
+    {
+      "logical_path": "spectral_detection_posttrain/eval/detection_metrics.py",
+      "semantic_kind": "metric_protocol",
+      "sha256": "f5b547d99420c8e0a0d59320671b0ec5eb05ecf279ec4d833f8aeca672a30848",
+      "size_bytes": 12359
+    }
+  ],
+  "invocation": [],
+  "manifest_id": "det.energy.post_nms_suppress.e1.001:nwpu_e1_post_nms_suppress_smoke_s42",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "identity_ap50": 0.7399366265892431,
+    "identity_ap75": 0.4636476212171552,
+    "learned_ap50": 0.6201309300139223,
+    "learned_ap75": 0.362689001207016,
+    "learned_num_predictions": 162,
+    "scientific_status": "post_nms_suppress_frozen",
+    "support_images": 32
+  },
+  "missing_evidence": [
+    "no runtime manifest.json exists for this historical run; runtime_manifest_sha256 binds the primary result JSON instead",
+    "original CLI invocation not recorded in the evidence; entrypoints, where recorded, are documented in spectral_detection_posttrain/configs/registry/experiments.json",
+    "run-time python/torch versions not recorded in the evidence; see spectral_detection_posttrain/configs/registry/environments/ snapshots"
+  ],
+  "observed_at_utc": "2026-07-13T06:21:43Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "7e1f2404699df997883678274491e88d3ec253c0",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/nwpu_e1_post_nms_suppress_smoke_s42/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "f2e1a65d2fe54f8e85db8db9fc7ab629654514b211f856b04480e3dabf2e7e46",
+      "size_bytes": 12451
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "spectral_detection_posttrain/configs/versions/det.energy.post_nms_suppress.e1.001.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "72405a2fdaf19b1b5d9b3ae28b57e21c5c33343e177f8e181273ba4d53ef25bb",
+    "size_bytes": 1798
+  },
+  "run_id": "nwpu_e1_post_nms_suppress_smoke_s42",
+  "runtime_manifest_sha256": "f2e1a65d2fe54f8e85db8db9fc7ab629654514b211f856b04480e3dabf2e7e46",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}

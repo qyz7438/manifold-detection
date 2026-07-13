@@ -1,0 +1,71 @@
+{
+  "completion": "completed",
+  "environment": {
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": 64,
+    "kind": "smoke",
+    "limit_train": 32,
+    "limit_val": 32
+  },
+  "experiment_id": "det.energy.global_delta_u.c3b.balanced.001",
+  "gates": {
+    "all_passed": false,
+    "control_delta": false,
+    "detector_delta": false,
+    "native_parity": true,
+    "non_degenerate": true
+  },
+  "git_commit": "835503af4a9af2f37e098f1d1e1f95a9afa8bafd",
+  "git_dirty": false,
+  "inputs": [
+    {
+      "logical_path": "spectral_detection_posttrain/eval/detection_metrics.py",
+      "semantic_kind": "metric_protocol",
+      "sha256": "f5b547d99420c8e0a0d59320671b0ec5eb05ecf279ec4d833f8aeca672a30848",
+      "size_bytes": 12359
+    }
+  ],
+  "invocation": [],
+  "manifest_id": "det.energy.global_delta_u.c3b.balanced.001:nwpu_c3b_balanced_smoke_s42",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "ap50_delta_vs_identity": 0.009547151743138693,
+    "ap75_delta_vs_identity": -0.008687760351983542,
+    "identity_ap50": 0.7399366265892431,
+    "identity_ap75": 0.4636476212171552,
+    "learned_ap50": 0.7494837783323818,
+    "learned_ap75": 0.45495986086517165,
+    "scientific_status": "current_route_frozen",
+    "support_images": 32
+  },
+  "missing_evidence": [
+    "no runtime manifest.json exists for this historical run; runtime_manifest_sha256 binds the primary result JSON instead",
+    "original CLI invocation not recorded in the evidence; entrypoints, where recorded, are documented in spectral_detection_posttrain/configs/registry/experiments.json",
+    "run-time python/torch versions not recorded in the evidence; see spectral_detection_posttrain/configs/registry/environments/ snapshots"
+  ],
+  "observed_at_utc": "2026-07-13T06:21:43Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "7e1f2404699df997883678274491e88d3ec253c0",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/nwpu_c3b_balanced_smoke_s42/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "f404ea84770ac19c1054d78761feda0f29ad79e78a8ec34c7e4cf6a43e1e9e6a",
+      "size_bytes": 13303
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "spectral_detection_posttrain/configs/versions/det.energy.global_delta_u.c3b.balanced.001.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "c859e31f42faccbb0c87d0807c03dce0b79477389ff85c913363c27f5e7195d0",
+    "size_bytes": 1359
+  },
+  "run_id": "nwpu_c3b_balanced_smoke_s42",
+  "runtime_manifest_sha256": "f404ea84770ac19c1054d78761feda0f29ad79e78a8ec34c7e4cf6a43e1e9e6a",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}
