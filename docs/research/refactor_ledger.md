@@ -426,7 +426,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — chore: archive frozen experiment launchers
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `916739c`
 - task ID: T16 Wave C of 3 (frozen launchers; completes Task 16's three waves)
 - agent/model and write owner: Kimi coder subagent (registry cross-reference + moves + wrappers + manifest/test extension); Kimi main orchestrator adjudicated membership, spot-checked all 3 moves and one wrapper CLI, regenerated inventory and research docs, and committed
 - adjudication: 11 registry records are `frozen_reproduction_only` with existing `scripts/` entrypoints; 8 eliminated by criterion (b) — their read-only `tests/test_*_script.py` files assert old-path source text or slice function bodies (deferred, same class as Wave B); 3 moved, all verified by main: blob-identical, wrapper exists, correct `historical/<line>/` destination, replacement command is the verified dispatcher dry-run. Main spot check: `python scripts/train_nwpu_dense_endpoint_absolute.py --help` prints the frozen-status note with the dispatcher replacement command, then byte-identical argparse help, exit 0. Deferred and reported (not fixed — T18's job): T9's `det.dpo.smoke.001.json` references nonexistent `scripts/round2129_nwpu_posttrain_smoke.py` (four other scripts import it and would fail at import time), and its supervisor lives in `legacy/scripts/` (out of scope).
@@ -438,3 +438,19 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: locked configs and registry records untouched; dispatcher untouched; moved launchers byte-identical. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: 8 source-scanned launchers can only move if their tests stop reading old-path source text (needs a separate decision); the second circular-import fix follows as the next commit; T9 dpo-config path mismatches await T18; the 13 unreferenced Wave-B-deferred files still need a disposition decision.
+
+
+### 2026-07-13 — fix: break policy shim circular import
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: follow-up to T14a, scheduled in the T16 Wave C ledger entry (main-owned import-line fix, same sanctioned precedent as e181501)
+- agent/model and write owner: Kimi main orchestrator (direct edit after mechanism analysis)
+- mechanism: `import energy_transport.set_policy` -> flat shim -> eager `policy/__init__.py` (imports all 8 submodules) -> `policy/global_top1.py:12` imported the flat shim `energy_transport.set_policy`, which was partially initialized -> ImportError. Same shape for `post_nms_suppress.py:11-12` against the `global_top1`/`set_policy` flat shims. Pre-existing at HEAD (the Wave C builder proved `scripts/verify_nwpu_native_c1_contract.py --help` fails identically at HEAD in a fresh process; the c1 script's tests passed only because pytest collection order initializes the package first).
+- files changed: `policy/global_top1.py` line 12 -> canonical `energy_transport.policy.set_policy`; `policy/post_nms_suppress.py` lines 11-12 -> canonical `energy_transport.policy.global_top1` / `.set_policy` (3 import lines total, zero other changes; `global_top1.py:16`'s flat `operators` import analyzed and left: action subpackage has no back-reference path to policy, no cycle possible); `tests/compatibility/test_energy_transport_flat_shims.py` appended with `test_policy_shims_import_is_order_independent` (4 subprocess import scenarios, fresh interpreters); `docs/research/refactor_ledger.md`
+- RED command/result: `python -c "import spectral_detection_posttrain.methods.energy_transport.set_policy"` -> ImportError: cannot import name 'NMSAwareSetPolicyHead' from partially initialized module; `python scripts/verify_nwpu_native_c1_contract.py --help` failed at import for the same reason
+- GREEN command/result: all three flat shims import in fresh interpreters; `verify_nwpu_native_c1_contract.py --help` exits 0 (frozen-status note + argparse help); new regression test -> 1 passed
+- full-suite result: 1454 passed + 1 skipped = 1453+1 baseline + 1 new
+- reviewer and findings accepted/rejected: main self-review; no research semantics touched — 3 import lines resolving to the identical objects the shims re-export (identity covered by the parity suite). Residual class note: any future moved module that imports a flat shim of a sibling in the SAME subpackage can reintroduce this cycle; the two order-independence tests now guard endpoint and policy.
+- scientific artifacts checked: none. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: none specific; T16 is complete (3 waves committed: 35d5e6f, 6344a09, 916739c) and both circular imports found during the waves are fixed. Next: T17/T18 parallel wave.

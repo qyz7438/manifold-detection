@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from spectral_detection_posttrain.methods.energy_transport.set_policy import (
+from spectral_detection_posttrain.methods.energy_transport.policy.set_policy import (
     NMSAwareSetPolicyHead,
     class_aware_conflict_statistics,
 )

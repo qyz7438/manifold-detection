@@ -2306,3 +2306,37 @@ def test_endpoint_dense_endpoint_import_is_order_independent():
             timeout=180,
         )
         assert result.returncode == 0, f"{stmt!r} failed: {result.stderr[-500:]}"
+
+
+def test_policy_shims_import_is_order_independent():
+    """Policy flat shims must import cleanly in fresh interpreters.
+
+    Regression: ``policy/global_top1.py`` and ``policy/post_nms_suppress.py``
+    imported sibling policy modules through the flat shims; combined with the
+    eager ``policy/__init__.py`` this cycled (flat shim -> policy/__init__ ->
+    policy submodule -> partially initialized flat shim) and broke any fresh
+    ``import energy_transport.set_policy`` / ``global_top1`` /
+    ``post_nms_suppress``. The imports now point at canonical
+    ``energy_transport.policy.*`` sibling paths.
+    """
+    import subprocess
+    import sys
+
+    stmts = [
+        "import spectral_detection_posttrain.methods.energy_transport.set_policy",
+        "import spectral_detection_posttrain.methods.energy_transport.global_top1",
+        "import spectral_detection_posttrain.methods.energy_transport.post_nms_suppress",
+        (
+            "import spectral_detection_posttrain.methods.energy_transport.post_nms_suppress; "
+            "import spectral_detection_posttrain.methods.energy_transport.global_top1; "
+            "import spectral_detection_posttrain.methods.energy_transport.set_policy"
+        ),
+    ]
+    for stmt in stmts:
+        result = subprocess.run(
+            [sys.executable, "-c", stmt],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        assert result.returncode == 0, f"{stmt!r} failed: {result.stderr[-500:]}"

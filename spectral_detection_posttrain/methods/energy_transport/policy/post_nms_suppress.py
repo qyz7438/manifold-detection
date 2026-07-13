@@ -8,8 +8,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from spectral_detection_posttrain.methods.energy_transport.global_top1 import GlobalTop1Output
-from spectral_detection_posttrain.methods.energy_transport.set_policy import class_aware_conflict_statistics
+from spectral_detection_posttrain.methods.energy_transport.policy.global_top1 import GlobalTop1Output
+from spectral_detection_posttrain.methods.energy_transport.policy.set_policy import class_aware_conflict_statistics
 
 
 @dataclass(frozen=True)
