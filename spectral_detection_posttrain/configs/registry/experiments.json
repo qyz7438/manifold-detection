@@ -1,0 +1,441 @@
+{
+  "schema_version": "experiments.v1",
+  "records": [
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.native_listwise.c1.001",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": "detection.energy_transport.c1",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.native_listwise.c1.001.json",
+      "legacy_entrypoint": "scripts/verify_nwpu_native_c1_contract.py",
+      "handler": "native_contract",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "limited_unknown",
+        "image_count": null,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.native_budget1.c2.001",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": "detection.energy_transport.c2",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.native_budget1.c2.001.json",
+      "legacy_entrypoint": "scripts/train_nwpu_c2_native_budget1.py",
+      "handler": "native_contract",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "limited_unknown",
+        "image_count": null,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.global_delta_u.c3.001",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": "detection.energy_transport.c3",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.global_delta_u.c3.001.json",
+      "legacy_entrypoint": "scripts/train_nwpu_c3_global_delta_u.py",
+      "handler": "native_contract",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "smoke",
+        "image_count": 64,
+        "limit_train": 32,
+        "limit_val": 32
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.global_delta_u.c3b.balanced.001",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": "detection.energy_transport.c3b",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.global_delta_u.c3b.balanced.001.json",
+      "legacy_entrypoint": "scripts/train_nwpu_c3b_balanced.py",
+      "handler": "native_contract",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "smoke",
+        "image_count": 64,
+        "limit_train": 32,
+        "limit_val": 32
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest", "action_cache"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.set_context.d1.001",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": "detection.energy_transport.d1",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.set_context.d1.001.json",
+      "legacy_entrypoint": "scripts/train_nwpu_d1_set_context.py",
+      "handler": "native_contract",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "smoke",
+        "image_count": 64,
+        "limit_train": 32,
+        "limit_val": 32
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest", "action_cache"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.native_topology.d2b.001",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": "detection.energy_transport.d2b",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.native_topology.d2b.001.json",
+      "legacy_entrypoint": "scripts/train_nwpu_d2b_native_topology.py",
+      "handler": "native_contract",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "smoke",
+        "image_count": 64,
+        "limit_train": 32,
+        "limit_val": 32
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest", "action_cache"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.fine_action.d3.001",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": "detection.energy_transport.d3",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.fine_action.d3.001.json",
+      "legacy_entrypoint": "scripts/train_nwpu_d3_fine_action.py",
+      "handler": "native_contract",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "smoke",
+        "image_count": 64,
+        "limit_train": 32,
+        "limit_val": 32
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.adaptive_consensus.d4.001",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": "detection.energy_transport.d4",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.adaptive_consensus.d4.001.json",
+      "legacy_entrypoint": "scripts/train_nwpu_d4_adaptive_consensus.py",
+      "handler": "native_contract",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "smoke",
+        "image_count": 64,
+        "limit_train": 32,
+        "limit_val": 32
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.post_nms_suppress.e1.001",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": "detection.energy_transport.e1",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.post_nms_suppress.e1.001.json",
+      "legacy_entrypoint": "scripts/train_nwpu_e1_post_nms_suppress.py",
+      "handler": "native_contract",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "smoke",
+        "image_count": 64,
+        "limit_train": 32,
+        "limit_val": 32
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.dense_endpoint.absolute.001",
+      "research_line": "energy_transport.dense_absolute_endpoint",
+      "capability": "detection.energy_transport.dense_endpoint_absolute",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.dense_endpoint.absolute.001.json",
+      "legacy_entrypoint": "scripts/train_nwpu_dense_endpoint_absolute.py",
+      "handler": "dense_endpoint",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "train_only",
+        "image_count": 454,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/dense_set_energy_endpoint_spec.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.dense_endpoint.cleanval.001",
+      "research_line": "energy_transport.dense_absolute_endpoint",
+      "capability": "detection.energy_transport.dense_endpoint_cleanval",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.dense_endpoint.cleanval.001.json",
+      "legacy_entrypoint": "scripts/validate_dense_endpoint_cleanval.py",
+      "handler": "dense_endpoint",
+      "runnable": "diagnostic_only",
+      "evaluation_scope": {
+        "kind": "detector_unseen",
+        "image_count": 196,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest", "endpoint_cache"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/dense_set_energy_endpoint_spec.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.dense_local_delta_learner.001",
+      "research_line": "energy_transport.local_delta_q",
+      "capability": "detection.energy_transport.dense_local_delta_learner",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.dense_local_delta_learner.001.json",
+      "legacy_entrypoint": "scripts/train_dense_local_delta_learner.py",
+      "handler": "dense_endpoint",
+      "runnable": "frozen_reproduction_only",
+      "evaluation_scope": {
+        "kind": "limited",
+        "image_count": 64,
+        "limit_train": 48,
+        "limit_val": 16
+      },
+      "required_inputs": ["checkpoint", "annotation", "split_manifest", "teacher_checkpoint"],
+      "expected_outputs": ["eval_metrics", "launcher_log"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/dense_local_delta_residual_preregistration.md"
+    },
+    {
+      "record_kind": "executable_definition",
+      "id": "det.energy.dense_local_delta_family_prior.001",
+      "research_line": "energy_transport.local_delta_q",
+      "capability": "detection.energy_transport.dense_local_delta_family_prior",
+      "config_path": "spectral_detection_posttrain/configs/versions/det.energy.dense_local_delta_family_prior.001.json",
+      "legacy_entrypoint": "scripts/analyze_dense_local_delta_family_prior.py",
+      "handler": "dense_endpoint",
+      "runnable": "diagnostic_only",
+      "evaluation_scope": {
+        "kind": "cache_only",
+        "image_count": 64,
+        "limit_train": 48,
+        "limit_val": 16
+      },
+      "required_inputs": ["pair_cache", "learner_eval_metrics"],
+      "expected_outputs": ["family_prior_metrics"],
+      "gpu_policy": "remote_gpu2_guarded",
+      "decision_document": "docs/dense_local_delta_residual_preregistration.md"
+    },
+    {
+      "record_kind": "historical_artifact",
+      "id": "nwpu_mob_strong_cosine_s42_bs8_36ep",
+      "research_line": "architecture.fpn_sm_afm",
+      "capability": null,
+      "config_path": null,
+      "legacy_entrypoint": null,
+      "handler": null,
+      "runnable": "disabled",
+      "evaluation_scope": {
+        "kind": "full_val",
+        "image_count": 196,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": null,
+      "expected_outputs": null,
+      "gpu_policy": null,
+      "evidence_kind": "full_val_run",
+      "source_evidence_pointer": "docs/reports/nwpu_strong_native_candidate_energy_review_2026-07-10.md",
+      "decision_document": "docs/reports/manifold_research_line_retirement_report_2026-07-10.md"
+    },
+    {
+      "record_kind": "historical_artifact",
+      "id": "native_zero_parity_baseline",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": null,
+      "config_path": null,
+      "legacy_entrypoint": null,
+      "handler": null,
+      "runnable": "disabled",
+      "evaluation_scope": {
+        "kind": "full_val",
+        "image_count": 196,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": null,
+      "expected_outputs": null,
+      "gpu_policy": null,
+      "evidence_kind": "parity_check",
+      "source_evidence_pointer": "docs/reports/nwpu_c0_native_parity_review_2026-07-10.md",
+      "decision_document": "docs/reports/nwpu_c0_native_parity_review_2026-07-10.md"
+    },
+    {
+      "record_kind": "historical_artifact",
+      "id": "native_zero_parity_fullft",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": null,
+      "config_path": null,
+      "legacy_entrypoint": null,
+      "handler": null,
+      "runnable": "disabled",
+      "evaluation_scope": {
+        "kind": "full_val",
+        "image_count": 196,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": null,
+      "expected_outputs": null,
+      "gpu_policy": null,
+      "evidence_kind": "parity_check",
+      "source_evidence_pointer": "docs/reports/nwpu_c0_native_parity_review_2026-07-10.md",
+      "decision_document": "docs/reports/nwpu_c0_native_parity_review_2026-07-10.md"
+    },
+    {
+      "record_kind": "historical_artifact",
+      "id": "det.energy.set_policy.m1.001",
+      "research_line": "energy_transport.native_actions.c1_e1",
+      "capability": null,
+      "config_path": null,
+      "legacy_entrypoint": null,
+      "handler": null,
+      "runnable": "disabled",
+      "evaluation_scope": {
+        "kind": "full_val",
+        "image_count": 196,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": null,
+      "expected_outputs": null,
+      "gpu_policy": null,
+      "evidence_kind": "full_val_run",
+      "source_evidence_pointer": "docs/reports/nwpu_set_action_m0_m1_report_2026-07-10.md",
+      "decision_document": "docs/reports/nwpu_set_action_m0_m1_report_2026-07-10.md"
+    },
+    {
+      "record_kind": "historical_artifact",
+      "id": "det.energy.dense_endpoint.geometry_control.001",
+      "research_line": "energy_transport.dense_absolute_endpoint",
+      "capability": null,
+      "config_path": null,
+      "legacy_entrypoint": null,
+      "handler": null,
+      "runnable": "disabled",
+      "evaluation_scope": {
+        "kind": "train_only",
+        "image_count": 318,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": null,
+      "expected_outputs": null,
+      "gpu_policy": null,
+      "evidence_kind": "train_only_run",
+      "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "historical_artifact",
+      "id": "det.energy.dense_endpoint.shift_audit.001",
+      "research_line": "energy_transport.dense_absolute_endpoint",
+      "capability": null,
+      "config_path": null,
+      "legacy_entrypoint": null,
+      "handler": null,
+      "runnable": "disabled",
+      "evaluation_scope": {
+        "kind": "cache_only",
+        "image_count": null,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": null,
+      "expected_outputs": null,
+      "gpu_policy": null,
+      "evidence_kind": "cache_only_analysis",
+      "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "historical_artifact",
+      "id": "det.energy.dense_local_delta_stats.002",
+      "research_line": "energy_transport.local_delta_q",
+      "capability": null,
+      "config_path": null,
+      "legacy_entrypoint": null,
+      "handler": null,
+      "runnable": "disabled",
+      "evaluation_scope": {
+        "kind": "train_only",
+        "image_count": 64,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": null,
+      "expected_outputs": null,
+      "gpu_policy": null,
+      "evidence_kind": "train_only_run",
+      "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "historical_artifact",
+      "id": "det.energy.dense_local_delta_family_audit.001",
+      "research_line": "energy_transport.local_delta_q",
+      "capability": null,
+      "config_path": null,
+      "legacy_entrypoint": null,
+      "handler": null,
+      "runnable": "disabled",
+      "evaluation_scope": {
+        "kind": "cache_only",
+        "image_count": 16,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": null,
+      "expected_outputs": null,
+      "gpu_policy": null,
+      "evidence_kind": "post_hoc_analysis",
+      "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+      "decision_document": "docs/autonomous_exploration_report.md"
+    }
+  ]
+}

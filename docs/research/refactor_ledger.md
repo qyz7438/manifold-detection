@@ -80,7 +80,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — chore: inventory research scripts and entrypoints
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `fc20975`
 - task ID: T9 (W1 parallel wave). Note: committed before T3, deviating from the Section 8 example order; no files were moved in this task, and the inventory is an input to T3/T7/T10 adjudication.
 - agent/model and write owner: Kimi coder subagent (generator + inventory + tests); Kimi main orchestrator reviewed and committed
 - files changed: `scripts/dev/inventory_scripts.py`, `spectral_detection_posttrain/configs/registry/script_inventory.json`, `tests/contracts/test_script_inventory.py`
@@ -91,3 +91,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; no script was moved, deleted, or executed.
 - rollback command: `git revert <this-commit>`
 - remaining risks: 225 proposed classifications await bounded adjudication before their archive wave (Task 16); scientific status must come from registries, not these heuristic labels.
+
+### 2026-07-13 — feat: register versioned research experiments
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T3
+- agent/model and write owner: Kimi coder subagent (registry + experiments.json + tests); Kimi main orchestrator reviewed and committed
+- files changed: `spectral_detection_posttrain/experiments/registry.py`, `spectral_detection_posttrain/configs/registry/experiments.json`, `tests/experiments/test_experiment_registry.py`
+- RED command/result: `pytest tests/experiments/test_experiment_registry.py -q` -> ModuleNotFoundError: `spectral_detection_posttrain.experiments.registry`
+- GREEN command/result: same command -> 35 passed
+- full-suite result: 747 passed (712 baseline + 35 new)
+- reviewer and findings accepted/rejected: main-orchestrator review. Accepted judgment calls: (1) c2 and c1 scope `limited_unknown` on conflicting/absent scope evidence (non-formal, honest); (2) dense executable records point decision_document at the dense preregistration/spec docs rather than the line-level freeze doc; (3) uniform `gpu_policy: remote_gpu2_guarded`; (4) closed `EVIDENCE_KINDS` vocabulary (6 values); (5) top-level `{"schema_version": "experiments.v1", "records": [...]}` envelope. Mechanically verified: 21 records (13 executable + 8 historical), zero authorized, zero records on active/queued lines, all config/entrypoint/evidence/decision paths exist, historical records carry explicit null execution fields, runnables limited to diagnostic_only/frozen_reproduction_only per the frozen-line mapping. `det.energy.set_policy.m1.001` registered as historical_artifact per plan despite having a version config (committed evidence only, no `runs/` pointer).
+- scientific artifacts checked: none touched; every required backfill ID (union of the 13 executable and 8 historical IDs) resolves. **No experiment is authorized by this refactor** — `can_dispatch` is False for the entire initial registry.
+- rollback command: `git revert <this-commit>`
+- remaining risks: scope determinations marked `limited_unknown` must never be read as formal; handler names are validated as a static set but implemented only in Task 7.
