@@ -50,13 +50,13 @@ from spectral_detection_posttrain.methods.energy_transport.action.contracts impo
     PreferenceBatch,
     ROIActionState,
 )
-from spectral_detection_posttrain.methods.energy_transport.dense_set_energy import (
+from spectral_detection_posttrain.methods.energy_transport.endpoint.dense_set_energy import (
     DenseTeacherComponents,
     DenseTeacherConfig,
     dense_teacher_components,
     robust_scalar_summary,
 )
-from spectral_detection_posttrain.methods.energy_transport.dense_endpoint import (
+from spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint import (
     DenseEndpointOutput,
     DenseSetEnergyEndpoint,
     RobustTeacherStats,

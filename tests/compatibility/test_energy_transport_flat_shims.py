@@ -7,7 +7,9 @@ Refactor plan Task 13 moves the action-core modules (``actions``,
 ``benefit_energy``) into ``energy_transport.native``; Task 14 phase 1 moves
 the policy selection modules (``search``, ``set_search``, ``set_policy``,
 ``global_top1``, ``listwise_noop``, ``joint_delta_u``, ``adaptive_consensus``,
-``post_nms_suppress``) into ``energy_transport.policy``. The flat modules
+``post_nms_suppress``) into ``energy_transport.policy``; Task 14 phase 2 moves
+the endpoint modules (``dense_set_energy``, ``dense_endpoint``) into
+``energy_transport.endpoint``. The flat modules
 remain as pure forwarding shims.
 
 This test pins the migration contract for all three subpackages:
@@ -220,15 +222,36 @@ POLICY_PUBLIC_SYMBOLS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# Public surface of each endpoint module (Task 14 phase 2). Endpoint is the
+# standalone set-energy layer: teacher components plus the permutation-invariant
+# additive endpoint head.
+ENDPOINT_PUBLIC_SYMBOLS: dict[str, tuple[str, ...]] = {
+    "dense_set_energy": (
+        "DenseTeacherComponents",
+        "DenseTeacherConfig",
+        "dense_teacher_components",
+        "robust_scalar_summary",
+    ),
+    "dense_endpoint": (
+        "DenseEndpointOutput",
+        "DenseSetEnergyEndpoint",
+        "RobustTeacherStats",
+        "build_sparse_pair_features",
+        "reduced_teacher_values",
+    ),
+}
+
 SHIM_PUBLIC_SYMBOLS: dict[str, tuple[str, ...]] = {
     **ACTION_PUBLIC_SYMBOLS,
     **NATIVE_PUBLIC_SYMBOLS,
     **POLICY_PUBLIC_SYMBOLS,
+    **ENDPOINT_PUBLIC_SYMBOLS,
 }
 SUBPACKAGE_BY_STEM = {
     **{stem: "action" for stem in ACTION_PUBLIC_SYMBOLS},
     **{stem: "native" for stem in NATIVE_PUBLIC_SYMBOLS},
     **{stem: "policy" for stem in POLICY_PUBLIC_SYMBOLS},
+    **{stem: "endpoint" for stem in ENDPOINT_PUBLIC_SYMBOLS},
 }
 
 _ALL_SYMBOLS = [
@@ -1450,6 +1473,123 @@ def test_post_nms_suppress_parity():
 
 
 # ---------------------------------------------------------------------------
+# 3d. Endpoint set-energy modules: behavioral parity (Task 14 phase 2)
+# ---------------------------------------------------------------------------
+
+
+def _dense_prediction_target():
+    """One fixed prediction/target pair with coverage, class, and duplicate cases."""
+    prediction = {
+        "boxes": torch.tensor(
+            [
+                [0.0, 0.0, 10.0, 10.0],
+                [1.0, 1.0, 10.5, 10.5],
+                [20.0, 20.0, 24.0, 24.0],
+                [30.0, 30.0, 38.0, 38.0],
+            ]
+        ),
+        "scores": torch.tensor([0.9, 0.4, 0.7, 0.6]),
+        "labels": torch.tensor([1, 1, 2, 3]),
+    }
+    target = {
+        "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0], [20.0, 20.0, 25.0, 25.0]]),
+        "labels": torch.tensor([1, 2]),
+    }
+    return prediction, target
+
+
+def test_dense_set_energy_parity():
+    """Teacher components, canonical sorting, and robust summaries."""
+    flat = _flat_module("dense_set_energy")
+    new = _new_module("dense_set_energy")
+    prediction, target = _dense_prediction_target()
+
+    components_flat = flat.dense_teacher_components(prediction, target)
+    components_new = new.dense_teacher_components(prediction, target)
+    _assert_value_equal(components_flat, components_new, "dense teacher components")
+
+    # Canonical sorting makes the teacher permutation-invariant on both paths.
+    permutation = torch.tensor([2, 0, 3, 1])
+    shuffled_prediction = {
+        key: value[permutation] for key, value in prediction.items()
+    }
+    target_permutation = torch.tensor([1, 0])
+    shuffled_target = {key: value[target_permutation] for key, value in target.items()}
+    shuffled_flat = flat.dense_teacher_components(shuffled_prediction, shuffled_target)
+    shuffled_new = new.dense_teacher_components(shuffled_prediction, shuffled_target)
+    _assert_value_equal(shuffled_flat, shuffled_new, "shuffled teacher components")
+    _assert_value_equal(
+        components_flat.detached_dict(),
+        shuffled_flat.detached_dict(),
+        "teacher permutation invariance (flat path)",
+    )
+    _assert_value_equal(
+        components_new.detached_dict(),
+        shuffled_new.detached_dict(),
+        "teacher permutation invariance (new path)",
+    )
+
+    summary_flat = flat.robust_scalar_summary([0.1, 0.4, 0.2, 0.9, 0.3], min_iqr=1e-6)
+    summary_new = new.robust_scalar_summary([0.1, 0.4, 0.2, 0.9, 0.3], min_iqr=1e-6)
+    _assert_value_equal(summary_flat, summary_new, "robust scalar summary")
+
+
+def test_dense_endpoint_parity():
+    """Reduced values, robust stats, pair features, and endpoint head."""
+    flat = _flat_module("dense_endpoint")
+    new = _new_module("dense_endpoint")
+    teacher_flat = _flat_module("dense_set_energy")
+    teacher_new = _new_module("dense_set_energy")
+    prediction, target = _dense_prediction_target()
+
+    values_flat = flat.reduced_teacher_values(
+        teacher_flat.dense_teacher_components(prediction, target)
+    )
+    values_new = new.reduced_teacher_values(
+        teacher_new.dense_teacher_components(prediction, target)
+    )
+    assert torch.equal(values_flat, values_new)
+
+    fit_values = torch.tensor(
+        [[0.3, 0.1, 0.05], [0.5, 0.2, 0.10], [0.4, 0.3, 0.08], [0.6, 0.2, 0.12]]
+    )
+    stats_flat = flat.RobustTeacherStats.fit(fit_values)
+    stats_new = new.RobustTeacherStats.fit(fit_values)
+    _assert_value_equal(stats_flat, stats_new, "robust teacher stats")
+    assert torch.equal(stats_flat.quality(values_flat), stats_new.quality(values_new))
+
+    boxes = prediction["boxes"]
+    scores = prediction["scores"]
+    labels = prediction["labels"]
+    pairs_flat = flat.build_sparse_pair_features(boxes, scores, labels, (64, 64), min_iou=0.1)
+    pairs_new = new.build_sparse_pair_features(boxes, scores, labels, (64, 64), min_iou=0.1)
+    assert torch.equal(pairs_flat, pairs_new)
+
+    node_features = torch.stack((scores, values_flat[0].expand(4), values_flat[1].expand(4)), dim=1)
+    torch.manual_seed(31)
+    head_flat = flat.DenseSetEnergyEndpoint(node_dim=3, pair_dim=5, hidden_dim=8).eval()
+    torch.manual_seed(31)
+    head_new = new.DenseSetEnergyEndpoint(node_dim=3, pair_dim=5, hidden_dim=8).eval()
+    assert list(head_flat.state_dict()) == list(head_new.state_dict()), (
+        "endpoint head state-dict key drift between import paths"
+    )
+    with torch.no_grad():
+        out_flat = head_flat(node_features, pairs_flat)
+        out_new = head_new(node_features, pairs_new)
+    _assert_value_equal(out_flat, out_new, "dense endpoint output")
+
+    # Canonical feature ordering makes the endpoint permutation-invariant.
+    node_permutation = torch.tensor([3, 1, 0, 2])
+    pair_permutation = torch.randperm(pairs_flat.shape[0], generator=torch.Generator().manual_seed(3))
+    with torch.no_grad():
+        shuffled_flat = head_flat(node_features[node_permutation], pairs_flat[pair_permutation])
+        shuffled_new = head_new(node_features[node_permutation], pairs_new[pair_permutation])
+    assert torch.equal(out_flat.quality, shuffled_flat.quality)
+    assert torch.equal(out_new.quality, shuffled_new.quality)
+    assert torch.equal(shuffled_flat.quality, shuffled_new.quality)
+
+
+# ---------------------------------------------------------------------------
 # 4. Hash-locked synthetic checkpoint fixture: strict-load through both paths
 # ---------------------------------------------------------------------------
 
@@ -1560,6 +1700,14 @@ def _fixture_forward(entry: dict, head: torch.nn.Module):
             spec.get("observable", [True] * batch), dtype=torch.bool
         )
         return head(features, observable_mask)
+    if kind == "dense_endpoint_output":
+        node_features = torch.randn(
+            batch, int(init_kwargs["node_dim"]), generator=generator
+        )
+        pair_features = torch.randn(
+            int(spec["pairs"]), int(init_kwargs["pair_dim"]), generator=generator
+        )
+        return head(node_features, pair_features)
     raise AssertionError(f"unknown fixture input_spec kind: {kind}")
 
 
@@ -1604,7 +1752,7 @@ def test_fixture_state_dict_strict_loads_through_both_paths():
 
 
 def test_manifest_covers_every_shimmed_module():
-    """Each action/native/policy module is fixture-backed or explicitly skipped."""
+    """Each action/native/policy/endpoint module is fixture-backed or skipped."""
     manifest = _load_manifest()
     covered = {entry["module"].rsplit(".", 1)[-1] for entry in manifest["fixtures"]}
     skipped = {entry["module"].rsplit(".", 1)[-1] for entry in manifest["skipped"]}

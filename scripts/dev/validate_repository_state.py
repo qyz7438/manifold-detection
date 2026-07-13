@@ -60,6 +60,7 @@ ALLOWED_FIXTURE_PATHS = frozenset(
         "tests/fixtures/checkpoints/native_action_topology_global_top1_head_seed56.pt",
         "tests/fixtures/checkpoints/joint_delta_u_probe_seed57.pt",
         "tests/fixtures/checkpoints/post_nms_suppress_policy_head_seed58.pt",
+        "tests/fixtures/checkpoints/dense_set_energy_endpoint_seed59.pt",
     }
 )
 

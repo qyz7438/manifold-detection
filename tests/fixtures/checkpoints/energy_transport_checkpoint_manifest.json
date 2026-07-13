@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "created": "2026-07-13",
-  "created_by": "refactor plan Task 13 (action core + native migration) + Task 14 phase 1 (policy migration)",
-  "provenance": "SYNTHETIC parity fixtures created in Task 13 (T13) of the repository research-state refactor. These are freshly seeded, randomly initialized CPU state dicts whose ONLY purpose is to verify that the old flat import paths and the new energy_transport.action.* / energy_transport.native.* import paths strict-load the same weights and produce identical outputs. They are not historical experiment weights, carry no trained behavior, and must never be cited as experimental results. Task 14 phase 1 adds the same kind of fixtures for the energy_transport.policy.* heads (set_policy, global_top1, joint_delta_u, post_nms_suppress).",
+  "created_by": "refactor plan Task 13 (action core + native migration) + Task 14 phase 1 (policy migration) + Task 14 phase 2 (endpoint migration)",
+  "provenance": "SYNTHETIC parity fixtures created in Task 13 (T13) of the repository research-state refactor. These are freshly seeded, randomly initialized CPU state dicts whose ONLY purpose is to verify that the old flat import paths and the new energy_transport.action.* / energy_transport.native.* import paths strict-load the same weights and produce identical outputs. They are not historical experiment weights, carry no trained behavior, and must never be cited as experimental results. Task 14 phase 1 adds the same kind of fixtures for the energy_transport.policy.* heads (set_policy, global_top1, joint_delta_u, post_nms_suppress). Task 14 phase 2 adds the same kind of fixture for the energy_transport.endpoint.* head (dense_endpoint).",
   "torch_version": "2.1.0+cu121",
   "fixtures": [
     {
@@ -620,6 +620,37 @@
         "noop_head.bias"
       ],
       "format": "torch.save state_dict, CPU tensors, float32"
+    },
+    {
+      "name": "dense_set_energy_endpoint_seed59",
+      "module": "spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint",
+      "class": "DenseSetEnergyEndpoint",
+      "file": "dense_set_energy_endpoint_seed59.pt",
+      "sha256": "73702561303316c57224d086e457b55b7846cb98d0f38463fd0522793b2c7ee7",
+      "seed": 59,
+      "init_kwargs": {
+        "node_dim": 3,
+        "pair_dim": 5,
+        "hidden_dim": 8
+      },
+      "input_spec": {
+        "kind": "dense_endpoint_output",
+        "batch": 4,
+        "pairs": 3,
+        "seed": 209
+      },
+      "state_dict_keys": [
+        "identity_bias",
+        "unary.0.weight",
+        "unary.0.bias",
+        "unary.2.weight",
+        "unary.2.bias",
+        "pair.0.weight",
+        "pair.0.bias",
+        "pair.2.weight",
+        "pair.2.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32"
     }
   ],
   "skipped": [
@@ -662,6 +693,10 @@
     {
       "module": "spectral_detection_posttrain.methods.energy_transport.policy.adaptive_consensus",
       "reason": "single pure function (proposal_graph_consensus_deltas); no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.endpoint.dense_set_energy",
+      "reason": "frozen dataclasses (DenseTeacherConfig, DenseTeacherComponents) plus pure teacher/summary functions; no torch.nn.Module and no state_dict to serialize"
     }
   ]
 }
