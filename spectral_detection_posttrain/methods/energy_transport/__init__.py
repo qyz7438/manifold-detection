@@ -3,193 +3,16 @@
 This package is the maintained entry point for the new research line where the
 class-conditioned target manifold is unknown.  It models ROI correction as a
 small, constrained action rather than as direct prototype attraction.
+
+The top-level facade loads lazily (PEP 562): public names are imported from
+their defining subpackage module on first attribute access and cached, so
+``import spectral_detection_posttrain.methods.energy_transport`` eager-imports
+nothing from the subpackages and stays insulated from unrelated optional
+dependencies. The documented public surface is ``__all__`` below.
 """
 
-from spectral_detection_posttrain.methods.energy_transport.action.actions import (
-    ActionLocalTransportHead,
-    ROITransportActions,
-    apply_bounded_score_delta,
-    rescue_budget_loss,
-    summarize_score_actions,
-    threshold_preservation_loss,
-    transport_action_energy,
-)
-from spectral_detection_posttrain.methods.energy_transport.native.benefit_energy import (
-    ActionBenefitEnergyHead,
-    ActionBenefitTargets,
-    BenefitEnergyLossConfig,
-    action_benefit_energy_loss,
-    apply_action_benefit_gate,
-    build_action_benefit_targets,
-)
-from spectral_detection_posttrain.methods.energy_transport.native.candidate_energy import (
-    CandidateEnergyLossConfig,
-    CandidateGainLossConfig,
-    CandidateQualityTargets,
-    ContextOnlyCandidateEnergyHead,
-    SpatialCandidateEnergyHead,
-    build_candidate_quality_targets,
-    build_symmetric_box_candidates,
-    candidate_action_energy_loss,
-    candidate_action_gain_loss,
-    select_min_energy_box_actions,
-)
-from spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection import (
-    ConeDecomposition,
-    ConeProjectionEndpoint,
-    compute_class_prototypes,
-    cone_dpog_regularizer,
-    cone_residual_alignment_loss,
-    cross_entropy_energy,
-    decompose_cone_features,
-    local_tangent_energy_endpoint,
-)
-from spectral_detection_posttrain.methods.energy_transport.action.contracts import (
-    ActionOutcome,
-    ConstraintConfig,
-    PreferenceBatch,
-    ROIActionState,
-)
-from spectral_detection_posttrain.methods.energy_transport.endpoint.dense_set_energy import (
-    DenseTeacherComponents,
-    DenseTeacherConfig,
-    dense_teacher_components,
-    robust_scalar_summary,
-)
-from spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint import (
-    DenseEndpointOutput,
-    DenseSetEnergyEndpoint,
-    RobustTeacherStats,
-    build_sparse_pair_features,
-    reduced_teacher_values,
-)
-from spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints import (
-    GeometricConstraintConfig,
-    bbox_aware_action_loss,
-    classify_error_modes,
-    compute_action_local_prototypes,
-    fg_bg_sep_action_loss,
-    geometric_transport_loss,
-    intra_tp_action_loss,
-    loc_err_action_loss,
-)
-from spectral_detection_posttrain.methods.energy_transport.policy.global_top1 import (
-    FlattenedGlobalLogits,
-    GlobalTop1Output,
-    GlobalTop1PolicyHead,
-    GlobalTop1Selection,
-    GlobalTop1Target,
-    SetContextGlobalTop1PolicyHead,
-    ActionTopologyGlobalTop1PolicyHead,
-    AdaptiveConsensusGlobalTop1PolicyHead,
-    NativeActionTopologyGlobalTop1PolicyHead,
-    action_conditioned_nms_topology,
-    build_global_top1_target,
-    flatten_observable_action_logits,
-    global_top1_balanced_margin_loss,
-    global_top1_loss,
-    select_global_top1_action,
-    select_adaptive_consensus_action,
-)
-from spectral_detection_posttrain.methods.energy_transport.native.native_topology import (
-    NATIVE_TOPOLOGY_FEATURE_NAMES,
-    native_action_nms_topology,
-)
-from spectral_detection_posttrain.methods.energy_transport.policy.adaptive_consensus import (
-    proposal_graph_consensus_deltas,
-)
-from spectral_detection_posttrain.methods.energy_transport.policy.post_nms_suppress import (
-    PostNMSSuppression,
-    PostNMSSuppressPolicyHead,
-    build_post_nms_detection_features,
-    select_post_nms_suppression,
-    suppress_detection,
-)
-from spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark import (
-    HighWaterMarkLossConfig,
-    HighWaterMarkModuleSnapshot,
-    ap75_boundary_weights,
-    capture_high_water_mark_module,
-    high_water_mark_action_loss,
-    load_high_water_mark_module,
-    should_update_high_water_mark,
-    stop_high_water_mark_loss,
-)
-from spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u import (
-    GroupHeldoutSplit,
-    JointDeltaULossConfig,
-    JointDeltaUProbe,
-    JointDeltaUSelection,
-    ProposalSetEdges,
-    build_proposal_set_edges,
-    group_heldout_split,
-    joint_delta_u_loss,
-    joint_delta_u_metrics,
-    select_joint_delta_u_actions,
-)
-from spectral_detection_posttrain.methods.energy_transport.diagnostics.joint_probe_validation import (
-    ConservativeCalibration,
-    calibrate_conservative_threshold,
-    calibrated_selection_metrics,
-    constant_utility_baselines,
-    imagewise_pairwise_accuracy,
-    paired_bootstrap_mean_difference,
-    shuffle_edge_topology,
-)
-from spectral_detection_posttrain.methods.energy_transport.action.operators import (
-    apply_box_delta,
-    clip_boxes_to_image,
-)
-from spectral_detection_posttrain.methods.energy_transport.action.preferences import (
-    build_top_bottom_preferences,
-)
-from spectral_detection_posttrain.methods.energy_transport.policy.search import (
-    ActionSearchConfig,
-    ScoreActionSearchResult,
-    apply_score_action_to_prediction,
-    select_min_energy_score_actions,
-)
-from spectral_detection_posttrain.methods.energy_transport.policy.set_policy import (
-    NMSAwareSetPolicyHead,
-    SetPolicyLossConfig,
-    SetPolicyOutput,
-    SetPolicySelection,
-    class_aware_conflict_statistics,
-    select_set_policy_actions,
-    set_policy_loss,
-)
-from spectral_detection_posttrain.methods.energy_transport.policy.set_search import (
-    ActionCandidate,
-    PairedBootstrapSummary,
-    SetOutcome,
-    SetSearchResult,
-    beam_search,
-    deterministic_delta_permutation,
-    greedy_positive_marginal_selection,
-    local_top_b,
-    paired_bootstrap_summary,
-    set_outcome_from_prediction,
-)
-from spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics import (
-    PrototypeBasinGeometry,
-    ROIDualEnergy,
-    ROIStructureSignature,
-    basin_leakage_graph,
-    class_topk_adjacency,
-    centered_relation_matrix,
-    graph_jaccard,
-    inter_class_relation_energy,
-    inter_class_separation_energy,
-    prototype_basin_geometry,
-    prototype_anchor_energy,
-    relation_cka,
-    roi_basin_energy,
-    roi_basin_retention,
-    roi_compactness_energy,
-    roi_dual_energy,
-    roi_structure_signature,
-    simplex_energy,
-)
+import importlib
+
 
 __all__ = [
     "ActionLocalTransportHead",
@@ -336,3 +159,170 @@ __all__ = [
     "suppress_detection",
     "set_policy_loss",
 ]
+
+
+# Static name -> defining-module mapping for the lazy facade. Derived
+# one-to-one from the subpackage public surfaces pinned by
+# tests/compatibility/test_energy_transport_flat_shims.py; every name in
+# ``__all__`` appears exactly once.
+_SYMBOL_MODULES: dict[str, str] = {
+    'ActionLocalTransportHead': 'spectral_detection_posttrain.methods.energy_transport.action.actions',
+    'NMSAwareSetPolicyHead': 'spectral_detection_posttrain.methods.energy_transport.policy.set_policy',
+    'ActionBenefitEnergyHead': 'spectral_detection_posttrain.methods.energy_transport.native.benefit_energy',
+    'ActionBenefitTargets': 'spectral_detection_posttrain.methods.energy_transport.native.benefit_energy',
+    'ActionCandidate': 'spectral_detection_posttrain.methods.energy_transport.policy.set_search',
+    'ActionOutcome': 'spectral_detection_posttrain.methods.energy_transport.action.contracts',
+    'ActionSearchConfig': 'spectral_detection_posttrain.methods.energy_transport.policy.search',
+    'ConeDecomposition': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection',
+    'ConeProjectionEndpoint': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection',
+    'ConstraintConfig': 'spectral_detection_posttrain.methods.energy_transport.action.contracts',
+    'BenefitEnergyLossConfig': 'spectral_detection_posttrain.methods.energy_transport.native.benefit_energy',
+    'CandidateEnergyLossConfig': 'spectral_detection_posttrain.methods.energy_transport.native.candidate_energy',
+    'CandidateGainLossConfig': 'spectral_detection_posttrain.methods.energy_transport.native.candidate_energy',
+    'CandidateQualityTargets': 'spectral_detection_posttrain.methods.energy_transport.native.candidate_energy',
+    'ContextOnlyCandidateEnergyHead': 'spectral_detection_posttrain.methods.energy_transport.native.candidate_energy',
+    'SpatialCandidateEnergyHead': 'spectral_detection_posttrain.methods.energy_transport.native.candidate_energy',
+    'GeometricConstraintConfig': 'spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints',
+    'GlobalTop1Output': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'GlobalTop1PolicyHead': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'GlobalTop1Selection': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'GlobalTop1Target': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'SetContextGlobalTop1PolicyHead': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'ActionTopologyGlobalTop1PolicyHead': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'AdaptiveConsensusGlobalTop1PolicyHead': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'NativeActionTopologyGlobalTop1PolicyHead': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'NATIVE_TOPOLOGY_FEATURE_NAMES': 'spectral_detection_posttrain.methods.energy_transport.native.native_topology',
+    'FlattenedGlobalLogits': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'HighWaterMarkLossConfig': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark',
+    'HighWaterMarkModuleSnapshot': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark',
+    'GroupHeldoutSplit': 'spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u',
+    'ConservativeCalibration': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.joint_probe_validation',
+    'JointDeltaULossConfig': 'spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u',
+    'JointDeltaUProbe': 'spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u',
+    'JointDeltaUSelection': 'spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u',
+    'PreferenceBatch': 'spectral_detection_posttrain.methods.energy_transport.action.contracts',
+    'PairedBootstrapSummary': 'spectral_detection_posttrain.methods.energy_transport.policy.set_search',
+    'ProposalSetEdges': 'spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u',
+    'PrototypeBasinGeometry': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'ROIDualEnergy': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'ROIActionState': 'spectral_detection_posttrain.methods.energy_transport.action.contracts',
+    'ROIStructureSignature': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'ROITransportActions': 'spectral_detection_posttrain.methods.energy_transport.action.actions',
+    'SetPolicyLossConfig': 'spectral_detection_posttrain.methods.energy_transport.policy.set_policy',
+    'SetPolicyOutput': 'spectral_detection_posttrain.methods.energy_transport.policy.set_policy',
+    'SetPolicySelection': 'spectral_detection_posttrain.methods.energy_transport.policy.set_policy',
+    'ScoreActionSearchResult': 'spectral_detection_posttrain.methods.energy_transport.policy.search',
+    'SetOutcome': 'spectral_detection_posttrain.methods.energy_transport.policy.set_search',
+    'SetSearchResult': 'spectral_detection_posttrain.methods.energy_transport.policy.set_search',
+    'apply_bounded_score_delta': 'spectral_detection_posttrain.methods.energy_transport.action.actions',
+    'apply_action_benefit_gate': 'spectral_detection_posttrain.methods.energy_transport.native.benefit_energy',
+    'apply_box_delta': 'spectral_detection_posttrain.methods.energy_transport.action.operators',
+    'apply_score_action_to_prediction': 'spectral_detection_posttrain.methods.energy_transport.policy.search',
+    'ap75_boundary_weights': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark',
+    'basin_leakage_graph': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'beam_search': 'spectral_detection_posttrain.methods.energy_transport.policy.set_search',
+    'build_top_bottom_preferences': 'spectral_detection_posttrain.methods.energy_transport.action.preferences',
+    'build_action_benefit_targets': 'spectral_detection_posttrain.methods.energy_transport.native.benefit_energy',
+    'build_candidate_quality_targets': 'spectral_detection_posttrain.methods.energy_transport.native.candidate_energy',
+    'build_global_top1_target': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'build_symmetric_box_candidates': 'spectral_detection_posttrain.methods.energy_transport.native.candidate_energy',
+    'build_proposal_set_edges': 'spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u',
+    'calibrate_conservative_threshold': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.joint_probe_validation',
+    'calibrated_selection_metrics': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.joint_probe_validation',
+    'capture_high_water_mark_module': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark',
+    'candidate_action_energy_loss': 'spectral_detection_posttrain.methods.energy_transport.native.candidate_energy',
+    'candidate_action_gain_loss': 'spectral_detection_posttrain.methods.energy_transport.native.candidate_energy',
+    'centered_relation_matrix': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'class_topk_adjacency': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'class_aware_conflict_statistics': 'spectral_detection_posttrain.methods.energy_transport.policy.set_policy',
+    'classify_error_modes': 'spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints',
+    'clip_boxes_to_image': 'spectral_detection_posttrain.methods.energy_transport.action.operators',
+    'compute_action_local_prototypes': 'spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints',
+    'compute_class_prototypes': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection',
+    'constant_utility_baselines': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.joint_probe_validation',
+    'cone_dpog_regularizer': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection',
+    'cone_residual_alignment_loss': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection',
+    'cross_entropy_energy': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection',
+    'decompose_cone_features': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection',
+    'deterministic_delta_permutation': 'spectral_detection_posttrain.methods.energy_transport.policy.set_search',
+    'DenseTeacherComponents': 'spectral_detection_posttrain.methods.energy_transport.endpoint.dense_set_energy',
+    'DenseTeacherConfig': 'spectral_detection_posttrain.methods.energy_transport.endpoint.dense_set_energy',
+    'dense_teacher_components': 'spectral_detection_posttrain.methods.energy_transport.endpoint.dense_set_energy',
+    'robust_scalar_summary': 'spectral_detection_posttrain.methods.energy_transport.endpoint.dense_set_energy',
+    'DenseEndpointOutput': 'spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint',
+    'DenseSetEnergyEndpoint': 'spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint',
+    'RobustTeacherStats': 'spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint',
+    'build_sparse_pair_features': 'spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint',
+    'reduced_teacher_values': 'spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint',
+    'fg_bg_sep_action_loss': 'spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints',
+    'flatten_observable_action_logits': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'geometric_transport_loss': 'spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints',
+    'graph_jaccard': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'greedy_positive_marginal_selection': 'spectral_detection_posttrain.methods.energy_transport.policy.set_search',
+    'high_water_mark_action_loss': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark',
+    'group_heldout_split': 'spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u',
+    'global_top1_loss': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'global_top1_balanced_margin_loss': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'intra_tp_action_loss': 'spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints',
+    'inter_class_relation_energy': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'inter_class_separation_energy': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'imagewise_pairwise_accuracy': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.joint_probe_validation',
+    'joint_delta_u_loss': 'spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u',
+    'joint_delta_u_metrics': 'spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u',
+    'local_tangent_energy_endpoint': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection',
+    'local_top_b': 'spectral_detection_posttrain.methods.energy_transport.policy.set_search',
+    'loc_err_action_loss': 'spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints',
+    'load_high_water_mark_module': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark',
+    'bbox_aware_action_loss': 'spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints',
+    'prototype_basin_geometry': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'prototype_anchor_energy': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'paired_bootstrap_summary': 'spectral_detection_posttrain.methods.energy_transport.policy.set_search',
+    'paired_bootstrap_mean_difference': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.joint_probe_validation',
+    'relation_cka': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'roi_basin_energy': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'roi_basin_retention': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'roi_compactness_energy': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'roi_dual_energy': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'roi_structure_signature': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'rescue_budget_loss': 'spectral_detection_posttrain.methods.energy_transport.action.actions',
+    'select_min_energy_score_actions': 'spectral_detection_posttrain.methods.energy_transport.policy.search',
+    'select_min_energy_box_actions': 'spectral_detection_posttrain.methods.energy_transport.native.candidate_energy',
+    'select_joint_delta_u_actions': 'spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u',
+    'select_global_top1_action': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'select_adaptive_consensus_action': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'select_set_policy_actions': 'spectral_detection_posttrain.methods.energy_transport.policy.set_policy',
+    'set_outcome_from_prediction': 'spectral_detection_posttrain.methods.energy_transport.policy.set_search',
+    'should_update_high_water_mark': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark',
+    'simplex_energy': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics',
+    'stop_high_water_mark_loss': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark',
+    'shuffle_edge_topology': 'spectral_detection_posttrain.methods.energy_transport.diagnostics.joint_probe_validation',
+    'summarize_score_actions': 'spectral_detection_posttrain.methods.energy_transport.action.actions',
+    'threshold_preservation_loss': 'spectral_detection_posttrain.methods.energy_transport.action.actions',
+    'transport_action_energy': 'spectral_detection_posttrain.methods.energy_transport.action.actions',
+    'action_benefit_energy_loss': 'spectral_detection_posttrain.methods.energy_transport.native.benefit_energy',
+    'action_conditioned_nms_topology': 'spectral_detection_posttrain.methods.energy_transport.policy.global_top1',
+    'native_action_nms_topology': 'spectral_detection_posttrain.methods.energy_transport.native.native_topology',
+    'proposal_graph_consensus_deltas': 'spectral_detection_posttrain.methods.energy_transport.policy.adaptive_consensus',
+    'PostNMSSuppression': 'spectral_detection_posttrain.methods.energy_transport.policy.post_nms_suppress',
+    'PostNMSSuppressPolicyHead': 'spectral_detection_posttrain.methods.energy_transport.policy.post_nms_suppress',
+    'build_post_nms_detection_features': 'spectral_detection_posttrain.methods.energy_transport.policy.post_nms_suppress',
+    'select_post_nms_suppression': 'spectral_detection_posttrain.methods.energy_transport.policy.post_nms_suppress',
+    'suppress_detection': 'spectral_detection_posttrain.methods.energy_transport.policy.post_nms_suppress',
+    'set_policy_loss': 'spectral_detection_posttrain.methods.energy_transport.policy.set_policy',
+}
+
+
+def __getattr__(name: str):
+    """Import ``name`` from its defining subpackage module on first access."""
+    module_path = _SYMBOL_MODULES.get(name)
+    if module_path is None:
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        )
+    value = getattr(importlib.import_module(module_path), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(__all__)
