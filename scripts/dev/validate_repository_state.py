@@ -40,6 +40,18 @@ FORBIDDEN_DIR_PREFIXES = (
     "data/",
 )
 
+# Exact-path allowlist for tiny, hash-locked test fixtures that would
+# otherwise match an extension rule. Every entry must be synthetic, CPU-safe,
+# a few KB at most, and sha256-pinned by
+# ``tests/fixtures/checkpoints/energy_transport_checkpoint_manifest.json``.
+# Adding an entry is a reviewed, deliberate act — never widen this to a
+# directory prefix.
+ALLOWED_FIXTURE_PATHS = frozenset(
+    {
+        "tests/fixtures/checkpoints/action_local_transport_head_seed42.pt",
+    }
+)
+
 # Extension-based rules: model weights, caches and logs. Deliberately does
 # not include generic ``*.json`` (result records, audit data and configs are
 # legitimately tracked) or document formats like ``*.png``/``*.pdf``/``*.csv``.
@@ -83,6 +95,8 @@ FORBIDDEN_NAMES = frozenset(
 def is_forbidden(path: str) -> bool:
     """Return True if a repo-relative POSIX path should never be tracked."""
     normalized = path.replace("\\", "/")
+    if normalized in ALLOWED_FIXTURE_PATHS:
+        return False
     for prefix in FORBIDDEN_DIR_PREFIXES:
         if normalized.startswith(prefix):
             return True

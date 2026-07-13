@@ -77,3 +77,7 @@ patch_*.py
 docs/reports/archive/
 scripts/legacy/
 tests/legacy/
+
+# T13 parity fixtures are plan-mandated tracked files (tests/fixtures/checkpoints/)
+!tests/fixtures/checkpoints/
+!tests/fixtures/checkpoints/**

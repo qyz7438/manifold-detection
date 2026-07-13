@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "created": "2026-07-13",
+  "created_by": "refactor plan Task 13 (action core migration)",
+  "provenance": "SYNTHETIC parity fixtures created in Task 13 (T13) of the repository research-state refactor. These are freshly seeded, randomly initialized CPU state dicts whose ONLY purpose is to verify that the old flat import paths and the new energy_transport.action.* import paths strict-load the same weights and produce identical outputs. They are not historical experiment weights, carry no trained behavior, and must never be cited as experimental results.",
+  "torch_version": "2.1.0+cu121",
+  "fixtures": [
+    {
+      "name": "action_local_transport_head_seed42",
+      "module": "spectral_detection_posttrain.methods.energy_transport.action.actions",
+      "class": "ActionLocalTransportHead",
+      "file": "action_local_transport_head_seed42.pt",
+      "sha256": "c1424017a6f95763bc67b4738feac355786a1e66d8ee2595ae0f6fdf8bbe4736",
+      "seed": 42,
+      "init_kwargs": {
+        "feature_dim": 16,
+        "hidden_dim": 8,
+        "max_score_delta": 0.2,
+        "max_box_delta": 0.2,
+        "residual_scale": 0.05
+      },
+      "state_dict_keys": [
+        "trunk.0.weight",
+        "trunk.0.bias",
+        "feature_head.weight",
+        "feature_head.bias",
+        "score_head.weight",
+        "score_head.bias",
+        "box_head.weight",
+        "box_head.bias",
+        "keep_head.weight",
+        "keep_head.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32"
+    }
+  ],
+  "skipped": [
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.action.contracts",
+      "reason": "frozen dataclasses only (ConstraintConfig, ROIActionState, ActionOutcome, PreferenceBatch); no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.action.operators",
+      "reason": "pure tensor functions only (apply_box_delta, clip_boxes_to_image); no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.action.preferences",
+      "reason": "single pure function (build_top_bottom_preferences); no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints",
+      "reason": "frozen dataclass config plus pure loss functions; no torch.nn.Module and no state_dict to serialize"
+    }
+  ]
+}

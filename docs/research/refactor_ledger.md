@@ -262,7 +262,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — feat: add explicit experiment dispatcher
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `b6d3628`
 - task ID: T7
 - agent/model and write owner: Kimi coder subagent (dispatcher + handlers + CLI + 65 tests); Kimi main orchestrator reviewed the guards, regenerated the script inventory, and committed
 - files changed: `spectral_detection_posttrain/experiments/dispatcher.py`, `spectral_detection_posttrain/experiments/handlers/{__init__,standard_detection,native_contract,dense_endpoint}.py`, `scripts/run_experiment.py`, `tests/experiments/test_dispatcher.py`, regenerated `spectral_detection_posttrain/configs/registry/script_inventory.json` (adds `scripts/run_experiment.py`), `docs/research/refactor_ledger.md`
@@ -273,3 +273,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; dry-run only hashes the locked config JSON. **No experiment is authorized by this refactor** — `run` is gated on `registry.can_dispatch`, currently false for all 21 records.
 - rollback command: `git revert <this-commit>`
 - remaining risks: `run` capability is unexercised by design (zero authorized records); when a record is ever authorized, its handler's `run` path needs a fresh review gate before first use.
+
+### 2026-07-13 — refactor: isolate energy transport action core
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T13 phase 1 of 2 (action core; native phase follows as a separate commit per plan serialization)
+- agent/model and write owner: Kimi coder subagent (parity tests + fixture + byte-identical moves + shims); Kimi main orchestrator reviewed the diff summary and committed
+- files changed: moved byte-identical into `spectral_detection_posttrain/methods/energy_transport/action/`: `actions.py`, `contracts.py`, `operators.py`, `preferences.py`, `geometric_constraints.py` (sizes verified identical pre/post move); new `action/__init__.py` (imports only from own submodules); the 5 flat modules rewritten as pure forwarding shims (docstring + imports + `__all__`, zero function bodies); `energy_transport/__init__.py` import-source lines only (143-name public `__all__` unchanged); new `tests/compatibility/test_energy_transport_flat_shims.py` (72 tests); new `tests/fixtures/checkpoints/action_local_transport_head_seed42.pt` (5,490-byte synthetic CPU state_dict, seed 42) + `energy_transport_checkpoint_manifest.json` (sha256-locked, provenance explicitly SYNTHETIC T13 parity fixture, not historical weights; 4 non-serializable action modules listed in `skipped` with reasons); `.gitignore` (main-owned: appended `!tests/fixtures/checkpoints/` + `!tests/fixtures/checkpoints/**` negations — the pre-existing `checkpoints/` and `*.pt` rules otherwise excluded the plan-mandated fixture files); `scripts/dev/validate_repository_state.py` (main-owned: exact-path `ALLOWED_FIXTURE_PATHS` allowlist so the T1 runtime-artifact contract admits only the named sha256-pinned fixture file — deliberately an exact path, not a directory prefix); `docs/research/refactor_ledger.md`
+- RED command/result: `pytest tests/compatibility/test_energy_transport_flat_shims.py -q` before the subpackage existed -> 72 failed, `ModuleNotFoundError: spectral_detection_posttrain.methods.energy_transport.action`
+- GREEN command/result: same command -> 72 passed; T12 contract `tests/contracts/test_energy_transport_import_boundaries.py` still green (shim imports of `energy_transport.action.*` classify action->action, allowed)
+- full-suite result: 1003 passed + 1 skipped = 931+1 baseline + 72 new
+- reviewer and findings accepted/rejected: main-orchestrator review of builder report. Accepted judgment calls: (1) moved files kept strictly byte-identical, so `preferences.py`/`geometric_constraints.py` still import through the flat shims (safe: neither has intra-package deps; internalizing those imports would violate the no-body-edit constraint); (2) shims re-export the full module public surface (incl. `SAMPLE_*` constants and non-facade names such as `bbox_aware_direct_loss` used by direct-importing tests), pinned by an `__all__` drift test; (3) shim purity enforced by an AST test (no function bodies); (4) fixture manifest enforced by `test_manifest_covers_every_action_module` so no action module can be silently dropped. Consumer sweep: no direct importers of the 5 moved modules in `scripts/` or `experiments/handlers/`; in-package consumers (`candidate_energy`, `benefit_energy`, `high_water_mark`, `native_topology`, `global_top1`) import via flat shims and were verified importable post-move.
+- scientific artifacts checked: none touched; the fixture is synthetic and labeled as such. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: native phase (T13 steps 4-6) still pending; `action/` internal imports through flat shims could be internalized in a later cleanup pass (would require body edits, out of scope now).

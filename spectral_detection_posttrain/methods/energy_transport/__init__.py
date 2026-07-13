@@ -5,7 +5,7 @@ class-conditioned target manifold is unknown.  It models ROI correction as a
 small, constrained action rather than as direct prototype attraction.
 """
 
-from spectral_detection_posttrain.methods.energy_transport.actions import (
+from spectral_detection_posttrain.methods.energy_transport.action.actions import (
     ActionLocalTransportHead,
     ROITransportActions,
     apply_bounded_score_delta,
@@ -44,7 +44,7 @@ from spectral_detection_posttrain.methods.energy_transport.cone_projection impor
     decompose_cone_features,
     local_tangent_energy_endpoint,
 )
-from spectral_detection_posttrain.methods.energy_transport.contracts import (
+from spectral_detection_posttrain.methods.energy_transport.action.contracts import (
     ActionOutcome,
     ConstraintConfig,
     PreferenceBatch,
@@ -63,7 +63,7 @@ from spectral_detection_posttrain.methods.energy_transport.dense_endpoint import
     build_sparse_pair_features,
     reduced_teacher_values,
 )
-from spectral_detection_posttrain.methods.energy_transport.geometric_constraints import (
+from spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints import (
     GeometricConstraintConfig,
     bbox_aware_action_loss,
     classify_error_modes,
@@ -136,11 +136,11 @@ from spectral_detection_posttrain.methods.energy_transport.joint_probe_validatio
     paired_bootstrap_mean_difference,
     shuffle_edge_topology,
 )
-from spectral_detection_posttrain.methods.energy_transport.operators import (
+from spectral_detection_posttrain.methods.energy_transport.action.operators import (
     apply_box_delta,
     clip_boxes_to_image,
 )
-from spectral_detection_posttrain.methods.energy_transport.preferences import (
+from spectral_detection_posttrain.methods.energy_transport.action.preferences import (
     build_top_bottom_preferences,
 )
 from spectral_detection_posttrain.methods.energy_transport.search import (
