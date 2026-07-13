@@ -1,72 +1,50 @@
-from __future__ import annotations
+"""Compatibility wrapper: implementation moved to ``scripts/analysis/audit_nwpu_c2_non_degenerate.py``.
 
-import hashlib
-import json
-import sys
-from pathlib import Path
-from typing import Any
+Task 16 wave B moved this maintained analysis tool to ``scripts/analysis/``.
+This wrapper keeps the historical entrypoint working:
 
+- importing ``scripts.audit_nwpu_c2_non_degenerate`` re-exports the moved module's public names;
+- running ``python scripts/audit_nwpu_c2_non_degenerate.py ...`` delegates to the moved module with
+  the same arguments, preserving its historical ``__file__`` (the moved module
+  resolves repository paths from it).
 
-ROOT = Path(__file__).resolve().parents[1]
-CONFIG = ROOT / "spectral_detection_posttrain" / "configs" / "versions" / "det.energy.native_budget1.c2.audit.001.json"
+Update call sites to ``scripts/analysis/audit_nwpu_c2_non_degenerate.py``; this wrapper will be
+removed once committed reports and tests use the new path.
+"""
 
+import sys as _sys
+from importlib import util as _importlib_util
+from pathlib import Path as _Path
 
-def sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def load_config() -> dict[str, Any]:
-    return json.loads(CONFIG.read_text(encoding="utf-8"))
-
-
-def audit(payload: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
-    evaluations = payload["evaluations"]
-    full = evaluations["local_full"]
-    learned = full["metrics"]["learned_set"]
-    identity = full["metrics"]["identity"]
-    diagnostics = full["diagnostics"]["learned_set"]
-    delta_identity = float(learned["ap75"] - identity["ap75"])
-    delta_controls = {
-        arm: float(learned["ap75"] - evaluations[arm]["metrics"]["learned_set"]["ap75"])
-        for arm in ("feature_shuffle", "utility_shuffle")
-    }
-    required = config["gates"]
-    gates = {
-        "nonzero_selection": int(diagnostics["selected_count"]) >= int(required["min_selected_count"]),
-        "nonzero_move_gate": int(diagnostics["move_gate_positive"]) >= int(required["min_move_gate_positive"]),
-        "positive_ap75_vs_identity": delta_identity >= float(required["min_ap75_delta_vs_identity"]),
-        "positive_ap75_vs_controls": all(
-            value >= float(required["min_ap75_delta_vs_each_control"])
-            for value in delta_controls.values()
-        ),
-    }
-    return {
-        "completed": True,
-        "version_id": config["version_id"],
-        "source_sha256": config["source"]["sha256"],
-        "scientific_status": "identity_collapse" if not all(gates.values()) else "non_degenerate",
-        "all_passed": all(gates.values()),
-        "gates": gates,
-        "selected_count": int(diagnostics["selected_count"]),
-        "move_gate_positive": int(diagnostics["move_gate_positive"]),
-        "ap75_delta_vs_identity": delta_identity,
-        "ap75_delta_vs_controls": delta_controls,
-        "claim_boundary": config["claim_boundary"],
-    }
+_OLD_PATH = _Path(__file__).resolve()
+_DESTINATION = _OLD_PATH.parent / "analysis" / "audit_nwpu_c2_non_degenerate.py"
 
 
-def main() -> int:
-    config = load_config()
-    source = ROOT / config["source"]["path"]
-    actual = sha256_file(source)
-    if actual != config["source"]["sha256"]:
-        raise RuntimeError(f"C2 source hash mismatch: {actual}")
-    result = audit(json.loads(source.read_text(encoding="utf-8")), config)
-    output = source.parent / "non_degenerate_gate_audit.json"
-    output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps(result, sort_keys=True))
-    return 0 if not result["all_passed"] else 2
+def _load_moved_module(module_name: str):
+    _spec = _importlib_util.spec_from_file_location(module_name, _DESTINATION)
+    if _spec is None or _spec.loader is None:
+        raise ImportError(f"cannot load moved module at {_DESTINATION}")
+    _module = _importlib_util.module_from_spec(_spec)
+    # Preserve the historical __file__ so Path(__file__).parents[1] inside the
+    # moved module still resolves to the repository root.
+    _module.__file__ = str(_OLD_PATH)
+    _sys.modules[module_name] = _module
+    _spec.loader.exec_module(_module)
+    return _module
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    print(
+        "deprecated: scripts/audit_nwpu_c2_non_degenerate.py moved to scripts/analysis/audit_nwpu_c2_non_degenerate.py; "
+        "delegating with identical arguments",
+        file=_sys.stderr,
+    )
+    _load_moved_module("__main__")
+else:
+    _moved = _load_moved_module("scripts.analysis.audit_nwpu_c2_non_degenerate")
+    globals().update(
+        {key: value for key, value in vars(_moved).items() if not key.startswith("__")}
+    )
+    del _moved
+
+del _sys, _importlib_util, _Path, _OLD_PATH, _DESTINATION, _load_moved_module

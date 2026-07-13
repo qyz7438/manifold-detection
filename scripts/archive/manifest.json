@@ -618,6 +618,263 @@
       ],
       "research_status": "scratch",
       "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_action_cache_lattice.py",
+      "destination": "scripts/analysis/analyze_action_cache_lattice.py",
+      "historical_invocation": "none documented",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "5f6753c5ff0bb33e6a21f2cdebe8b2e671cb96d0",
+      "original_entrypoint_path": "scripts/analyze_action_cache_lattice.py",
+      "replacement_command": "python scripts/analysis/analyze_action_cache_lattice.py",
+      "required_ignored_artifacts": [
+        "runs/ (lattice cache run directories supplied via arguments)"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_action_transport_directions.py",
+      "destination": "scripts/analysis/analyze_action_transport_directions.py",
+      "historical_invocation": "bash scripts/experiments/run_nwpu_action_direction_diagnostics_s42.sh",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "7e484fa3226ebb32458912ebe36bd27fc7752796",
+      "original_entrypoint_path": "scripts/analyze_action_transport_directions.py",
+      "replacement_command": "python scripts/analysis/analyze_action_transport_directions.py",
+      "required_ignored_artifacts": [
+        "runs/ (action-run directories supplied via --runs)"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_dense_local_delta_families.py",
+      "destination": "scripts/analysis/analyze_dense_local_delta_families.py",
+      "historical_invocation": "none documented",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "ae94e882b873ca95bd2e02ad5a47ef57ba89db25",
+      "original_entrypoint_path": "scripts/analyze_dense_local_delta_families.py",
+      "replacement_command": "python scripts/analysis/analyze_dense_local_delta_families.py",
+      "required_ignored_artifacts": [
+        "runs/ (source run_dir from the locked version config)"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_dense_local_delta_family_prior.py",
+      "destination": "scripts/analysis/analyze_dense_local_delta_family_prior.py",
+      "historical_invocation": "none documented",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "fdf17a05e72a0b9b6c4e6fff20d7be0eca047b19",
+      "original_entrypoint_path": "scripts/analyze_dense_local_delta_family_prior.py",
+      "replacement_command": "python scripts/analysis/analyze_dense_local_delta_family_prior.py",
+      "required_ignored_artifacts": [
+        "runs/ (source run_dir from the locked version config)"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_dense_local_delta_stats.py",
+      "destination": "scripts/analysis/analyze_dense_local_delta_stats.py",
+      "historical_invocation": "bash scripts/experiments/run_nwpu_dense_local_delta_stats_s42_train64.sh",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "d9112d55873b949bf5b7c885820f9a65dceb4f1d",
+      "original_entrypoint_path": "scripts/analyze_dense_local_delta_stats.py",
+      "replacement_command": "python scripts/analysis/analyze_dense_local_delta_stats.py",
+      "required_ignored_artifacts": [
+        "runs/nwpu_dense_local_delta_stats_v2_s42_train64",
+        "data/NWPU VHR-10 dataset",
+        "data/NWPU_VHR10_coco.json"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_dense_teacher_components.py",
+      "destination": "scripts/analysis/analyze_dense_teacher_components.py",
+      "historical_invocation": "bash scripts/experiments/run_nwpu_dense_teacher_stats_s42_innerfit.sh",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "6fd02131276d916bf003f4229d7ad925e34817db",
+      "original_entrypoint_path": "scripts/analyze_dense_teacher_components.py",
+      "replacement_command": "python scripts/analysis/analyze_dense_teacher_components.py",
+      "required_ignored_artifacts": [
+        "runs/nwpu_dense_teacher_stats_s42_innerfit",
+        "data/NWPU VHR-10 dataset",
+        "data/NWPU_VHR10_coco.json"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_dense_teacher_confounding.py",
+      "destination": "scripts/analysis/analyze_dense_teacher_confounding.py",
+      "historical_invocation": "none documented",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "1e51e6ccb21053ba378bceac7cde42d986066b22",
+      "original_entrypoint_path": "scripts/analyze_dense_teacher_confounding.py",
+      "replacement_command": "python scripts/analysis/analyze_dense_teacher_confounding.py",
+      "required_ignored_artifacts": [
+        "runs/nwpu_dense_teacher_confound_s42_innerfit/eval_metrics.json"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_nwpu_finetune_curve.py",
+      "destination": "scripts/analysis/analyze_nwpu_finetune_curve.py",
+      "historical_invocation": "none documented",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "10384e7e2d41b986d93f2149cd8fc6c6cc8f8a36",
+      "original_entrypoint_path": "scripts/analyze_nwpu_finetune_curve.py",
+      "replacement_command": "python scripts/analysis/analyze_nwpu_finetune_curve.py",
+      "required_ignored_artifacts": [
+        "runs/ (finetune run directory with metrics_history.json, supplied via argument)"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_roi_dual_energy_cache.py",
+      "destination": "scripts/analysis/analyze_roi_dual_energy_cache.py",
+      "historical_invocation": "python scripts/analyze_roi_dual_energy_cache.py --cache <candidate_features.npz> --feature-key <key> --output <json> (docs/reports/roi_dual_energy_nwpu_cache_analysis.md)",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "4b6c2e00247a4df7b92a8dd4546c5fbe121ccf9d",
+      "original_entrypoint_path": "scripts/analyze_roi_dual_energy_cache.py",
+      "replacement_command": "python scripts/analysis/analyze_roi_dual_energy_cache.py",
+      "required_ignored_artifacts": [
+        "runs/round2148_final_head_dim_full_ap75/candidate_features.npz"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_roi_structure_information_gain.py",
+      "destination": "scripts/analysis/analyze_roi_structure_information_gain.py",
+      "historical_invocation": "python scripts/analyze_roi_structure_information_gain.py --cache <candidate_features.npz> --target <metric> --feature-keys <keys> --output <json> (docs/reports/roi_structure_information_gain_round2148.md)",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires scikit-learn, which is absent from the maintained environment (the module exits with an explanatory SystemExit)",
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "2aeedc62e0ead551bece3f31029c8243feea5187",
+      "original_entrypoint_path": "scripts/analyze_roi_structure_information_gain.py",
+      "replacement_command": "python scripts/analysis/analyze_roi_structure_information_gain.py",
+      "required_ignored_artifacts": [
+        "runs/round2148_final_head_dim_full_ap75/candidate_features.npz"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/analyze_strong_native_action_matrix.py",
+      "destination": "scripts/analysis/analyze_strong_native_action_matrix.py",
+      "historical_invocation": "none documented",
+      "kind": "analysis",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "07402b2de5fddc570f1a6586ead431911649cb00",
+      "original_entrypoint_path": "scripts/analyze_strong_native_action_matrix.py",
+      "replacement_command": "python scripts/analysis/analyze_strong_native_action_matrix.py",
+      "required_ignored_artifacts": [
+        "runs/ (matrix run directories supplied via arguments)"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/audit_dense_endpoint_attribution.py",
+      "destination": "scripts/analysis/audit_dense_endpoint_attribution.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "55108d459d8848c25d6cbf8d43b46bf86d6bafd9",
+      "original_entrypoint_path": "scripts/audit_dense_endpoint_attribution.py",
+      "replacement_command": "python scripts/analysis/audit_dense_endpoint_attribution.py",
+      "required_ignored_artifacts": [
+        "runs/nwpu_dense_endpoint_attribution_s42_fit_tune/eval_metrics.json"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/audit_dense_endpoint_shift.py",
+      "destination": "scripts/analysis/audit_dense_endpoint_shift.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "613583fa68f73ec39841aae0a9283db0fd88e9c2",
+      "original_entrypoint_path": "scripts/audit_dense_endpoint_shift.py",
+      "replacement_command": "python scripts/analysis/audit_dense_endpoint_shift.py",
+      "required_ignored_artifacts": [
+        "runs/nwpu_dense_endpoint_shift_audit_s42/eval_metrics.json"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "B",
+      "current_reproduction_wrapper": "scripts/audit_nwpu_c2_non_degenerate.py",
+      "destination": "scripts/analysis/audit_nwpu_c2_non_degenerate.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "1e50f347d38395b77160b3f1acd4a83125452f61",
+      "original_entrypoint_path": "scripts/audit_nwpu_c2_non_degenerate.py",
+      "replacement_command": "python scripts/analysis/audit_nwpu_c2_non_degenerate.py",
+      "required_ignored_artifacts": [
+        "runs/ (source path from the det.energy.native_budget1.c2.audit.001 version config)"
+      ],
+      "research_status": "maintained",
+      "runnable_state": "runnable_via_wrapper"
     }
   ],
   "schema_version": "script-archive-manifest.v1"

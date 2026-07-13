@@ -15,7 +15,8 @@ in the git object database. Scratch-wave (A) entries must have no wrapper at
 the old path; future waves that leave wrappers must keep the original blob
 identity distinct from the wrapper now occupying the old path. Maintained
 code (``tests/`` and ``spectral_detection_posttrain/``) must not import or
-reference moved modules by their original path.
+reference scratch-wave (A) modules by their original path; wave-B modules are
+intentionally still reachable through their wrappers at the old paths.
 """
 
 from __future__ import annotations
@@ -63,6 +64,13 @@ BLOB_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 NONE_MARKERS = {"none", "none documented"}
 
 SCANNED_TREES = (ROOT / "tests", ROOT / "spectral_detection_posttrain")
+
+#: Where each archive wave must place moved files.
+DESTINATION_PREFIXES = {
+    "A": "scripts/archive/",
+    "B": "scripts/analysis/",
+    "C": "scripts/archive/historical/",
+}
 
 
 def _git(*args: str) -> str:
@@ -171,8 +179,10 @@ def test_original_blobs_exist_and_moves_are_byte_identical(entries) -> None:
         )
         destination = ROOT / entry["destination"]
         assert destination.is_file(), f"{original}: destination missing at {entry['destination']}"
-        assert entry["destination"].startswith("scripts/archive/"), (
-            f"{original}: destination must stay under scripts/archive/"
+        expected_prefix = DESTINATION_PREFIXES[entry["archive_wave"]]
+        assert entry["destination"].startswith(expected_prefix), (
+            f"{original}: wave-{entry['archive_wave']} destination must stay "
+            f"under {expected_prefix}"
         )
         current_sha = _git("hash-object", str(destination))
         assert current_sha == sha, (
@@ -190,6 +200,11 @@ def test_wrapper_semantics_match_the_old_path(entries) -> None:
             assert wrapper == "none", (
                 f"{entry['original_entrypoint_path']}: scratch-wave moves leave no wrapper"
             )
+        else:
+            assert wrapper == entry["original_entrypoint_path"], (
+                f"{entry['original_entrypoint_path']}: wave-{entry['archive_wave']} wrapper "
+                "must occupy the original entrypoint path"
+            )
         if wrapper in NONE_MARKERS:
             assert not original.exists(), (
                 f"{entry['original_entrypoint_path']}: no wrapper declared but the old path exists"
@@ -205,13 +220,39 @@ def test_wrapper_semantics_match_the_old_path(entries) -> None:
             )
 
 
+def test_wave_b_wrappers_delegate_to_destination(entries) -> None:
+    """Wave-B wrappers must point at the moved destination they delegate to."""
+    for entry in entries:
+        if entry["archive_wave"] != "B":
+            continue
+        original = ROOT / entry["original_entrypoint_path"]
+        wrapper_source = original.read_text(encoding="utf-8")
+        assert entry["destination"] in wrapper_source, (
+            f"{entry['original_entrypoint_path']}: wrapper does not reference "
+            f"{entry['destination']}"
+        )
+        assert entry["destination"] in entry["replacement_command"], (
+            f"{entry['original_entrypoint_path']}: replacement_command must use "
+            "the destination path"
+        )
+        assert entry["runnable_state"] == "runnable_via_wrapper", (
+            f"{entry['original_entrypoint_path']}: wave-B entries must be "
+            "runnable_via_wrapper"
+        )
+
+
 # ---------------------------------------------------------------------------
-# Maintained code must not reference moved modules
+# Maintained code must not reference scratch-wave (A) moved modules
 # ---------------------------------------------------------------------------
 
 
 def test_moved_modules_are_not_imported_by_maintained_code(entries, maintained_sources) -> None:
-    by_stem = {Path(entry["original_entrypoint_path"]).stem: entry for entry in entries}
+    """Only scratch-wave (A) moves cut the old path; wave-B wrappers keep it live."""
+    by_stem = {
+        Path(entry["original_entrypoint_path"]).stem: entry
+        for entry in entries
+        if entry["archive_wave"] == "A"
+    }
     offenders: list[str] = []
     for source_path, text in maintained_sources.items():
         imported = _imported_names(text)

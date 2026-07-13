@@ -1,130 +1,50 @@
-"""Compare strong-baseline controls and native action heads on one metric schema."""
-from __future__ import annotations
+"""Compatibility wrapper: implementation moved to ``scripts/analysis/analyze_strong_native_action_matrix.py``.
 
-import argparse
-import json
-from pathlib import Path
-from typing import Any
+Task 16 wave B moved this maintained analysis tool to ``scripts/analysis/``.
+This wrapper keeps the historical entrypoint working:
 
+- importing ``scripts.analyze_strong_native_action_matrix`` re-exports the moved module's public names;
+- running ``python scripts/analyze_strong_native_action_matrix.py ...`` delegates to the moved module with
+  the same arguments, preserving its historical ``__file__`` (the moved module
+  resolves repository paths from it).
 
-METRICS = (
-    "ap50",
-    "ap75",
-    "precision",
-    "recall",
-    "false_positive_rate",
-    "ece",
-    "num_predictions",
-)
+Update call sites to ``scripts/analysis/analyze_strong_native_action_matrix.py``; this wrapper will be
+removed once committed reports and tests use the new path.
+"""
 
+import sys as _sys
+from importlib import util as _importlib_util
+from pathlib import Path as _Path
 
-def _load(path: str | Path) -> dict[str, Any]:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+_OLD_PATH = _Path(__file__).resolve()
+_DESTINATION = _OLD_PATH.parent / "analysis" / "analyze_strong_native_action_matrix.py"
 
 
-def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
-    result = {"epoch": int(row.get("epoch", 0))}
-    for key in METRICS:
-        value = row.get(f"val_{key}", row.get(key))
-        result[key] = float(value) if isinstance(value, (int, float)) else None
-    return result
-
-
-def _round(value: float) -> float:
-    return round(float(value), 12)
-
-
-def selected_strong_baseline(strong: dict[str, Any]) -> dict[str, Any]:
-    history = list(strong.get("history") or [])
-    if not history:
-        raise ValueError("Strong baseline has no history")
-    best_epoch = strong.get("best_epoch")
-    if best_epoch is not None:
-        matches = [row for row in history if int(row.get("epoch", -1)) == int(best_epoch)]
-        if matches:
-            return _normalize_row(matches[0])
-    return _normalize_row(max(history, key=lambda row: float(row.get("val_ap75", -1.0))))
-
-
-def summarize_run(run: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
-    history = list(run.get("history") or [])
-    if not history:
-        raise ValueError("Matrix run has no history")
-    normalized = [_normalize_row(row) for row in history]
-    best = max(normalized, key=lambda row: row["ap75"] if row["ap75"] is not None else -1.0)
-    final = normalized[-1]
-    return {
-        "completed": bool(run.get("completed", False)),
-        "final": final,
-        "best_ap75": best,
-        "final_ap50_delta": _round(final["ap50"] - baseline["ap50"]),
-        "final_ap75_delta": _round(final["ap75"] - baseline["ap75"]),
-        "best_ap75_delta": _round(best["ap75"] - baseline["ap75"]),
-        "final_ece_delta": _round(final["ece"] - baseline["ece"]),
-        "final_recall_delta": _round(final["recall"] - baseline["recall"]),
-        "final_prediction_delta": int(final["num_predictions"] - baseline["num_predictions"]),
-    }
-
-
-def analyze_matrix(
-    strong: dict[str, Any],
-    full: dict[str, Any],
-    boxonly: dict[str, Any],
-    preserve: dict[str, Any],
-    parity: dict[str, Any],
-) -> dict[str, Any]:
-    baseline = selected_strong_baseline(strong)
-    runs = {
-        "full_control": summarize_run(full, baseline),
-        "boxonly": summarize_run(boxonly, baseline),
-        "preserve2": summarize_run(preserve, baseline),
-    }
-    strict = parity.get("strict_zero_action_parity") or {}
-    aggregate = parity.get("aggregate_zero_action_parity") or {}
-    parity_passed = bool(
-        parity.get("completed") is True
-        and strict.get("passed") is True
-        and strict.get("mismatched_images") == 0
-        and aggregate.get("passed") is True
-    )
-    preserve_best = runs["preserve2"]["best_ap75"]["ap75"]
-    full_best = runs["full_control"]["best_ap75"]["ap75"]
-    preserve_margin = _round(preserve_best - full_best)
-    return {
-        "baseline": baseline,
-        "runs": runs,
-        "decision": {
-            "parity_passed": parity_passed,
-            "preserve_beats_full_by_ap75": preserve_margin,
-            "information_gain_candidate": bool(parity_passed and preserve_margin >= 0.005),
-        },
-    }
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--strong", required=True)
-    parser.add_argument("--full-control", required=True)
-    parser.add_argument("--boxonly", required=True)
-    parser.add_argument("--preserve", required=True)
-    parser.add_argument("--parity", required=True)
-    parser.add_argument("--output", default=None)
-    args = parser.parse_args()
-
-    result = analyze_matrix(
-        _load(args.strong),
-        _load(args.full_control),
-        _load(args.boxonly),
-        _load(args.preserve),
-        _load(args.parity),
-    )
-    rendered = json.dumps(result, indent=2, ensure_ascii=False)
-    if args.output:
-        output = Path(args.output)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(rendered + "\n", encoding="utf-8")
-    print(rendered)
+def _load_moved_module(module_name: str):
+    _spec = _importlib_util.spec_from_file_location(module_name, _DESTINATION)
+    if _spec is None or _spec.loader is None:
+        raise ImportError(f"cannot load moved module at {_DESTINATION}")
+    _module = _importlib_util.module_from_spec(_spec)
+    # Preserve the historical __file__ so Path(__file__).parents[1] inside the
+    # moved module still resolves to the repository root.
+    _module.__file__ = str(_OLD_PATH)
+    _sys.modules[module_name] = _module
+    _spec.loader.exec_module(_module)
+    return _module
 
 
 if __name__ == "__main__":
-    main()
+    print(
+        "deprecated: scripts/analyze_strong_native_action_matrix.py moved to scripts/analysis/analyze_strong_native_action_matrix.py; "
+        "delegating with identical arguments",
+        file=_sys.stderr,
+    )
+    _load_moved_module("__main__")
+else:
+    _moved = _load_moved_module("scripts.analysis.analyze_strong_native_action_matrix")
+    globals().update(
+        {key: value for key, value in vars(_moved).items() if not key.startswith("__")}
+    )
+    del _moved
+
+del _sys, _importlib_util, _Path, _OLD_PATH, _DESTINATION, _load_moved_module

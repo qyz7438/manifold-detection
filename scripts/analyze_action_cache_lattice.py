@@ -1,87 +1,50 @@
-"""Summarize the utility lattice in detector-action cache artifacts."""
+"""Compatibility wrapper: implementation moved to ``scripts/analysis/analyze_action_cache_lattice.py``.
 
-from __future__ import annotations
+Task 16 wave B moved this maintained analysis tool to ``scripts/analysis/``.
+This wrapper keeps the historical entrypoint working:
 
-import argparse
-import json
-from collections import Counter
-from pathlib import Path
-from typing import Any, Sequence
+- importing ``scripts.analyze_action_cache_lattice`` re-exports the moved module's public names;
+- running ``python scripts/analyze_action_cache_lattice.py ...`` delegates to the moved module with
+  the same arguments, preserving its historical ``__file__`` (the moved module
+  resolves repository paths from it).
 
-import torch
+Update call sites to ``scripts/analysis/analyze_action_cache_lattice.py``; this wrapper will be
+removed once committed reports and tests use the new path.
+"""
 
+import sys as _sys
+from importlib import util as _importlib_util
+from pathlib import Path as _Path
 
-def summarize_records(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
-    best_values = []
-    margins = []
-    candidate_values = []
-    positive_candidates = 0
-    candidate_count = 0
-    for record in records:
-        delta_u = record["delta_u"].detach().cpu().float()
-        observable = record["observable_mask"].detach().cpu().bool()
-        values = delta_u[observable, 1:].reshape(-1)
-        values = values[torch.isfinite(values)]
-        candidate_count += int(values.numel())
-        if values.numel():
-            candidate_values.extend(float(value) for value in values.tolist())
-            positive_candidates += int(values.gt(0.0).sum().item())
-            ranked = torch.sort(torch.cat((values, values.new_zeros(1))), descending=True).values
-            best_values.append(float(ranked[0].item()))
-            margins.append(float((ranked[0] - ranked[1]).item()) if ranked.numel() > 1 else 0.0)
-        else:
-            best_values.append(0.0)
-            margins.append(0.0)
-    rounded = Counter(round(value, 6) for value in candidate_values)
-    positive = [value for value in best_values if value > 0.0]
-    return {
-        "images": len(records),
-        "candidate_count": candidate_count,
-        "positive_candidate_count": positive_candidates,
-        "positive_candidate_rate": positive_candidates / max(1, candidate_count),
-        "positive_image_count": len(positive),
-        "positive_image_rate": len(positive) / max(1, len(records)),
-        "best_delta_u_mean": sum(best_values) / max(1, len(best_values)),
-        "positive_best_delta_u_mean": sum(positive) / max(1, len(positive)),
-        "best_vs_runner_up_margin_mean": sum(margins) / max(1, len(margins)),
-        "unique_rounded_delta_u": len(rounded),
-        "most_common_delta_u": [
-            {"value": value, "count": count}
-            for value, count in rounded.most_common(20)
-        ],
-    }
+_OLD_PATH = _Path(__file__).resolve()
+_DESTINATION = _OLD_PATH.parent / "analysis" / "analyze_action_cache_lattice.py"
 
 
-def summarize_cache(path: Path) -> dict[str, Any]:
-    payload = torch.load(path, map_location="cpu")
-    records = payload.get("records")
-    if not isinstance(records, list):
-        raise ValueError(f"cache {path} has no records list")
-    return {
-        "path": str(path),
-        "format": payload.get("format"),
-        "metadata": payload.get("metadata", {}),
-        "summary": summarize_records(records),
-    }
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("paths", nargs="+", type=Path)
-    parser.add_argument("--output", type=Path)
-    return parser.parse_args()
-
-
-def main() -> int:
-    args = parse_args()
-    result = {"caches": [summarize_cache(path) for path in args.paths]}
-    text = json.dumps(result, indent=2, sort_keys=True) + "\n"
-    if args.output is not None:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(text, encoding="utf-8")
-    print(text, end="")
-    return 0
+def _load_moved_module(module_name: str):
+    _spec = _importlib_util.spec_from_file_location(module_name, _DESTINATION)
+    if _spec is None or _spec.loader is None:
+        raise ImportError(f"cannot load moved module at {_DESTINATION}")
+    _module = _importlib_util.module_from_spec(_spec)
+    # Preserve the historical __file__ so Path(__file__).parents[1] inside the
+    # moved module still resolves to the repository root.
+    _module.__file__ = str(_OLD_PATH)
+    _sys.modules[module_name] = _module
+    _spec.loader.exec_module(_module)
+    return _module
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    print(
+        "deprecated: scripts/analyze_action_cache_lattice.py moved to scripts/analysis/analyze_action_cache_lattice.py; "
+        "delegating with identical arguments",
+        file=_sys.stderr,
+    )
+    _load_moved_module("__main__")
+else:
+    _moved = _load_moved_module("scripts.analysis.analyze_action_cache_lattice")
+    globals().update(
+        {key: value for key, value in vars(_moved).items() if not key.startswith("__")}
+    )
+    del _moved
+
+del _sys, _importlib_util, _Path, _OLD_PATH, _DESTINATION, _load_moved_module
