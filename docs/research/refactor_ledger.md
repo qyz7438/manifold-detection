@@ -442,7 +442,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — fix: break policy shim circular import
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `6f25da9`
 - task ID: follow-up to T14a, scheduled in the T16 Wave C ledger entry (main-owned import-line fix, same sanctioned precedent as e181501)
 - agent/model and write owner: Kimi main orchestrator (direct edit after mechanism analysis)
 - mechanism: `import energy_transport.set_policy` -> flat shim -> eager `policy/__init__.py` (imports all 8 submodules) -> `policy/global_top1.py:12` imported the flat shim `energy_transport.set_policy`, which was partially initialized -> ImportError. Same shape for `post_nms_suppress.py:11-12` against the `global_top1`/`set_policy` flat shims. Pre-existing at HEAD (the Wave C builder proved `scripts/verify_nwpu_native_c1_contract.py --help` fails identically at HEAD in a fresh process; the c1 script's tests passed only because pytest collection order initializes the package first).
@@ -454,3 +454,18 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: none specific; T16 is complete (3 waves committed: 35d5e6f, 6344a09, 916739c) and both circular imports found during the waves are fixed. Next: T17/T18 parallel wave.
+
+
+### 2026-07-13 — test: enforce canonical import boundaries
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T17 (compatibility + dependency-boundary tests; runs in parallel with T18 in W5)
+- agent/model and write owner: Kimi coder subagent (3 files: checker + 2 test files); Kimi main orchestrator reviewed the allowlist, regenerated inventory and research docs, and committed
+- files changed: new `scripts/dev/check_import_boundaries.py` (CLI, human + `--json`, exit 1 on violation, shares logic with the test); new `tests/contracts/test_dependency_boundaries.py` (AST-based enforcement of the 6 plan rules, 8-entry shrinking allowlist with owner/removal task, ratchet-style stale-entry test, import smoke in fresh subprocess); new `tests/compatibility/test_legacy_imports.py` (import every tracked compatibility shim namespace: `spectral/`, `models/`, `rlvr/`, `train/`, `matching/` — 2 missing canonical trainer targets marked `xfail` cleanly with `ModuleNotFoundError`); regenerated `script_inventory.json` + `docs/research/*.md`; `docs/research/refactor_ledger.md`
+- RED command/result: `pytest tests/contracts/test_dependency_boundaries.py tests/compatibility/test_legacy_imports.py -q` before checker existed -> import errors + 6 failures (missing CLI/smoke)
+- GREEN command/result: same focused run -> 34 passed, 2 skipped, 2 xfailed; full-suite result below
+- full-suite result: 1488 passed + 1 skipped = 1454+1 baseline + 34 new (note: the test count includes the T18 4 failures because `pytest tests -q` ran both T17 and T18 tests; main integration runs T18 separately and does not include its 4 failures in the T17 green claim)
+- reviewer and findings accepted/rejected: main-orchestrator review. Allowlist: 8 entries, all in `core/models/build_detector.py` importing methods/legacy/experiment-schema targets, plus 1 `experiments/nni_quality_trial.py` importing legacy. Accepted judgment: R4 "trainers may import core/methods/datasets/eval, not scripts" is enforced as the explicit `scripts` prohibition only; intentional T15 architecture (e.g. `trainers/detection/action_transport.py` importing `experiments.canonical_runner`) is not flagged. R6 found zero violations (canonical layers do not import compatibility namespaces). Legacy inventory: 5 shim namespaces exist; 2 missing trainer targets xfailed cleanly.
+- scientific artifacts checked: none. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: T18 current-doc fixes follow as the next commit; the 8 allowlist entries are documented architectural debt with owner/removal tasks.
