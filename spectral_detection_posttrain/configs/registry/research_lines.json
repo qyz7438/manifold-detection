@@ -1,0 +1,135 @@
+{
+  "lines": [
+    {
+      "claim_ceiling": "At most a smoke-scale signal under the old Delta-U endpoint: every C1-E1 branch failed its control gate, so no detector-gain claim may be made and no tuning, seed expansion, or claim promotion is authorized.",
+      "decision_document": "docs/autonomous_exploration_report.md",
+      "evidence": [
+        "docs/autonomous_exploration_ledger.md",
+        "docs/autonomous_exploration_report.md"
+      ],
+      "hypothesis": "Bounded per-proposal native actions over the C1-E1 candidate lattice could improve post-NMS detection utility under the locked Delta-U endpoint.",
+      "id": "energy_transport.native_actions.c1_e1",
+      "notes": "C3b, D1, D2b, D3, D4, and E1 all froze; only the bounded residual API, identity initialization, and native parity harness are retained.",
+      "status": "frozen",
+      "uncommitted_context": [
+        "docs/energy_transport_vs_fpn_sm_analysis.md"
+      ]
+    },
+    {
+      "claim_ceiling": "Strong transferable ranking information exists, but the preregistered train-to-validation pairwise gap gate (at most 0.10) failed at 0.1169, so the absolute endpoint remains unvalidated and supports no action or AP claim.",
+      "decision_document": "docs/autonomous_exploration_report.md",
+      "evidence": [
+        "docs/autonomous_exploration_report.md",
+        "docs/dense_set_energy_endpoint_spec.md"
+      ],
+      "hypothesis": "A normalized dense set-quality endpoint Q(S) can be learned from detector-only features and transfer to a detector-unseen validation split within the locked gap gate.",
+      "id": "energy_transport.dense_absolute_endpoint",
+      "notes": "Detector-unseen validation beat all three controls but missed the locked gap gate; cache-only diagnosis found calibration shift rather than broad feature OOD.",
+      "status": "frozen"
+    },
+    {
+      "claim_ceiling": "Weak train-only differential predictability only: pooled within-image pairwise accuracy 0.5747 missed the locked 0.60 gate and a fit-only perturbation-family prior beat the learner, so no endpoint validation, action policy, or AP claim follows.",
+      "decision_document": "docs/autonomous_exploration_report.md",
+      "evidence": [
+        "docs/autonomous_exploration_report.md",
+        "docs/dense_local_delta_residual_preregistration.md"
+      ],
+      "hypothesis": "Continuous identity-invariant local Delta-Q labels Q(S') - Q(S) support a learner that predicts per-candidate set-energy differences beyond a perturbation-family prior.",
+      "id": "energy_transport.local_delta_q",
+      "notes": "The learner is frozen rather than enlarged or retuned; reusing the failed 16-image tune split or relaxing the 0.60 gate is post-hoc optimization and is not authorized.",
+      "status": "frozen"
+    },
+    {
+      "claim_ceiling": "None: the one-shot 96/32 split builder failed the locked class-support gate before any cache, training, or GPU work, so the protocol is not executable and no evidence beyond the blocked design exists.",
+      "decision_document": "docs/dense_local_delta_residual_preregistration.md",
+      "evidence": [
+        "docs/autonomous_exploration_report.md",
+        "docs/dense_local_delta_residual_preregistration.md"
+      ],
+      "hypothesis": "After removing the fit-only family prior mu_f, detector-only set features may predict the content-conditioned residual r = Delta-Q - mu_f on newly locked train-only images.",
+      "id": "energy_transport.residual_content_protocol",
+      "notes": "Tune classes 3 and 8 had one image each against a locked minimum of three; per the no-alternative-manifest rule no second split was generated. Any future residual study must be a new protocol, not a repair of this one.",
+      "status": "blocked"
+    },
+    {
+      "claim_ceiling": "Retained only as diagnostic components: prototype-local signals add no per-candidate information beyond the detector score and PAH hurt AP/ECE, so no endpoint or detector-gain claim is supported.",
+      "decision_document": "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
+      "evidence": [
+        "docs/energy_guided_roi_transport.md",
+        "docs/reports/manifold_research_line_retirement_report_2026-07-10.md"
+      ],
+      "hypothesis": "Class prototypes (PrototypeBank, Sinkhorn assignment, ETF/PAH endpoints) define a target manifold that ROI features can be transported toward to improve detection.",
+      "id": "manifold.prototype_attraction",
+      "notes": "Hard-stopped as a known-endpoint claim; PrototypeBank, Sinkhorn, class anchors, and prototype diagnostics are retained for analysis only.",
+      "status": "diagnostic"
+    },
+    {
+      "claim_ceiling": "Representation diagnostic only: no committed layerwise raw results are auditable and lower ID never converted into action or AP gains, so it cannot support detector-improvement claims.",
+      "decision_document": "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
+      "evidence": [
+        "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
+        "docs/reports/roi_structure_information_gain_round2148.md"
+      ],
+      "hypothesis": "Lower intrinsic dimension of ROI representations indicates a better correction state for detection.",
+      "id": "manifold.intrinsic_dimension",
+      "notes": "ID, effective-rank, and NC1 logs are retained as diagnostics; re-promotion to a loss requires information gain beyond detector score/context plus shuffle controls.",
+      "status": "diagnostic"
+    },
+    {
+      "claim_ceiling": "Batch/group-level structure diagnostic only: per-candidate AUC never beat detector label_prob or shuffle controls, so no scorer, reranker, or primary-loss claim is supported.",
+      "decision_document": "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
+      "evidence": [
+        "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
+        "docs/reports/roi_dual_energy_controlled_experiment.md",
+        "docs/reports/roi_dual_energy_nwpu_cache_analysis.md"
+      ],
+      "hypothesis": "Dual intra-class compactness plus inter-class relation energy can serve as a per-candidate scorer or loss that improves detection.",
+      "id": "manifold.dual_energy",
+      "notes": "Synthetic checks show the formula is non-degenerate, but real NWPU cache evidence supports only group-level structure diagnostics; cone projection answers local residual stability, not a full manifold endpoint.",
+      "status": "diagnostic"
+    },
+    {
+      "claim_ceiling": "Invalidated as a causal reward: real and shuffled controls were repeatedly inseparable (on VOC the shuffled control scored slightly higher); retained strictly as an offline ranking feature, diagnostic, and shuffle control.",
+      "decision_document": "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
+      "evidence": [
+        "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
+        "docs/round2200_2203_large_scale_manifold_fusion_summary.md",
+        "docs/round2x_thinking_and_results.md"
+      ],
+      "hypothesis": "Handcrafted FFT amplitude, phase, and structure scores can act as a causal external reward for detector training.",
+      "id": "signals.fft_reward",
+      "notes": "Invalidated for the causal reward claim only; raw-iFFT/FFT features remain available as diagnostic signals and no spectral feature expansion is authorized.",
+      "status": "invalidated"
+    },
+    {
+      "claim_ceiling": "Historical reproducibility asset: matched-budget box-head and full-model fine-tuning beat RLVR gains, so no current AP claim survives; reusable constraints (signed objective, KL anchor, valid pair masks, rescue budget, false-positive guardrails) are retained for future structured-outcome training.",
+      "decision_document": "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
+      "evidence": [
+        "docs/reports/boxrlvr_direct_matrix_review_2026-07-09.md",
+        "docs/reports/full_model_finetune_10ep_control_2026-07-09.md",
+        "docs/reports/manifold_research_line_retirement_report_2026-07-10.md"
+      ],
+      "hypothesis": "RLVR, GRPO, or DPO reward and preference training can independently raise detector AP.",
+      "id": "rlvr_grpo_dpo",
+      "notes": "Hard-stopped as an independent AP mainline; the stable training shell and its constraints are preserved as reusable assets, not as a current claim.",
+      "status": "historical"
+    },
+    {
+      "claim_ceiling": "Comparison architecture baseline only: positive evidence on VOC ResNet50 and NWPU MobileNet but unstable across backbones and datasets, so it is not the default mainline and carries no validated claim in this registry.",
+      "decision_document": "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
+      "evidence": [
+        "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
+        "docs/reports/nwpu_matrix_analysis.md",
+        "docs/reports/voc_m1_m2_statistical_significance.md"
+      ],
+      "hypothesis": "In-network frequency-domain adaptation (AFM / FPN spectral manifold) improves detector localization.",
+      "id": "architecture.fpn_sm_afm",
+      "notes": "Old scale-gated AFM evidence is invalidated, but the FPN-SM family is not falsified; restart requires an explicit user request with strong baseline, matched budget, and independent reproduction.",
+      "status": "baseline",
+      "uncommitted_context": [
+        "docs/energy_transport_vs_fpn_sm_analysis.md"
+      ]
+    }
+  ],
+  "schema_version": "research_lines.v1"
+}
