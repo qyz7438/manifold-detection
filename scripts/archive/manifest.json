@@ -1,0 +1,624 @@
+{
+  "entries": [
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_analyze_all_metrics.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires scikit-learn, which is absent from the maintained environment",
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "7d297176655371640ba0beaca0daecf7677f4b97",
+      "original_entrypoint_path": "scripts/_analyze_all_metrics.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_analyze_false_negatives.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "e37adf77736cd0646b606aa30c4f2d2d5b753ba8",
+      "original_entrypoint_path": "scripts/_analyze_false_negatives.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth",
+        "runs/round280_det_only_unf_s42/checkpoint_best.pth",
+        "runs/round280_det_only_unf_s42/eval_metrics.json"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_analyze_fn_fft.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "770a241ac801e972af0ad83661e3cea25036cf45",
+      "original_entrypoint_path": "scripts/_analyze_fn_fft.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth",
+        "runs/_fn_checkpoint.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_analyze_round280.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "expects undocumented analysis JSON inputs in the working directory"
+      ],
+      "original_blob_sha": "3a07fa31cff455dfce68bb3db249e0ac54be1e9f",
+      "original_entrypoint_path": "scripts/_analyze_round280.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_analyze_signals.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "expects undocumented analysis JSON inputs in the working directory"
+      ],
+      "original_blob_sha": "603f9162020e56cdf0c56673c06c62532bfc1211",
+      "original_entrypoint_path": "scripts/_analyze_signals.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_analyze_signals2.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "b4c7be8118a3d77db09ffd5f81e19400abb2ce76",
+      "original_entrypoint_path": "scripts/_analyze_signals2.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round279_extend_s42/eval_metrics.json"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_abs_phase.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "d828fdd4099d46b00c9251635a43243825d8e7fb",
+      "original_entrypoint_path": "scripts/_check_abs_phase.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_boundary_sensitivity.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "8c3e4b8dd5a0510f1143f753f82bc286bb84c4d8",
+      "original_entrypoint_path": "scripts/_check_boundary_sensitivity.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_combined_metrics.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires scikit-learn, which is absent from the maintained environment",
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "6d3bf813766bf10038747f4a07b97bfdf73ff69e",
+      "original_entrypoint_path": "scripts/_check_combined_metrics.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_crop32_energy.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "7fed36fe92379a648da49d7e7999817e23476175",
+      "original_entrypoint_path": "scripts/_check_crop32_energy.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_energy_action_rank.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "c50f6d8eab0eee07a43b3e32a5a475ec19297ff1",
+      "original_entrypoint_path": "scripts/_check_energy_action_rank.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_energy_asymmetric.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "b7e8a02b14352122fbdbf3631fa0e0a194dd960a",
+      "original_entrypoint_path": "scripts/_check_energy_asymmetric.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_energy_autograd.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "ed3d3b36cfecb0c135f762b968305746289bb772",
+      "original_entrypoint_path": "scripts/_check_energy_autograd.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_energy_grad_scale.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "a1ddd565b21f2a13bbb0833492139685eb9659d3",
+      "original_entrypoint_path": "scripts/_check_energy_grad_scale.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_energy_gradient.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "a94ae9a8aec5684e7d35e1f107db06ad09b8585d",
+      "original_entrypoint_path": "scripts/_check_energy_gradient.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_energy_gradient_output.txt",
+      "historical_invocation": "none documented",
+      "kind": "unknown",
+      "known_failure_modes": [
+        "captured console output of _check_energy_gradient.py; not executable"
+      ],
+      "original_blob_sha": "3d0d08505acd58987d8969fab721aa654f36a1f4",
+      "original_entrypoint_path": "scripts/_check_energy_gradient_output.txt",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [],
+      "research_status": "scratch",
+      "runnable_state": "not_runnable"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_energy_nonlinear.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "ead57a8ea04529775d658ec9411cec4c4e661a42",
+      "original_entrypoint_path": "scripts/_check_energy_nonlinear.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_hog_edge_rank.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "3404ba841207d9d6b76209cc2e03e48b1a89dbe5",
+      "original_entrypoint_path": "scripts/_check_hog_edge_rank.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_iou_residual.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires scikit-learn, which is absent from the maintained environment",
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "c5d198ec1fbd32f44649f0cb243e2a29004a7011",
+      "original_entrypoint_path": "scripts/_check_iou_residual.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_multifreq_phase.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "86a098943223428820360ba02d2b52310fee7a73",
+      "original_entrypoint_path": "scripts/_check_multifreq_phase.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_nwpu_proposals.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "d5dbcfd296a1572f73465c8f67e620d615f9b9fa",
+      "original_entrypoint_path": "scripts/_check_nwpu_proposals.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "data/NWPU VHR-10 dataset",
+        "data/NWPU_VHR10_coco.json"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_nwpu_verifier.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "b74915fb39406c04854782b9fd76d7fcbbae64bf",
+      "original_entrypoint_path": "scripts/_check_nwpu_verifier.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "data/NWPU VHR-10 dataset",
+        "data/NWPU_VHR10_coco.json",
+        "runs/nwpu_baseline_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_phase_action_rank.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "b433cd155c2885f8dde2f045f587ac739b33a4eb",
+      "original_entrypoint_path": "scripts/_check_phase_action_rank.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_phase_combo.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "b999535812f0c49522f6ce30bc73168d97ec266d",
+      "original_entrypoint_path": "scripts/_check_phase_combo.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_phase_sensitivity.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "44b18dc513bc61e5b10a2c4fbcc11827f09e58ce",
+      "original_entrypoint_path": "scripts/_check_phase_sensitivity.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_pixel_diff.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "e175cec9a442157851d245e065660334321483d1",
+      "original_entrypoint_path": "scripts/_check_pixel_diff.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_remove_crop.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "1f6899f6e9044a5dbab1c12d266e0558edba8a59",
+      "original_entrypoint_path": "scripts/_check_remove_crop.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_sensitivity_v2.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "9d2377ad3631635ecf660bd488856979a9b7e28e",
+      "original_entrypoint_path": "scripts/_check_sensitivity_v2.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_sensitivity_v3.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "14fa553b80c3ba86045b3d2cb4c9dc2491bfdddc",
+      "original_entrypoint_path": "scripts/_check_sensitivity_v3.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_check_shift_vs_scale.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "758ed66e136c1a151c416f7a7a593a03ff254504",
+      "original_entrypoint_path": "scripts/_check_shift_vs_scale.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "data/NWPU VHR-10 dataset",
+        "data/NWPU_VHR10_coco.json",
+        "runs/nwpu_baseline_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_counterfactual_energy.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "edc76ff290b9785e06f53f502c05572056feca37",
+      "original_entrypoint_path": "scripts/_counterfactual_energy.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/_fn_checkpoint.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_read_round282.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "e25fd9d8ce80b9af3ae6fac37b81872398b82338",
+      "original_entrypoint_path": "scripts/_read_round282.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round282_{cfg}_s{seed}/eval_metrics.json"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_scan_all_nwpu.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "69b7f6f165ec034704126467bab6f4c7b0e3de80",
+      "original_entrypoint_path": "scripts/_scan_all_nwpu.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "data/NWPU VHR-10 dataset",
+        "data/NWPU_VHR10_coco.json",
+        "runs/nwpu_baseline_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    },
+    {
+      "archive_wave": "A",
+      "current_reproduction_wrapper": "none",
+      "destination": "scripts/archive/scratch/_scan_metrics_oneimg.py",
+      "historical_invocation": "none documented",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "requires the ignored run/data artifacts listed in required_ignored_artifacts"
+      ],
+      "original_blob_sha": "caa749454bbbabae24db4c114981a48afeb5606c",
+      "original_entrypoint_path": "scripts/_scan_metrics_oneimg.py",
+      "replacement_command": "none",
+      "required_ignored_artifacts": [
+        "runs/round227_v1_baseline_20ep/checkpoint_best.pth"
+      ],
+      "research_status": "scratch",
+      "runnable_state": "runnable_as_archived"
+    }
+  ],
+  "schema_version": "script-archive-manifest.v1"
+}
