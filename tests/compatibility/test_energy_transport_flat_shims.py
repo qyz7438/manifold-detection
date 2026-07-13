@@ -2272,3 +2272,37 @@ def test_manifest_covers_every_shimmed_module():
         assert entry.get("input_spec"), (
             f"fixture {entry['name']} must declare a deterministic input_spec"
         )
+
+
+def test_endpoint_dense_endpoint_import_is_order_independent():
+    """The endpoint modules must import cleanly in either order.
+
+    Regression: ``endpoint/dense_endpoint.py`` originally imported the flat
+    ``dense_set_energy`` shim, whose re-export chain cycled back through the
+    endpoint subpackage and failed with a partially-initialized-module
+    ImportError whenever the endpoint module was imported before the shim.
+    The import now points at the canonical sibling path; both orders must
+    work in fresh interpreters.
+    """
+    import subprocess
+    import sys
+
+    orders = [
+        "import spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint",
+        (
+            "import spectral_detection_posttrain.methods.energy_transport.dense_set_energy; "
+            "import spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint"
+        ),
+        (
+            "import spectral_detection_posttrain.methods.energy_transport.endpoint.dense_endpoint; "
+            "import spectral_detection_posttrain.methods.energy_transport.dense_set_energy"
+        ),
+    ]
+    for stmt in orders:
+        result = subprocess.run(
+            [sys.executable, "-c", stmt],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        assert result.returncode == 0, f"{stmt!r} failed: {result.stderr[-500:]}"

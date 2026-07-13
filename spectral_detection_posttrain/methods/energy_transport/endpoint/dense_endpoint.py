@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torchvision.ops import box_iou
 
-from spectral_detection_posttrain.methods.energy_transport.dense_set_energy import (
+from spectral_detection_posttrain.methods.energy_transport.endpoint.dense_set_energy import (
     DenseTeacherComponents,
 )
 

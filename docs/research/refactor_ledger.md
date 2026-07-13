@@ -395,7 +395,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — refactor: organize maintained analysis scripts
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `6344a09`
 - task ID: T16 Wave B of 3 (maintained analysis CLIs; frozen-launcher Wave C follows)
 - agent/model and write owner: Kimi coder subagent (moves + wrappers + manifest/test extension); Kimi main orchestrator adjudicated membership, spot-checked wrappers, regenerated inventory and research docs, and committed
 - adjudication: 14 of 31 candidates moved — the 12 with committed importing test files (wrapper re-export is load-bearing) plus 2 with documented reproduction commands and no importers; 17 deferred with reasons: `validate_dense_endpoint_cleanval` (sha256-pinned by the main-owned backfill generator — needs a main-side evidence-constant update first), 3 scripts whose read-only tests assert old-path source text (`analyze_nwpu_joint_delta_u_fit_replay`, `analyze_nwpu_step005_strata`, `audit_nwpu_top_focused_b3`), and 13 unreferenced files with no clear maintained status (brief rule: defer, do not silently move). Main spot check: 3 random entries blob-identical with existing distinct wrappers; CLI delegate `python scripts/analyze_nwpu_finetune_curve.py --help` prints deprecation note + argparse help exit 0; import re-export `import scripts.analyze_action_cache_lattice` OK.
@@ -407,3 +407,18 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; moved files are analysis CLIs, byte-identical. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: Wave C (frozen launchers -> `scripts/archive/historical/` with frozen-status wrappers) pending; follow-ups scheduled: circular-import fix (next commit), backfill evidence-constant update to unblock `validate_dense_endpoint_cleanval`, and the 13 unreferenced files need a disposition decision later.
+
+
+### 2026-07-13 — fix: break endpoint shim circular import
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: follow-up to T14b, scheduled in the T16 Wave B ledger entry (main-owned one-line fix)
+- agent/model and write owner: Kimi main orchestrator (direct edit; fix precedent is the T14c sanctioned import-line edit)
+- files changed: `spectral_detection_posttrain/methods/energy_transport/endpoint/dense_endpoint.py` line 11 only — import of `DenseTeacherComponents` repointed from the flat shim `...energy_transport.dense_set_energy` to the canonical sibling `...energy_transport.endpoint.dense_set_energy` (the flat shim's re-export chain cycled: endpoint module -> flat shim -> endpoint subpackage, producing a partially-initialized-module ImportError whenever the endpoint module was imported before the shim); `tests/compatibility/test_energy_transport_flat_shims.py` appended with `test_endpoint_dense_endpoint_import_is_order_independent` (subprocess imports in three orders: endpoint-first, shim-first, both); `docs/research/refactor_ledger.md`
+- RED command/result: `pytest tests/test_dense_teacher_component_audit.py::test_summarize_rows_detects_duplicate_support_failure_only -q` (isolated selection) -> ImportError: cannot import name 'DenseTeacherComponents' from partially initialized module ... (confirmed pre-existing: failed identically with HEAD's file restored during Wave B)
+- GREEN command/result: same command -> 1 passed; new order-independence regression test -> 1 passed
+- full-suite result: 1452 passed + 1 skipped = 1451+1 baseline + 1 new
+- reviewer and findings accepted/rejected: main self-review; no research semantics touched — one import line, same object resolved (the shim re-exports the endpoint module's symbol, identity verified by the existing parity suite).
+- scientific artifacts checked: none. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: none specific; other moved modules keep flat-shim sibling imports per the byte-identical rule and none showed a cycle — the boundary/parity suites would surface any recurrence.
