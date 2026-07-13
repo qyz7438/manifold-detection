@@ -66,3 +66,12 @@ def test_canonical_runner_cli_prepares_run_metadata(tmp_path) -> None:
     assert metadata["checkpoint_hash"] == sha256_file(checkpoint_path)
     assert metadata["torch_version"]
     assert metadata["torchvision_version"]
+
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["manifest_kind"] == "runtime"
+    assert manifest["completion"] == "started"
+    assert manifest["run_id"] == "e2e_smoke"
+    assert manifest["outputs"] == []
+    assert manifest["metrics_summary"] == {}
+    assert manifest["gates"] == {}
+    assert manifest["resolved_config"]["sha256"] == sha256_file(run_dir / "config.yaml")

@@ -7,6 +7,13 @@ from typing import Any
 
 import torch
 
+from spectral_detection_posttrain.experiments.lifecycle import (
+    RUNTIME_MANIFEST_NAME,
+    check_formal_run_preconditions,
+    fail_experiment,
+    finalize_experiment,
+    start_runtime_manifest,
+)
 from spectral_detection_posttrain.experiments.metadata import collect_experiment_metadata
 from spectral_detection_posttrain.experiments.schema import validate_experiment_config
 from spectral_detection_posttrain.core.models import build_detector
@@ -23,6 +30,7 @@ class ExperimentContext:
     phase: str
     metadata: dict[str, Any]
     checkpoint_path: Path | None = None
+    manifest_path: Path | None = None
 
 
 def validate_checkpoint_path(path: str | Path | None, required: bool = True) -> Path | None:
@@ -74,16 +82,20 @@ def prepare_experiment_from_config(
     config = validate_experiment_config(config, formal=formal)
     checkpoint = validate_checkpoint_path(checkpoint_path, required=checkpoint_path is not None)
 
-    run_dir = Path(runs_root) / run_name
-    run_dir.mkdir(parents=True, exist_ok=True)
-    save_config(config, run_dir / "config.yaml")
-
     metadata = collect_experiment_metadata(config, config_path=config_file, checkpoint_path=checkpoint)
     metadata["phase"] = phase
     metadata["run_name"] = run_name
+
+    # Formal runs (explicit evaluation scope under formal=True) must be
+    # reproducible: reject a dirty git tree before any run-directory mutation.
+    check_formal_run_preconditions(config, metadata)
+
+    run_dir = Path(runs_root) / run_name
+    run_dir.mkdir(parents=True, exist_ok=True)
+    save_config(config, run_dir / "config.yaml")
     save_json(metadata, run_dir / "metadata.json")
 
-    return ExperimentContext(
+    context = ExperimentContext(
         config=config,
         config_path=config_file,
         run_name=run_name,
@@ -91,7 +103,14 @@ def prepare_experiment_from_config(
         phase=phase,
         metadata=metadata,
         checkpoint_path=checkpoint,
+        manifest_path=run_dir / RUNTIME_MANIFEST_NAME,
     )
+    # Every prepared run starts an ignored runtime manifest. Callers that
+    # never finalize leave it at completion='started' (non-formal until
+    # migrated); completion is only recorded via finalize_experiment /
+    # fail_experiment, never inferred from file existence.
+    start_runtime_manifest(context)
+    return context
 
 
 def build_experiment_model(

@@ -220,7 +220,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — docs: backfill critical experiment provenance
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `a0ed29e`
 - task ID: T10 family 6/6 (dense-local-delta) — final family; closes Task 10
 - agent/model and write owner: same pipeline as family 1 (coder builder, Terra review, main commit); no new builder output in this commit
 - files changed: `spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_local_delta_{stats.002,learner.001,family_audit.001,family_prior.001}.json`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, `docs/research/refactor_ledger.md`
@@ -231,3 +231,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: remote cross-check recorded in the family-1 entry covers all four result JSONs and both evidence bundles. Hold directory is empty; all 15 manifests are now committed across the six family commits. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: none transitional left; standing risks from earlier entries apply (contract-docstring amendment for `runtime_manifest_sha256`; `det.dpo.smoke.001.json` stale script paths await Task 18 adjudication).
+
+### 2026-07-13 — feat: track canonical experiment lifecycle
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T6 (developed in parallel with the T10 per-family commits; committed after them so its gate is the fully green post-T10 suite)
+- agent/model and write owner: Kimi coder subagent (lifecycle module + hooks + tests); Kimi main orchestrator reviewed the diff and committed
+- files changed: `spectral_detection_posttrain/experiments/canonical_runner.py` (additive: lifecycle import, `ExperimentContext.manifest_path` default field, precondition check + manifest start inside `prepare_experiment_from_config`; metadata collection reordered before `mkdir` so a formal dirty tree is rejected before any run-directory mutation; signatures unchanged), `spectral_detection_posttrain/experiments/lifecycle.py` (new), `tests/experiments/test_experiment_lifecycle.py` (new, 8 tests), `tests/test_canonical_runner_e2e.py` (additive manifest assertions)
+- RED command/result: `pytest tests/experiments/test_experiment_lifecycle.py tests/test_canonical_runner_e2e.py -q` -> ImportError on `fail_experiment`; E2E 1 failed (`manifest.json` not written by prepare)
+- GREEN command/result: `pytest tests/experiments/test_experiment_lifecycle.py tests/test_canonical_runner.py tests/test_canonical_runner_e2e.py -q` -> 12 passed; touched-module gate (scope + artifact manifest + schema + metadata + canonical + lifecycle) -> 135 passed
+- full-suite result: 855 passed + 1 skipped (the post-T10 fully green suite, which includes these files)
+- reviewer and findings accepted/rejected: main-orchestrator review of the diff. Verified directly: `check_formal_run_preconditions` keys on `evaluation_scope_formal AND git_dirty` only, so non-formal callers (including `limited_unknown` scope-less configs) are unaffected; the `mkdir` reorder is the only behavioral change and matches plan Step 1's "rejected before run directory mutation". Accepted judgment calls: (1) formal = explicit-scope marker, not the bare `formal` flag (keying on `formal` alone would break committed canonical-runner tests on any dirty worktree); (2) explicit missing-input-hash rejection (`_require_input_hashes`); (3) `LifecycleError` subclasses `ManifestValidationError` so both raise surfaces work; (4) sanitization reuses artifacts' `_SECRET_PATTERNS` (private import, documented) so stored failure reasons always pass the manifest scrubber — whole-string replacement on any pattern hit; (5) no `experiments/__init__.py` export changes (not an owned file; callers import from `lifecycle`/`canonical_runner` directly — a future export pass may add them). Backward compatibility asserted by tests: callers that never finalize leave a `started` manifest; no tracked reviewed manifest is ever written by this path.
+- scientific artifacts checked: none touched; runtime `manifest.json` is written only under the ignored run directory. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: existing production callers are non-formal until they adopt `finalize_experiment`; checkpoint logical_path uses the basename to keep absolute temp paths out of the secret scrubber (documented in-code).
