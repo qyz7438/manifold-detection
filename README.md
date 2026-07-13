@@ -4,7 +4,11 @@ This repository is a research codebase for **energy-guided ROI transport in obje
 
 The project evolved through RLVR-style score rescue, DPO proposal preferences, FFT/raw-iFFT verifier signals, and prototype manifold losses.  The current refactor keeps those lessons but changes the main framing: the class-conditioned target manifold is unknown, so transport must be modeled as an **action-local, low-energy, constrained policy** rather than as direct attraction to a known class prototype.
 
-## Current Active Lines
+## Research Status
+
+**No experiment is currently authorized.** Research status is controlled by the registries under `spectral_detection_posttrain/configs/registry/`; the human-readable summary is generated at `docs/research/current_status.md`.
+
+## Maintained Implementation Areas
 
 - **Energy-Guided ROI Transport**: predicts bounded feature, score, bbox, and keep/reject actions for ROI states, with low-energy, threshold-preservation, and rescue-budget constraints.
 - **Proposal-Aligned Verifier Diagnostics**: FFT/raw-iFFT, geometry, prototype, and high-dimensional ROI signals remain useful as proposal rankers and controls.
@@ -27,17 +31,14 @@ spectral_detection_posttrain/
     manifold/           prototype banks, Sinkhorn assignment, transport heads,
                         FPN spectral manifold, FPN real adapter,
                         FPN attention baselines (SE/FcaNet/ECA)
-    defense/            detector patch attacks and spectral/manifold defenses
-    segmentation/       segmentation prototypes and signals
   signals/
     fft/                FFT/raw-iFFT features and spectral rewards
     geometry/           spatial and box-geometry signals
-    pixel_classification/
   trainers/             detection and segmentation training entry points
   experiments/          canonical runner, schema, metadata, version records
   utils/                seed, io, checkpoint helpers
 scripts/                maintained runners and analysis tools
-  round28_train_eval.py           main single-run train/eval script
+  round28_train_eval.py           standard detector train/eval runner (not the energy-transport runner)
   run_voc_matrix_v2.sh            active VOC 20-class matrix (GPU2)
   run_voc_comparison_matrix.sh    SE/FcaNet/ECA comparison on VOC
   run_nwpu_matrix.sh              NWPU VHR-10 matrix
@@ -71,9 +72,9 @@ E:\anaconda\01\envs\RLimage\python.exe -m pytest tests/ -q
 ### Remote Server (`ps@122.51.19.136`)
 
 ```bash
+cd /home/ps/lzz/manifold-detection-energy-transport
 source /home/ps/anaconda3/etc/profile.d/conda.sh
 conda activate RLimage
-export PYTHONPATH=/home/ps/lzz/RLimage:$PYTHONPATH
 export CUDA_VISIBLE_DEVICES=2
 python scripts/round28_train_eval.py --help
 ```
@@ -164,4 +165,4 @@ python -m pytest -q
 - Record config hash, checkpoint hash, git commit, and dirty status.
 - Treat `runs/`, `data/`, local agent state, and generated analysis caches as local artifacts.
 - Promote an experiment to validated only after full clean eval and a fixed commit.
-- Keep active run scripts and configs in `scripts/`; archive obsolete artifacts to `scripts/legacy/` and `docs/reports/archive/`.
+- Keep active run scripts and configs in `scripts/`; archive obsolete artifacts to `legacy/`.

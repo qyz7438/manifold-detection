@@ -200,29 +200,25 @@ E:\anaconda\01\envs\RLimage\python.exe -m pytest -q
 - Report AP50, AP75, precision, recall, false-positive rate, ECE, prediction count, and whether eval is full-val or limited smoke.
 - Never compare `limit_val=32` smoke metrics against full-val metrics as if they are equivalent.
 
-## Current Active Experiment Matrix (June 2026)
+## Research Status And GPU Policy
 
-The immediate priority is the **VOC 20-class main matrix (M1)** followed by NWPU VHR-10 completion (M4) and COCO smoke validation (M3).
+Research status is controlled by the registries, not by this document:
 
-| Task | Dataset | Seeds | Models / Methods | Status |
-|------|---------|-------|------------------|--------|
-| M1   | VOC 07  | 42,2024,999 | MobileNet baseline, MobileNet+fpn_sm, ResNet50 baseline, ResNet50+fpn_sm | in progress on GPU2 |
-| M2   | VOC 07  | 42,2024,999 | SE / FcaNet / ECA comparison + per-size AP | queued |
-| M3   | COCO 17 | 42 | smoke run on 500/200 images | data ready, script ready |
-| M4   | NWPU    | 42,2024,999 | baseline + fpn_sm | needs third seed |
-| S1-S2| VOC 07  | all | statistical significance + aggregated tables | pending M1/M2 |
-| A2-A10| VOC/PF | selected | fpn_sm ablations (latent dim, freq coords, level coords, gate activation, suppress dc, init alpha, etc.) | pending |
+- `spectral_detection_posttrain/configs/registry/research_lines.json` is the machine-readable authority for research-line status.
+- `spectral_detection_posttrain/configs/registry/experiments.json` defines experiment records; no record is authorized for execution by default.
+- `docs/research/current_status.md` is generated from the registries. Do not hand-edit it; regenerate it after registry changes.
 
-**GPU policy on the remote server**: only `CUDA_VISIBLE_DEVICES=2` may be used. Do not stop, restart, or otherwise interfere with the process currently running the VOC matrix. New jobs must wait until GPU2 is free or be launched with `nohup` after the active run finishes.
+**No experiment is currently authorized.** Do not launch training from registry entries without explicit user instruction.
+
+**GPU policy on the remote server**: only physical GPU2 (`CUDA_VISIBLE_DEVICES=2`) may be used, and only when `memory.free > 8192 MiB` after the new process reaches its peak usage. Never stop, restart, signal, or otherwise interfere with a process owned by another user or project. When the memory gate passes, do not wait merely because another process exists on the GPU.
 
 ## Remote Server Quick Reference
 
 ```bash
 ssh ps@122.51.19.136
-cd /home/ps/lzz/RLimage
+cd /home/ps/lzz/manifold-detection-energy-transport
 source /home/ps/anaconda3/etc/profile.d/conda.sh
 conda activate RLimage
-export PYTHONPATH=/home/ps/lzz/RLimage:$PYTHONPATH
 export CUDA_VISIBLE_DEVICES=2
 python scripts/round28_train_eval.py --help
 ```
@@ -242,7 +238,7 @@ Python interpreter: `/home/ps/anaconda3/envs/RLimage/bin/python` (Python 3.10, P
 ## Keeping The Repository Clean
 
 - Active run scripts and analysis tools live in `scripts/`.
-- Obsolete/one-off scripts and old round reports are archived to `scripts/legacy/` and `docs/reports/archive/`; these directories are ignored by git.
+- Obsolete/one-off scripts and old round reports are archived to `legacy/`.
 - Temporary backup files (`*.bak`, `temp_push/`) are deleted and ignored.
 - Do not commit runtime artifacts (`runs/`, `data/`, checkpoints, logs).
 
@@ -267,4 +263,4 @@ python -m pytest -q
 
 ## Note On Test Suite
 
-The full `pytest tests/` collection currently reports a small number of historical test errors because the environment is missing `scikit-learn`, which is only required by legacy raw-iFFT verifier and dimensionality modules. The actively maintained smoke set (canonical runner, experiment schema/metadata, manifold modules, PBG, geometry metrics) passes. Do not install new packages on the remote server without explicit user approval.
+The full `pytest tests/` suite passes in the maintained local environment. `scikit-learn` is an optional legacy dependency required only by historical raw-iFFT verifier and dimensionality modules; see `docs/research/environment.md` and the environment snapshots under `spectral_detection_posttrain/configs/registry/environments/`. Do not install new packages on the remote server without explicit user approval.

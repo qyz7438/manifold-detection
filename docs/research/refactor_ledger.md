@@ -108,7 +108,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — fix: record explicit evaluation scope
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `dbff3a4`
 - task ID: T5 (W2 parallel wave) + main serial v2 integration
 - agent/model and write owner: Kimi coder subagent (contracts v2 + schema/metadata/round28 + tests); Kimi main orchestrator performed the serial v2 export integration (`experiments/__init__.py`) and the 4-test reconciliation
 - files changed: `spectral_detection_posttrain/experiments/contracts.py` (v1->v2), `schema.py`, `metadata.py`, `scripts/round28_train_eval.py`, `tests/experiments/test_evaluation_scope.py`, `tests/test_round28_experiment_hygiene.py`, plus main-owned integration edits: `spectral_detection_posttrain/experiments/__init__.py` (explicit shared exports; contracts `EvaluationScope` is the canonical shared type), `tests/experiments/test_research_status.py` and `tests/experiments/test_experiment_registry.py` (helper scopes given a positive explicit limit to satisfy the contracts v2 smoke/limited rule)
@@ -119,3 +119,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: one temporary synthetic 6-image CPU run produced `config.json` / `metadata.json` / `eval_metrics.json`; all three carry the scope-provenance block (`limited_unknown`, non-formal, explicit limits, normalization warning); existing metric keys/values unchanged (additive key only). Run artifacts deleted; no experiment authorized.
 - rollback command: `git revert <this-commit>`
 - remaining risks: `artifacts.py` still carries its own self-contained `EvaluationScope` (deliberate duplication; canonical shared export is the contracts v2 type — dedup deferred to a future cleanup pass); old configs without scope are forever non-formal.
+
+### 2026-07-13 — docs: align repository with research registries
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T8 (W2 parallel wave) + main serial README/AGENTS integration
+- agent/model and write owner: Kimi coder subagent (deterministic generator + four generated docs + drift tests, returned proposals only); Kimi main orchestrator applied the README.md / AGENTS.md edits, reviewed, and committed
+- files changed: `scripts/dev/generate_research_docs.py`, `docs/research/README.md`, `docs/research/current_status.md`, `docs/research/experiment_index.md`, `docs/research/artifact_index.md`, `tests/experiments/test_generated_research_docs.py`, plus main-owned `README.md`, `AGENTS.md`, `docs/research/refactor_ledger.md`
+- RED command/result: `pytest tests/experiments/test_generated_research_docs.py -q` -> collection error (generator script and generated docs absent)
+- GREEN command/result: same command -> 38 passed; generation run twice, sha256 identical across runs (`docs/research/README.md` `f7ad8d27…`, `current_status.md` `dbaad429…`, `experiment_index.md` `2b24d611…`, `artifact_index.md` `47bb9d8f…`); `--check` reports up to date
+- full-suite result: 817 passed (main-verified after README/AGENTS edits)
+- reviewer and findings accepted/rejected: main-orchestrator review of builder proposals J1-J7. Accepted: (J1) generated links use repo-relative link text with file-relative hrefs; (J2) optional AGENTS hunk adopted — the `Current Active Experiment Matrix (June 2026)` section replaced by `Research Status And GPU Policy` (registry authority, no authorized experiment, user GPU rules preserved: physical GPU2 only, `memory.free > 8192 MiB` post-peak, never interfere with other processes, no waiting once the gate passes); (J3) archive-path references now point to the tracked `legacy/` directory (`scripts/legacy/` and `docs/reports/archive/` are gitignore-only paths that do not exist in this worktree); (J4) all four generated files carry a unified header with generation-input sha256 block — accepted with the consequence that any registry change drifts all four files, so Task 10 must regenerate after every backfill family; (J5) (a) AGENTS.md line-7 framing prose left unchanged (registry and user wording govern scientific status), (b)(c) adopted (README remote block now `cd`s into `manifold-detection-energy-transport` without the stale PYTHONPATH export; test-suite note updated: full suite green in the maintained environment, scikit-learn optional legacy), (d) skipped; (J7) empty `configs/registry/artifacts/` renders an explicit empty state instead of fabricated rows. Mechanically verified: `current_status.md` line 10 is exactly `No experiment is currently authorized.`; Authorization Summary reads Active 0 / Queued 0 / Authorized 0; layout blocks no longer list nonexistent `defense/`, `segmentation/`, `pixel_classification/` paths.
+- scientific artifacts checked: none touched; generator reads the two registry JSONs and the (empty) artifacts directory only. **No experiment is authorized by this refactor** — confirmed again by the generated Authorization Summary.
+- rollback command: `git revert <this-commit>`
+- remaining risks: registry edits now require a generator re-run in the same commit (drift test enforces); the stale-script-path finding for `det.dpo.smoke.001.json` (recorded in the T9 entry) is still open and scheduled for Task 18 adjudication.
