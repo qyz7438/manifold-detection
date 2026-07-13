@@ -6,6 +6,10 @@
      spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_endpoint.cleanval.001.json sha256=b1a1e35b64397b666cb8aaa8e499f0a71ab8f7a7f52b9da87e98e3c1cfa5955d
      spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_endpoint.geometry_control.001.json sha256=e9a294f1a1707d4a7e6b0b792b6c435717e34b424a7807189593f2b371b693a0
      spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_endpoint.shift_audit.001.json sha256=ffe1349e5f9a5b46965ef633a9e0ba2ab9c85349916b4bec8946d6ac90a07f1a
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_local_delta_family_audit.001.json sha256=36657a98ca6535daf7b525a10c64bb3ab368d16e2752f39329e032039ac5ad11
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_local_delta_family_prior.001.json sha256=9630e2f3e90a38cb6a537c3fea5306dd99bbf8a5c6d7154af4de01e4375ecc28
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_local_delta_learner.001.json sha256=c020e0e998b6ee54e273306d605105739b11a610803fb612ff8b0ee34c5f5653
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_local_delta_stats.002.json sha256=3ab0dd3811b288b09b908a2c4b490157ec5e8ccd67618c22a63cfa16a8552769
      spectral_detection_posttrain/configs/registry/artifacts/det.energy.global_delta_u.c3b.balanced.001.json sha256=92366b78d4c8fa6a5d65b6e988d0cf666f29bee2d7d469250553ef7fb02028a1
      spectral_detection_posttrain/configs/registry/artifacts/det.energy.native_topology.d2b.001.json sha256=3c1ffe28c276de54d81ba9eea10652ddd142cdc1273b6f2e587af5745540683f
      spectral_detection_posttrain/configs/registry/artifacts/det.energy.post_nms_suppress.e1.001.json sha256=cc6a35c734b7d9b6013bb92f0c2ff6a6d497affc7d52ec350661de54553c2e5c
@@ -34,7 +38,7 @@ registries under `spectral_detection_posttrain/configs/registry/`.
   records (executable definitions and historical artifacts), generated
   from the experiment registry.
 - [artifact_index.md](artifact_index.md) — reviewed artifact manifests
-  and their metric summaries; listing 11 reviewed artifact manifests.
+  and their metric summaries; listing 15 reviewed artifact manifests.
 - [refactor_ledger.md](refactor_ledger.md) — hand-maintained ledger of
   the repository research-state refactor; dates and commit history live
   here, never in generated files.

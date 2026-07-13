@@ -206,7 +206,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — docs: backfill critical experiment provenance
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `60bdbd1`
 - task ID: T10 family 5/6 (dense-endpoint)
 - agent/model and write owner: same pipeline as family 1 (coder builder, Terra review, main commit); no new builder output in this commit
 - files changed: `spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_endpoint.{absolute,geometry_control,cleanval,shift_audit}.001.json`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, `docs/research/refactor_ledger.md`
@@ -217,3 +217,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: remote cross-check recorded in the family-1 entry covers all four result JSONs. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: 4 manifests remain in the hold directory; transitional suite red persists until family 6.
+
+### 2026-07-13 — docs: backfill critical experiment provenance
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T10 family 6/6 (dense-local-delta) — final family; closes Task 10
+- agent/model and write owner: same pipeline as family 1 (coder builder, Terra review, main commit); no new builder output in this commit
+- files changed: `spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_local_delta_{stats.002,learner.001,family_audit.001,family_prior.001}.json`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, `docs/research/refactor_ledger.md`
+- RED command/result: covered by the family-1 entry
+- GREEN command/result: backfill generator `--check` reports up to date with all 15 manifests present; `pytest tests/experiments/test_backfilled_artifacts.py tests/experiments/test_artifact_manifest.py -q` -> 125 passed
+- full-suite result: **855 passed + 1 skipped, zero failures/errors** — the transitional red is fully cleared (855 = 817 baseline + 31 backfill + 8 lifecycle tests from the concurrently developed, not-yet-committed Task 6 files; skip is the generated-docs empty-state check, inapplicable now that reviewed manifests exist)
+- reviewer and findings accepted/rejected: Terra verdicts for all four dense-local-delta manifests: ACCEPT. Spot-checks against `docs/autonomous_exploration_ledger.md`: learner (`58908126`, 0.08585 vs 0.10997, pairwise `0.57469` below the 0.60 gate — failure recorded, not hidden); family_prior (`d81b27a6`, 0.67241/0.07722); bundle-commit provenance for family_audit (`923db6a7…`) and family_prior (`d81b27a6…`) mechanically verified via `git bundle list-heads`, both ancestors of the observed revision. Scopes stay train_only / limited(48/16) / cache_only — non-formal, no claim inflation.
+- scientific artifacts checked: remote cross-check recorded in the family-1 entry covers all four result JSONs and both evidence bundles. Hold directory is empty; all 15 manifests are now committed across the six family commits. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: none transitional left; standing risks from earlier entries apply (contract-docstring amendment for `runtime_manifest_sha256`; `det.dpo.smoke.001.json` stale script paths await Task 18 adjudication).

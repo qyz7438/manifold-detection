@@ -1,0 +1,58 @@
+{
+  "completion": "completed",
+  "environment": {
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": 64,
+    "kind": "cache_only",
+    "limit_train": 48,
+    "limit_val": 16
+  },
+  "experiment_id": "det.energy.dense_local_delta_family_prior.001",
+  "gates": {},
+  "git_commit": "d81b27a662b673cd8720d5cea4e95f2acf45590f",
+  "git_dirty": false,
+  "inputs": [],
+  "invocation": [],
+  "manifest_id": "det.energy.dense_local_delta_family_prior.001:nwpu_dense_local_delta_learner_s42_48_16",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "family_fit_mean_mae": 0.07722179204898162,
+    "family_fit_mean_pairwise_accuracy": 0.6724072098731995,
+    "global_fit_mean_mae": 0.12307347376619417,
+    "local_full_mae": 0.0858491068471961,
+    "scientific_status": "posthoc_family_prior_diagnostic_complete",
+    "zero_baseline_mae": 0.10997341155268
+  },
+  "missing_evidence": [
+    "no runtime manifest.json exists for this historical run; runtime_manifest_sha256 binds the primary result JSON instead",
+    "original CLI invocation not recorded in the evidence; entrypoints, where recorded, are documented in spectral_detection_posttrain/configs/registry/experiments.json",
+    "run-time python/torch versions not recorded in the evidence; see spectral_detection_posttrain/configs/registry/environments/ snapshots",
+    "run-time git commit copied from the sibling evidence bundle name (family_prior_d81b27a.bundle); the result JSON records no git commit",
+    "evidence records no gates: post-hoc family diagnostic"
+  ],
+  "observed_at_utc": "2026-07-13T06:21:43Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "7e1f2404699df997883678274491e88d3ec253c0",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/nwpu_dense_local_delta_learner_s42_48_16/family_prior_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "2d578fd55f64f28f5fb2d363dc4d8df7be8997aa9487ae12ca9caa8e016481c6",
+      "size_bytes": 3711
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "spectral_detection_posttrain/configs/versions/det.energy.dense_local_delta_family_prior.001.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "d2723fe0fba3526035c35c32aa3206c27863f2a5edda0f2aa72c1362ecd489c5",
+    "size_bytes": 1097
+  },
+  "run_id": "nwpu_dense_local_delta_learner_s42_48_16",
+  "runtime_manifest_sha256": "2d578fd55f64f28f5fb2d363dc4d8df7be8997aa9487ae12ca9caa8e016481c6",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}
