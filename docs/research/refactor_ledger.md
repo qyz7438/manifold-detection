@@ -24,7 +24,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — docs: lock repository refactor baseline
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `0065de4`
 - task ID: T0
 - agent/model and write owner: Kimi (main orchestrator; write owner of ledger and shared files)
 - files changed: `docs/research/refactor_ledger.md`
@@ -35,3 +35,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; protected history inventory (36 entries, docs/reports/** + docs/decisions/** + docs/autonomous_exploration_report.md) sha256 `384405371a051a5f3356af2b860a61bc859a435a56b29cf4b0ea263295588368` recorded in `.agent_reports/refactor/protected_history_inventory.txt`
 - rollback command: `git revert <this-commit>` (docs-only)
 - remaining risks: autocrlf CRLF regression on future checkout operations (mitigation documented above)
+
+### 2026-07-13 — test: lock maintained repository state
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T1
+- agent/model and write owner: Kimi coder subagent (validator + contract test); Kimi main orchestrator owns `pyproject.toml` and the commit
+- files changed: `pyproject.toml`, `scripts/dev/validate_repository_state.py`, `tests/contracts/test_repository_state.py` (`.gitignore` reviewed, no change needed)
+- RED command/result: `pytest tests/contracts/test_repository_state.py -q` -> 1 passed, 25 errors (validator module not yet implemented)
+- GREEN command/result: same command -> 26 passed; `python scripts/dev/validate_repository_state.py --json` -> `{"checked": 911, "violations": []}`, exit 0
+- full-suite result: 575 passed (549 baseline + 26 new)
+- reviewer and findings accepted/rejected: main-orchestrator review; accepted (patterns precise, no generic `*.json`, exact-name secrets, read-only CLI)
+- scientific artifacts checked: none touched; validator confirms zero tracked runtime artifacts (dataset/checkpoint/cache/log/runs//.agent_reports//secret patterns)
+- rollback command: `git revert <this-commit>`
+- remaining risks: new artifact classes not covered by current patterns (e.g. future `*.parquet`) would need a pattern update with a corresponding contract test
