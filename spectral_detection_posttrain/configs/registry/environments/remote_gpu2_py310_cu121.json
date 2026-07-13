@@ -1,0 +1,50 @@
+{
+  "captured_at_utc": "2026-07-13T05:29:41Z",
+  "cuda": {
+    "available": true,
+    "device_count": 4,
+    "devices": [
+      {
+        "index": 2,
+        "name": "NVIDIA GeForce RTX 4090"
+      }
+    ],
+    "note": null
+  },
+  "host_alias": "remote:manifold",
+  "notes": [
+    "remote training is restricted to physical GPU2 (index 2); only jobs launched with CUDA_VISIBLE_DEVICES=2 may run",
+    "launch gate: nvidia-smi memory.free on GPU index 2 must exceed 8192 MiB before starting training (observed 48628 MiB free of 49140 MiB at capture time)",
+    "gpu identity observed via read-only 'nvidia-smi -i 2'; package and platform facts collected by an inline python one-liner over SSH; no files were written remotely and no CUDA workload was initialized",
+    "user-profile paths are redacted (/home/<user>); host identity is recorded via host_alias instead"
+  ],
+  "optional_dependencies": {
+    "scikit-learn": {
+      "note": "optional legacy analysis dependency; not part of the maintained install",
+      "state": "absent",
+      "version": null
+    }
+  },
+  "os": {
+    "machine": "x86_64",
+    "release": "6.8.0-124-generic",
+    "system": "Linux"
+  },
+  "packages": {
+    "numpy": "1.26.4",
+    "pillow": "12.2.0",
+    "pytest": "9.1.1",
+    "torch": "2.1.0+cu121",
+    "torchvision": "0.16.0+cu121"
+  },
+  "python": {
+    "executable": "/home/<user>/anaconda3/envs/RLimage/bin/python",
+    "version": "3.10.20",
+    "version_info": [
+      3,
+      10,
+      20
+    ]
+  },
+  "schema_version": "1.0"
+}

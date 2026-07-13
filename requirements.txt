@@ -1,3 +1,8 @@
+# Maintained runtime requirements (CPU test path).
+# Install with: pip install -r requirements.txt
+# No CUDA wheel URLs are pinned here; torch/torchvision resolve to the
+# environment's existing build (CPU or +cu121) and must stay installable
+# without a GPU.
 torch==2.1.0
 torchvision==0.16.0
 timm
@@ -9,3 +14,9 @@ pandas
 numpy<2
 nni==3.0
 setuptools==69.5.1
+
+# Optional legacy analysis dependencies — NOT part of the maintained install.
+# Required only by legacy raw-iFFT verifier and dimensionality modules;
+# install explicitly and only when working on those modules:
+#   scikit-learn
+# See docs/research/environment.md for the recorded per-host states.

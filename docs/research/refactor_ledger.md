@@ -122,7 +122,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — docs: align repository with research registries
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `92855f0`
 - task ID: T8 (W2 parallel wave) + main serial README/AGENTS integration
 - agent/model and write owner: Kimi coder subagent (deterministic generator + four generated docs + drift tests, returned proposals only); Kimi main orchestrator applied the README.md / AGENTS.md edits, reviewed, and committed
 - files changed: `scripts/dev/generate_research_docs.py`, `docs/research/README.md`, `docs/research/current_status.md`, `docs/research/experiment_index.md`, `docs/research/artifact_index.md`, `tests/experiments/test_generated_research_docs.py`, plus main-owned `README.md`, `AGENTS.md`, `docs/research/refactor_ledger.md`
@@ -133,3 +133,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; generator reads the two registry JSONs and the (empty) artifacts directory only. **No experiment is authorized by this refactor** — confirmed again by the generated Authorization Summary.
 - rollback command: `git revert <this-commit>`
 - remaining risks: registry edits now require a generator re-run in the same commit (drift test enforces); the stale-script-path finding for `det.dpo.smoke.001.json` (recorded in the T9 entry) is still open and scheduled for Task 18 adjudication.
+
+### 2026-07-13 — docs: record reproducible execution environments
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T11 (W2 parallel wave)
+- agent/model and write owner: Kimi coder subagent (read-only collector + snapshots + maintained prose + tests); Kimi main orchestrator reviewed and committed
+- files changed: `scripts/dev/snapshot_environment.py`, `docs/research/environment.md`, `spectral_detection_posttrain/configs/registry/environments/local_windows_py310.json`, `spectral_detection_posttrain/configs/registry/environments/remote_gpu2_py310_cu121.json`, `tests/contracts/test_environment_snapshot.py`, `requirements.txt` (comments only)
+- RED command/result: `pytest tests/contracts/test_environment_snapshot.py -q` -> collection error (collector and snapshots absent)
+- GREEN command/result: same command -> 11 passed
+- full-suite result: 817 passed (main-verified; T8 commit `92855f0` suite run)
+- reviewer and findings accepted/rejected: main-orchestrator review. Verified mechanically: (1) remote snapshot redacts user-profile paths as `/home/<user>` and records host identity via `host_alias`; (2) GPU2 facts match the user's hard rules — RTX 4090, 48628 MiB free of 49140 MiB at capture, launch gate `memory.free > 8192 MiB` post-peak; (3) local snapshot records RTX 3070 Laptop, torch 2.1.0+cu121, scikit-learn 1.7.2 present; remote records scikit-learn absent; (4) `requirements.txt` diff is comments-only — no pin added, removed, or changed (torch/torchvision deliberately not repinned to a CUDA wheel URL); (5) `captured_at_utc` is format-validated but never equality-compared, so re-capture cannot break the suite.
+- scientific artifacts checked: none touched; collector is read-only (interpreter version, installed distributions, `nvidia-smi` query). No remote writes, no package installs, no GPU work.
+- rollback command: `git revert <this-commit>`
+- remaining risks: snapshots are point-in-time observations; remote environment drift (driver, env packages) requires an explicit re-capture commit rather than silent regeneration.
