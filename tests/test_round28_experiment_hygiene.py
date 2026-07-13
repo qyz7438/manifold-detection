@@ -174,3 +174,46 @@ def test_strong_baseline_launcher_is_serialized_after_parity() -> None:
     assert '--warmup-epochs 2' in launcher
     assert '--epochs "${EPOCHS}"' in launcher
     assert 'EPOCHS="${EPOCHS:-36}"' in launcher
+
+
+def test_attach_evaluation_scope_is_additive_provenance() -> None:
+    assert hasattr(round28_train_eval, "_attach_evaluation_scope")
+    config = {
+        "evaluation_scope": {
+            "kind": "limited_unknown",
+            "image_count": 3,
+            "limit_train": None,
+            "limit_val": 3,
+        },
+        "evaluation_scope_formal": False,
+    }
+    metrics = {"ap50": 0.5, "ap75": 0.25, "completed": True, "history": []}
+    before = dict(metrics)
+
+    round28_train_eval._attach_evaluation_scope(metrics, config)
+
+    for key, value in before.items():
+        assert metrics[key] == value
+    assert metrics["evaluation_scope"] == {
+        "kind": "limited_unknown",
+        "image_count": 3,
+        "limit_train": None,
+        "limit_val": 3,
+        "formal": False,
+    }
+
+
+def test_round28_config_normalization_records_scope_provenance() -> None:
+    # Round28 CLI runs never carry an explicit evaluation_scope, so they
+    # normalize to limited_unknown with a non-formal marker and a warning.
+    assert hasattr(round28_train_eval, "_normalize_run_scope")
+    config = {"model": {"name": "fasterrcnn_mobilenet_v3_large_320_fpn"}}
+
+    round28_train_eval._normalize_run_scope(config, limit_train=None, limit_val=8)
+
+    assert config["limit_train"] is None
+    assert config["limit_val"] == 8
+    assert config["evaluation_scope"]["kind"] == "limited_unknown"
+    assert config["evaluation_scope"]["limit_val"] == 8
+    assert config["evaluation_scope_formal"] is False
+    assert any("limited_unknown" in w for w in config["normalization_warnings"])

@@ -3,6 +3,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from spectral_detection_posttrain.experiments.contracts import normalize_evaluation_scope
+
 
 SUPPORTED_MODEL_NAMES = {
     "fasterrcnn_mobilenet_v3_large_320_fpn",
@@ -71,4 +73,44 @@ def validate_experiment_config(config: dict[str, Any], formal: bool = True) -> d
     elif "afm_channels" in model_cfg:
         model_cfg["afm_channels"] = int(model_cfg.get("afm_channels", 0))
 
+    _normalize_evaluation_scope(normalized, formal=formal)
     return normalized
+
+
+def _normalize_evaluation_scope(config: dict[str, Any], *, formal: bool) -> None:
+    """Record evaluation-scope provenance on a resolved config (additive).
+
+    Writes ``limit_train``, ``limit_val``, ``image_count``, a strict
+    ``evaluation_scope`` mapping, an ``evaluation_scope_formal`` marker, and
+    any ``normalization_warnings``. Configs without an explicit
+    ``evaluation_scope`` normalize to ``limited_unknown`` with a warning and
+    run non-formal: they cannot produce validated manifests. Re-validation of
+    an already-normalized config is idempotent.
+    """
+    raw_scope = config.get("evaluation_scope")
+    already_normalized = "evaluation_scope_formal" in config
+    scope, warnings = normalize_evaluation_scope(
+        raw_scope,
+        limit_train=config.get("limit_train"),
+        limit_val=config.get("limit_val"),
+        image_count=config.get("image_count"),
+    )
+    if already_normalized:
+        # Preserve the provenance computed when the scope was first attached:
+        # re-parsing the normalized mapping must not flip the formal marker
+        # or drop the limited_unknown normalization warning.
+        scope_formal = bool(config["evaluation_scope_formal"])
+        warnings = list(config.get("normalization_warnings", warnings))
+    else:
+        scope_formal = bool(formal and raw_scope is not None)
+    config["limit_train"] = scope.limit_train
+    config["limit_val"] = scope.limit_val
+    config["image_count"] = scope.image_count
+    config["evaluation_scope"] = {
+        "kind": scope.kind,
+        "image_count": scope.image_count,
+        "limit_train": scope.limit_train,
+        "limit_val": scope.limit_val,
+    }
+    config["evaluation_scope_formal"] = scope_formal
+    config["normalization_warnings"] = list(warnings)

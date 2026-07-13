@@ -418,9 +418,11 @@ def test_evaluation_scope_kind_vocabulary() -> None:
         "limited_unknown",
     }
     for kind in kinds:
-        scope = parse_evaluation_scope(
-            {"kind": kind, "image_count": None, "limit_train": None, "limit_val": None}
-        )
+        raw = {"kind": kind, "image_count": None, "limit_train": None, "limit_val": None}
+        if kind in {"smoke", "limited"}:
+            # contracts v2: smoke/limited require a positive explicit limit
+            raw["limit_val"] = 32
+        scope = parse_evaluation_scope(raw)
         assert scope.kind == kind
     with pytest.raises(ValueError):
         parse_evaluation_scope(

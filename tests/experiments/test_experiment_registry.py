@@ -75,7 +75,11 @@ def registry() -> ExperimentRegistry:
 
 
 def _scope(kind: str = "smoke") -> dict:
-    return {"kind": kind, "image_count": None, "limit_train": None, "limit_val": None}
+    raw = {"kind": kind, "image_count": None, "limit_train": None, "limit_val": None}
+    if kind in {"smoke", "limited"}:
+        # contracts v2: smoke/limited require a positive explicit limit
+        raw["limit_val"] = 32
+    return raw
 
 
 def _executable_record(**overrides) -> dict:

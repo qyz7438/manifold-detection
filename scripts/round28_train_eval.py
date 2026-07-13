@@ -16,6 +16,11 @@ from tqdm import tqdm
 
 from spectral_detection_posttrain.datasets import build_penn_fudan_loaders
 from spectral_detection_posttrain.eval.detection_metrics import evaluate_detection_predictions
+from spectral_detection_posttrain.experiments.metadata import (
+    collect_experiment_metadata,
+    evaluation_scope_provenance,
+)
+from spectral_detection_posttrain.experiments.schema import validate_experiment_config
 from spectral_detection_posttrain.models import build_detector
 from spectral_detection_posttrain.utils.checkpoint_hash import sha256_file
 from spectral_detection_posttrain.utils.git_state import get_git_state
@@ -114,6 +119,29 @@ def _data_split_manifest(train_loader, val_loader) -> dict[str, dict[str, int | 
         }
 
     return {"train": summarize(train_loader), "val": summarize(val_loader)}
+
+
+def _normalize_run_scope(config: dict, *, limit_train: int | None, limit_val: int | None) -> None:
+    """Record CLI limits and evaluation-scope provenance on the run config.
+
+    Round28 CLI runs never carry an explicit ``evaluation_scope``, so config
+    normalization marks them ``limited_unknown`` and non-formal with an
+    explicit warning (contracts v2). Validation is additive and idempotent:
+    model/dataset fields and CLI flag behavior are unchanged.
+    """
+    config["limit_train"] = limit_train
+    config["limit_val"] = limit_val
+    normalized = validate_experiment_config(config, formal=False)
+    config.clear()
+    config.update(normalized)
+
+
+def _attach_evaluation_scope(metrics: dict, config: dict) -> dict:
+    """Attach the additive ``evaluation_scope`` provenance block to metrics."""
+    provenance = evaluation_scope_provenance(config)
+    if provenance is not None:
+        metrics["evaluation_scope"] = provenance
+    return metrics
 
 
 def _to_device(targets: list[dict], device: torch.device) -> list[dict]:
@@ -428,6 +456,8 @@ def main() -> None:
         config["data"]["max_size"] = args.max_size
         config["model"]["max_size"] = args.max_size
 
+    _normalize_run_scope(config, limit_train=args.limit_train, limit_val=args.limit_val)
+
     set_seed(args.seed)
     device = resolve_device(config)
     run_dir = ensure_run_dir(args.run_name)
@@ -453,7 +483,11 @@ def main() -> None:
     else:
         train_loader, val_loader = build_penn_fudan_loaders(config, limit_train=args.limit_train, limit_val=args.limit_val)
     config["data_split_manifest"] = _data_split_manifest(train_loader, val_loader)
+    val_image_count = len(val_loader.dataset)
+    config["image_count"] = val_image_count
+    config["evaluation_scope"]["image_count"] = val_image_count
     save_json(config, run_dir / "config.json")
+    save_json(collect_experiment_metadata(config), run_dir / "metadata.json")
     model = build_detector(config).to(device)
 
     if args.checkpoint:
@@ -485,6 +519,7 @@ def main() -> None:
                         "source_checkpoint": config.get("source_checkpoint"),
                         "completed": True,
                         "history": []})
+        _attach_evaluation_scope(metrics, config)
         save_json(metrics, run_dir / "eval_metrics.json")
         print(metrics)
         return
@@ -555,6 +590,7 @@ def main() -> None:
                     "completed": False,
                     "history": history,
                 }
+                _attach_evaluation_scope(failed_metrics, config)
                 save_json(failed_metrics, run_dir / "eval_metrics.json")
                 raise RuntimeError(f"Non-finite loss at epoch {epoch} for run {args.run_name}")
 
@@ -648,6 +684,7 @@ def main() -> None:
         except Exception as exc:
             metrics["model_cost_error"] = str(exc)
 
+    _attach_evaluation_scope(metrics, config)
     save_json(metrics, run_dir / "eval_metrics.json")
     print(metrics)
 

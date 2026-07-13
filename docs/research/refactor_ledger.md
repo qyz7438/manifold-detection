@@ -94,7 +94,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — feat: register versioned research experiments
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `f620072`
 - task ID: T3
 - agent/model and write owner: Kimi coder subagent (registry + experiments.json + tests); Kimi main orchestrator reviewed and committed
 - files changed: `spectral_detection_posttrain/experiments/registry.py`, `spectral_detection_posttrain/configs/registry/experiments.json`, `tests/experiments/test_experiment_registry.py`
@@ -105,3 +105,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; every required backfill ID (union of the 13 executable and 8 historical IDs) resolves. **No experiment is authorized by this refactor** — `can_dispatch` is False for the entire initial registry.
 - rollback command: `git revert <this-commit>`
 - remaining risks: scope determinations marked `limited_unknown` must never be read as formal; handler names are validated as a static set but implemented only in Task 7.
+
+### 2026-07-13 — fix: record explicit evaluation scope
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T5 (W2 parallel wave) + main serial v2 integration
+- agent/model and write owner: Kimi coder subagent (contracts v2 + schema/metadata/round28 + tests); Kimi main orchestrator performed the serial v2 export integration (`experiments/__init__.py`) and the 4-test reconciliation
+- files changed: `spectral_detection_posttrain/experiments/contracts.py` (v1->v2), `schema.py`, `metadata.py`, `scripts/round28_train_eval.py`, `tests/experiments/test_evaluation_scope.py`, `tests/test_round28_experiment_hygiene.py`, plus main-owned integration edits: `spectral_detection_posttrain/experiments/__init__.py` (explicit shared exports; contracts `EvaluationScope` is the canonical shared type), `tests/experiments/test_research_status.py` and `tests/experiments/test_experiment_registry.py` (helper scopes given a positive explicit limit to satisfy the contracts v2 smoke/limited rule)
+- RED command/result: `pytest tests/experiments/test_evaluation_scope.py tests/test_round28_experiment_hygiene.py -q` -> ImportError on `CONTRACTS_VERSION` (scope contract absent)
+- GREEN command/result: same command -> 31 passed; after main reconciliation the previously failing 4 committed tests (kind vocabulary loop + 3 registry helper-scope tests) pass: 99 passed across the four touched modules
+- full-suite result: 817 passed (main-verified)
+- reviewer and findings accepted/rejected: main-orchestrator review. Accepted judgment calls: (1) formal=True + missing scope normalizes to `limited_unknown` with `formal: false` + warning instead of raising (raising would break committed `test_experiment_schema.py`); (2) formal marker kept top-level (`evaluation_scope_formal`) so `config["evaluation_scope"]` stays a strict 4-key dict under re-validation; (3) `image_count` = post-limit evaluated val images; (4) the 4-test reconciliation edits minimal helper scopes rather than weakening the v2 rule. Builder-reported stop condition (4 committed tests red) resolved by main as documented above.
+- scientific artifacts checked: one temporary synthetic 6-image CPU run produced `config.json` / `metadata.json` / `eval_metrics.json`; all three carry the scope-provenance block (`limited_unknown`, non-formal, explicit limits, normalization warning); existing metric keys/values unchanged (additive key only). Run artifacts deleted; no experiment authorized.
+- rollback command: `git revert <this-commit>`
+- remaining risks: `artifacts.py` still carries its own self-contained `EvaluationScope` (deliberate duplication; canonical shared export is the contracts v2 type — dedup deferred to a future cleanup pass); old configs without scope are forever non-formal.
