@@ -7,6 +7,13 @@ from typing import Any, Mapping
 
 import torch
 
+# Task 14 phase 1 (policy migration): sanctioned re-exports so policy modules
+# reach core matching primitives through the native layer ("eval primitives"
+# grant in docs/decisions/adr-energy-transport-package-boundaries.md) instead
+# of importing spectral_detection_posttrain.core.* directly.
+from spectral_detection_posttrain.core.matching import match_predictions_to_gt
+from spectral_detection_posttrain.core.matching.box_iou import box_iou
+
 
 @dataclass(frozen=True)
 class DetectorNativeCandidates:

@@ -52,6 +52,14 @@ ALLOWED_FIXTURE_PATHS = frozenset(
         "tests/fixtures/checkpoints/spatial_candidate_energy_head_seed43.pt",
         "tests/fixtures/checkpoints/context_only_candidate_energy_head_seed44.pt",
         "tests/fixtures/checkpoints/action_benefit_energy_head_seed45.pt",
+        "tests/fixtures/checkpoints/nms_aware_set_policy_head_seed51.pt",
+        "tests/fixtures/checkpoints/global_top1_policy_head_seed52.pt",
+        "tests/fixtures/checkpoints/adaptive_consensus_global_top1_head_seed53.pt",
+        "tests/fixtures/checkpoints/set_context_global_top1_head_seed54.pt",
+        "tests/fixtures/checkpoints/action_topology_global_top1_head_seed55.pt",
+        "tests/fixtures/checkpoints/native_action_topology_global_top1_head_seed56.pt",
+        "tests/fixtures/checkpoints/joint_delta_u_probe_seed57.pt",
+        "tests/fixtures/checkpoints/post_nms_suppress_policy_head_seed58.pt",
     }
 )
 

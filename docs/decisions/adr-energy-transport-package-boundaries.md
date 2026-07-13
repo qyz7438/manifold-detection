@@ -80,7 +80,10 @@ diagnostics may depend on stable method APIs, never write artifacts implicitly
   substrate allowed in every subpackage (`torch` is named in rule 1;
   `torchvision.ops` box/NMS utilities are detection eval primitives).
 - For `native`, "eval primitives" includes `spectral_detection_posttrain.core`
-  matching/box utilities. No native module currently uses this grant.
+  matching/box utilities. Since Task 14 phase 1, `native_contract.py` uses this
+  grant to re-export `box_iou` and `match_predictions_to_gt` as the sanctioned
+  route by which `policy` modules reach those primitives without importing
+  `core` directly.
 - Imports within the same target subpackage are always allowed.
 - For `policy`, the allowed set is exactly `action` + `native` (+ substrate);
   "not scripts or runs" also forbids `scripts/`, `runs/`, and `legacy/` imports.
@@ -128,14 +131,19 @@ is listed here with its removal task; the test cross-checks that this list and
 the ADR agree, and fails if an allowlist entry stops being a violation (stale
 entries must be deleted, not kept).
 
-| Module | Violation | Removal task |
-|---|---|---|
-| `adaptive_consensus.py` | `policy` module imports `spectral_detection_posttrain.core.matching.box_iou` directly; policy may depend on action/native only | Task 14 (policy migration): route the box-IoU dependency through an action/native-level export or amend this ADR, then delete the allowlist entry |
-| `set_search.py` | `policy` module imports `spectral_detection_posttrain.core.matching` directly; policy may depend on action/native only | Task 14 (policy migration): route the matching dependency through an action/native-level export or amend this ADR, then delete the allowlist entry |
+**Current status: the allowlist is empty.** The two violations recorded at
+Task 12 were both resolved by Task 14 phase 1 (policy migration), which routed
+the `policy` -> `core` imports through `native_contract.py` re-exports and then
+deleted the allowlist entries:
 
-No other violations exist at the time of this decision: all `action`, `native`,
-`endpoint`, and `diagnostics` modules respect their rules, and no diagnostics
-module writes artifacts at import time.
+| Module | Historical violation | Resolution |
+|---|---|---|
+| `adaptive_consensus.py` | `policy` module imported `spectral_detection_posttrain.core.matching.box_iou` directly | Task 14 phase 1 (policy migration): imports `box_iou` from `energy_transport.native.native_contract` instead; allowlist entry deleted |
+| `set_search.py` | `policy` module imported `spectral_detection_posttrain.core.matching` directly | Task 14 phase 1 (policy migration): imports `match_predictions_to_gt` from `energy_transport.native.native_contract` instead; allowlist entry deleted |
+
+No other violations exist: all `action`, `native`, `policy`, `endpoint`, and
+`diagnostics` modules respect their rules, and no diagnostics module writes
+artifacts at import time.
 
 ### Consequences
 
@@ -144,8 +152,8 @@ module writes artifacts at import time.
 - Good, because the allowlist ratchet (stale entries fail) forces cleanup when
   Task 14 fixes the two policy violations.
 - Bad, because the rule interpretation (e.g. `core` access restricted to
-  `action`/`native`) is stricter than current practice; two policy modules
-  carry documented debt until Task 14.
+  `action`/`native`) is stricter than pre-refactor practice; two policy modules
+  carried documented debt until Task 14 phase 1 resolved it.
 - Neutral, because `__init__.py` keeps importing eagerly for now; the lazy
   facade is deferred to Task 14 Step 4.
 

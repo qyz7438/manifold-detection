@@ -73,7 +73,7 @@ from spectral_detection_posttrain.methods.energy_transport.action.geometric_cons
     intra_tp_action_loss,
     loc_err_action_loss,
 )
-from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
+from spectral_detection_posttrain.methods.energy_transport.policy.global_top1 import (
     FlattenedGlobalLogits,
     GlobalTop1Output,
     GlobalTop1PolicyHead,
@@ -95,10 +95,10 @@ from spectral_detection_posttrain.methods.energy_transport.native.native_topolog
     NATIVE_TOPOLOGY_FEATURE_NAMES,
     native_action_nms_topology,
 )
-from spectral_detection_posttrain.methods.energy_transport.adaptive_consensus import (
+from spectral_detection_posttrain.methods.energy_transport.policy.adaptive_consensus import (
     proposal_graph_consensus_deltas,
 )
-from spectral_detection_posttrain.methods.energy_transport.post_nms_suppress import (
+from spectral_detection_posttrain.methods.energy_transport.policy.post_nms_suppress import (
     PostNMSSuppression,
     PostNMSSuppressPolicyHead,
     build_post_nms_detection_features,
@@ -115,7 +115,7 @@ from spectral_detection_posttrain.methods.energy_transport.high_water_mark impor
     should_update_high_water_mark,
     stop_high_water_mark_loss,
 )
-from spectral_detection_posttrain.methods.energy_transport.joint_delta_u import (
+from spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u import (
     GroupHeldoutSplit,
     JointDeltaULossConfig,
     JointDeltaUProbe,
@@ -143,13 +143,13 @@ from spectral_detection_posttrain.methods.energy_transport.action.operators impo
 from spectral_detection_posttrain.methods.energy_transport.action.preferences import (
     build_top_bottom_preferences,
 )
-from spectral_detection_posttrain.methods.energy_transport.search import (
+from spectral_detection_posttrain.methods.energy_transport.policy.search import (
     ActionSearchConfig,
     ScoreActionSearchResult,
     apply_score_action_to_prediction,
     select_min_energy_score_actions,
 )
-from spectral_detection_posttrain.methods.energy_transport.set_policy import (
+from spectral_detection_posttrain.methods.energy_transport.policy.set_policy import (
     NMSAwareSetPolicyHead,
     SetPolicyLossConfig,
     SetPolicyOutput,
@@ -158,7 +158,7 @@ from spectral_detection_posttrain.methods.energy_transport.set_policy import (
     select_set_policy_actions,
     set_policy_loss,
 )
-from spectral_detection_posttrain.methods.energy_transport.set_search import (
+from spectral_detection_posttrain.methods.energy_transport.policy.set_search import (
     ActionCandidate,
     PairedBootstrapSummary,
     SetOutcome,

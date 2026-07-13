@@ -134,16 +134,11 @@ ARTIFACT_WRITE_CALLS = {
 # Known current violations: (flat module stem, imported target) -> removal task.
 # Every entry must also appear in the ADR. Entries are removed by the task
 # listed; the test fails if an entry stops being a violation before removal.
-ALLOWLIST = {
-    (
-        "adaptive_consensus",
-        "spectral_detection_posttrain.core.matching.box_iou",
-    ): "Task 14 (policy migration)",
-    (
-        "set_search",
-        "spectral_detection_posttrain.core.matching",
-    ): "Task 14 (policy migration)",
-}
+# Task 14 phase 1 (policy migration) resolved the two policy -> core entries
+# by routing box_iou and match_predictions_to_gt through
+# energy_transport.native.native_contract; the allowlist is intentionally
+# empty and the ratchet keeps it that way.
+ALLOWLIST: dict[tuple[str, str], str] = {}
 
 
 def _resolve_import_from(node: ast.ImportFrom) -> str:

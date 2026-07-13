@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "created": "2026-07-13",
-  "created_by": "refactor plan Task 13 (action core + native migration)",
-  "provenance": "SYNTHETIC parity fixtures created in Task 13 (T13) of the repository research-state refactor. These are freshly seeded, randomly initialized CPU state dicts whose ONLY purpose is to verify that the old flat import paths and the new energy_transport.action.* / energy_transport.native.* import paths strict-load the same weights and produce identical outputs. They are not historical experiment weights, carry no trained behavior, and must never be cited as experimental results.",
+  "created_by": "refactor plan Task 13 (action core + native migration) + Task 14 phase 1 (policy migration)",
+  "provenance": "SYNTHETIC parity fixtures created in Task 13 (T13) of the repository research-state refactor. These are freshly seeded, randomly initialized CPU state dicts whose ONLY purpose is to verify that the old flat import paths and the new energy_transport.action.* / energy_transport.native.* import paths strict-load the same weights and produce identical outputs. They are not historical experiment weights, carry no trained behavior, and must never be cited as experimental results. Task 14 phase 1 adds the same kind of fixtures for the energy_transport.policy.* heads (set_policy, global_top1, joint_delta_u, post_nms_suppress).",
   "torch_version": "2.1.0+cu121",
   "fixtures": [
     {
@@ -135,6 +135,491 @@
         "energy_head.2.bias"
       ],
       "format": "torch.save state_dict, CPU tensors, float32"
+    },
+    {
+      "name": "nms_aware_set_policy_head_seed51",
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.set_policy",
+      "class": "NMSAwareSetPolicyHead",
+      "file": "nms_aware_set_policy_head_seed51.pt",
+      "sha256": "8f87b60dce38604282fdcdbb2c5a71ce42fe9275e83143be3ac6b748135a42f1",
+      "seed": 51,
+      "init_kwargs": {
+        "in_channels": 2,
+        "num_classes": 3,
+        "hidden_dim": 8,
+        "spatial_size": 2
+      },
+      "input_spec": {
+        "kind": "set_policy_output",
+        "batch": 4,
+        "seed": 201,
+        "image_size": [
+          128,
+          128
+        ]
+      },
+      "state_dict_keys": [
+        "candidate_deltas",
+        "spatial_encoder.0.weight",
+        "spatial_encoder.0.bias",
+        "context_encoder.0.weight",
+        "context_encoder.0.bias",
+        "trunk.0.weight",
+        "trunk.0.bias",
+        "action_head.weight",
+        "action_head.bias",
+        "move_head.weight",
+        "move_head.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32",
+      "tensor_kwargs": {
+        "candidate_deltas": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.05,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -0.05,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "global_top1_policy_head_seed52",
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.global_top1",
+      "class": "GlobalTop1PolicyHead",
+      "file": "global_top1_policy_head_seed52.pt",
+      "sha256": "8ac62400eaa5a823c26380a9438efff2cd01f3574d50b3a19bbb985293eac96f",
+      "seed": 52,
+      "init_kwargs": {
+        "in_channels": 2,
+        "num_classes": 3,
+        "hidden_dim": 8,
+        "spatial_size": 2
+      },
+      "input_spec": {
+        "kind": "global_top1_output",
+        "batch": 4,
+        "seed": 202,
+        "image_size": [
+          128,
+          128
+        ],
+        "observable": [
+          true,
+          true,
+          false,
+          true
+        ]
+      },
+      "state_dict_keys": [
+        "noop_bias",
+        "proposal_policy.candidate_deltas",
+        "proposal_policy.spatial_encoder.0.weight",
+        "proposal_policy.spatial_encoder.0.bias",
+        "proposal_policy.context_encoder.0.weight",
+        "proposal_policy.context_encoder.0.bias",
+        "proposal_policy.trunk.0.weight",
+        "proposal_policy.trunk.0.bias",
+        "proposal_policy.action_head.weight",
+        "proposal_policy.action_head.bias",
+        "proposal_policy.move_head.weight",
+        "proposal_policy.move_head.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32",
+      "tensor_kwargs": {
+        "candidate_deltas": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.05,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -0.05,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "adaptive_consensus_global_top1_head_seed53",
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.global_top1",
+      "class": "AdaptiveConsensusGlobalTop1PolicyHead",
+      "file": "adaptive_consensus_global_top1_head_seed53.pt",
+      "sha256": "9b44c63c91de48d4973bf61092db7189a1d846b42acfa65aedd655dc50ca6d32",
+      "seed": 53,
+      "init_kwargs": {
+        "in_channels": 2,
+        "num_classes": 3,
+        "hidden_dim": 8,
+        "spatial_size": 2
+      },
+      "input_spec": {
+        "kind": "adaptive_consensus_output",
+        "batch": 4,
+        "seed": 203,
+        "image_size": [
+          128,
+          128
+        ],
+        "observable": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "state_dict_keys": [
+        "base.noop_bias",
+        "base.proposal_policy.candidate_deltas",
+        "base.proposal_policy.spatial_encoder.0.weight",
+        "base.proposal_policy.spatial_encoder.0.bias",
+        "base.proposal_policy.context_encoder.0.weight",
+        "base.proposal_policy.context_encoder.0.bias",
+        "base.proposal_policy.trunk.0.weight",
+        "base.proposal_policy.trunk.0.bias",
+        "base.proposal_policy.action_head.weight",
+        "base.proposal_policy.action_head.bias",
+        "base.proposal_policy.move_head.weight",
+        "base.proposal_policy.move_head.bias",
+        "delta_head.0.weight",
+        "delta_head.0.bias",
+        "delta_head.2.weight",
+        "delta_head.2.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32"
+    },
+    {
+      "name": "set_context_global_top1_head_seed54",
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.global_top1",
+      "class": "SetContextGlobalTop1PolicyHead",
+      "file": "set_context_global_top1_head_seed54.pt",
+      "sha256": "ed19bda4f2fadd74a4e6170a692862372200d85dff62ae2532897d45a3c0ce76",
+      "seed": 54,
+      "init_kwargs": {
+        "in_channels": 2,
+        "num_classes": 3,
+        "hidden_dim": 8,
+        "spatial_size": 2
+      },
+      "input_spec": {
+        "kind": "global_top1_output",
+        "batch": 4,
+        "seed": 204,
+        "image_size": [
+          128,
+          128
+        ],
+        "observable": [
+          true,
+          false,
+          true,
+          true
+        ]
+      },
+      "state_dict_keys": [
+        "candidate_deltas",
+        "spatial_encoder.0.weight",
+        "spatial_encoder.0.bias",
+        "context_encoder.0.weight",
+        "context_encoder.0.bias",
+        "local_trunk.0.weight",
+        "local_trunk.0.bias",
+        "set_trunk.0.weight",
+        "set_trunk.0.bias",
+        "action_head.weight",
+        "action_head.bias",
+        "noop_head.weight",
+        "noop_head.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32",
+      "tensor_kwargs": {
+        "candidate_deltas": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.05,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -0.05,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "action_topology_global_top1_head_seed55",
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.global_top1",
+      "class": "ActionTopologyGlobalTop1PolicyHead",
+      "file": "action_topology_global_top1_head_seed55.pt",
+      "sha256": "1d776b8e10ea7d22a5cfa56b098d4ce4253077d987903834651d158fca7cbf97",
+      "seed": 55,
+      "init_kwargs": {
+        "in_channels": 2,
+        "num_classes": 3,
+        "hidden_dim": 8,
+        "spatial_size": 2
+      },
+      "input_spec": {
+        "kind": "global_top1_output",
+        "batch": 4,
+        "seed": 205,
+        "image_size": [
+          128,
+          128
+        ],
+        "observable": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "state_dict_keys": [
+        "base.candidate_deltas",
+        "base.spatial_encoder.0.weight",
+        "base.spatial_encoder.0.bias",
+        "base.context_encoder.0.weight",
+        "base.context_encoder.0.bias",
+        "base.local_trunk.0.weight",
+        "base.local_trunk.0.bias",
+        "base.set_trunk.0.weight",
+        "base.set_trunk.0.bias",
+        "base.action_head.weight",
+        "base.action_head.bias",
+        "base.noop_head.weight",
+        "base.noop_head.bias",
+        "topology_head.0.weight",
+        "topology_head.0.bias",
+        "topology_head.2.weight",
+        "topology_head.2.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32",
+      "tensor_kwargs": {
+        "candidate_deltas": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.05,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -0.05,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "native_action_topology_global_top1_head_seed56",
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.global_top1",
+      "class": "NativeActionTopologyGlobalTop1PolicyHead",
+      "file": "native_action_topology_global_top1_head_seed56.pt",
+      "sha256": "4a4d9049a25fbb4ede0cce31d08954bae21ee1a32b4286d271bcc8f88c0469d5",
+      "seed": 56,
+      "init_kwargs": {
+        "in_channels": 2,
+        "num_classes": 3,
+        "hidden_dim": 8,
+        "spatial_size": 2,
+        "topology_dim": 8
+      },
+      "input_spec": {
+        "kind": "native_topology_output",
+        "batch": 4,
+        "seed": 206,
+        "image_size": [
+          128,
+          128
+        ],
+        "observable": [
+          true,
+          true,
+          true,
+          false
+        ]
+      },
+      "state_dict_keys": [
+        "base.candidate_deltas",
+        "base.spatial_encoder.0.weight",
+        "base.spatial_encoder.0.bias",
+        "base.context_encoder.0.weight",
+        "base.context_encoder.0.bias",
+        "base.local_trunk.0.weight",
+        "base.local_trunk.0.bias",
+        "base.set_trunk.0.weight",
+        "base.set_trunk.0.bias",
+        "base.action_head.weight",
+        "base.action_head.bias",
+        "base.noop_head.weight",
+        "base.noop_head.bias",
+        "topology_head.0.weight",
+        "topology_head.0.bias",
+        "topology_head.2.weight",
+        "topology_head.2.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32",
+      "tensor_kwargs": {
+        "candidate_deltas": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.05,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -0.05,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "joint_delta_u_probe_seed57",
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u",
+      "class": "JointDeltaUProbe",
+      "file": "joint_delta_u_probe_seed57.pt",
+      "sha256": "f6d46218dff9fdb37bab7b081e0e49444dff4cff4243dfd94821d4c99a4f1e33",
+      "seed": 57,
+      "init_kwargs": {
+        "in_channels": 2,
+        "num_classes": 3,
+        "hidden_dim": 8
+      },
+      "input_spec": {
+        "kind": "joint_delta_u_probe",
+        "batch": 4,
+        "seed": 207,
+        "image_sizes": [
+          [
+            128,
+            128
+          ]
+        ]
+      },
+      "state_dict_keys": [
+        "candidate_deltas",
+        "spatial_encoder.0.weight",
+        "spatial_encoder.0.bias",
+        "context_encoder.0.weight",
+        "context_encoder.0.bias",
+        "node_encoder.0.weight",
+        "node_encoder.0.bias",
+        "edge_encoder.0.weight",
+        "edge_encoder.0.bias",
+        "edge_encoder.2.weight",
+        "edge_encoder.2.bias",
+        "update.0.weight",
+        "update.0.bias",
+        "action_encoder.0.weight",
+        "action_encoder.0.bias",
+        "utility_head.0.weight",
+        "utility_head.0.bias",
+        "utility_head.2.weight",
+        "utility_head.2.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32",
+      "tensor_kwargs": {
+        "candidate_deltas": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.05,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            -0.05,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "post_nms_suppress_policy_head_seed58",
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.post_nms_suppress",
+      "class": "PostNMSSuppressPolicyHead",
+      "file": "post_nms_suppress_policy_head_seed58.pt",
+      "sha256": "3bb0dae2b4658e06609fda3adf890a670044e0bd2e6c34370a7f98bfa835e2f2",
+      "seed": 58,
+      "init_kwargs": {
+        "input_dim": 14,
+        "hidden_dim": 8
+      },
+      "input_spec": {
+        "kind": "post_nms_output",
+        "batch": 4,
+        "seed": 208,
+        "observable": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "state_dict_keys": [
+        "local_encoder.0.weight",
+        "local_encoder.0.bias",
+        "action_head.0.weight",
+        "action_head.0.bias",
+        "action_head.2.weight",
+        "action_head.2.bias",
+        "noop_head.weight",
+        "noop_head.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32"
     }
   ],
   "skipped": [
@@ -161,6 +646,22 @@
     {
       "module": "spectral_detection_posttrain.methods.energy_transport.native.native_topology",
       "reason": "single pure function (native_action_nms_topology) plus a feature-name constant; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.search",
+      "reason": "frozen dataclasses (ActionSearchConfig, ScoreActionSearchResult) plus pure search functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.set_search",
+      "reason": "frozen dataclasses and a Callable alias plus pure deterministic search/statistics functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.listwise_noop",
+      "reason": "plain dataclasses (ListwiseBatch, LinearListwiseModel) plus pure listwise fit/score/gate functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.policy.adaptive_consensus",
+      "reason": "single pure function (proposal_graph_consensus_deltas); no torch.nn.Module and no state_dict to serialize"
     }
   ]
 }
