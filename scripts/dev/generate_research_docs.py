@@ -245,6 +245,8 @@ def _render_readme(root: Path, has_manifests: bool, manifest_count: int) -> str:
         "- [remote_gpu2_runbook.md](remote_gpu2_runbook.md) — guarded launch",
         "  procedure for the remote GPU2 host; companion to",
         "  `scripts/run/guard_gpu2.py`.",
+        "- [refactor_completion_report.md](refactor_completion_report.md) —",
+        "  hand-maintained final integration report for the research-state refactor.",
         "",
         "## How The Registries Govern Status",
         "",

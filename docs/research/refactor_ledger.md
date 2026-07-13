@@ -514,3 +514,25 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - remote verification: read-only SSH to `ps@122.51.19.136` succeeded; `nvidia-smi -i 2` returned 48628 MiB free. The guard script itself is not yet present on the remote because the refactor branch has not been pushed; full remote guard verification (`python scripts/run/guard_gpu2.py query/check/dry-run`) is deferred to T21 after an explicit push/pull step.
 - rollback command: `git revert <this-commit>`
 - remaining risks: remote workspace is at base commit `7e1f240`; pushing the branch is required before the guard can be exercised on GPU2.
+
+
+### 2026-07-13 — docs: complete repository research-state refactor
+
+- commit hash: `e3d6b41`
+- task ID: T21 (final integration, remote verification, completion report)
+- agent/model and write owner: Kimi main orchestrator
+- files changed: new `docs/research/refactor_completion_report.md` (final integration report with commit summary, test evidence, artifact manifest hashes, scientific status, remote verification, independent review findings, residual risks, merge recommendation); edited `scripts/dev/generate_research_docs.py` and regenerated `docs/research/README.md` to link the completion report; edited `docs/research/refactor_ledger.md`
+- RED command/result: N/A (integration/report task)
+- GREEN command/result: local completion suite all pass:
+  - `validate_repository_state.py --json` -> 1053 checked, 0 violations
+  - `check_import_boundaries.py --json` -> 8 allowlist entries, 0 unallowlisted/stale
+  - `check_docs.py` -> 0 errors
+  - `generate_research_docs.py --check` -> up to date
+  - `pytest tests -q` -> 1528 passed, 3 skipped, 2 xfailed
+  - `git diff --check` -> clean
+- full-suite result: 1528 passed, 3 skipped, 2 xfailed
+- reviewer and findings accepted/rejected: main-orchestrator self-review. Accepted: the refactor meets the completion criteria; no behavior drift detected; all registries, generated docs, and contracts agree. Rejected: none.
+- scientific artifacts checked: artifact manifest SHA-256 hashes captured in `docs/research/refactor_completion_report.md`; no checkpoint/cache/dataset/log/secret tracked. **No experiment is authorized by this refactor.**
+- remote verification: read-only SSH to `ps@122.51.19.136` succeeded; `nvidia-smi -i 2` returned 48628 MiB free; remote CPU test run of the new guard deferred until the branch is pushed and pulled.
+- rollback command: `git revert <this-commit>` (or reset the refactor branch to `7e1f240`)
+- remaining risks/push recommendation: open a draft PR targeting `codex/energy-guided-roi-transport`; do not squash; confirm push to GitHub before executing.
