@@ -40,15 +40,18 @@ FORBIDDEN_DIR_PREFIXES = (
     "data/",
 )
 
-# Exact-path allowlist for tiny, hash-locked test fixtures that would
+# Exact-path allowlist for small, hash-locked test fixtures that would
 # otherwise match an extension rule. Every entry must be synthetic, CPU-safe,
-# a few KB at most, and sha256-pinned by
+# tens of KB at most, and sha256-pinned by
 # ``tests/fixtures/checkpoints/energy_transport_checkpoint_manifest.json``.
 # Adding an entry is a reviewed, deliberate act — never widen this to a
 # directory prefix.
 ALLOWED_FIXTURE_PATHS = frozenset(
     {
         "tests/fixtures/checkpoints/action_local_transport_head_seed42.pt",
+        "tests/fixtures/checkpoints/spatial_candidate_energy_head_seed43.pt",
+        "tests/fixtures/checkpoints/context_only_candidate_energy_head_seed44.pt",
+        "tests/fixtures/checkpoints/action_benefit_energy_head_seed45.pt",
     }
 )
 

@@ -14,7 +14,7 @@ from spectral_detection_posttrain.methods.energy_transport.action.actions import
     threshold_preservation_loss,
     transport_action_energy,
 )
-from spectral_detection_posttrain.methods.energy_transport.benefit_energy import (
+from spectral_detection_posttrain.methods.energy_transport.native.benefit_energy import (
     ActionBenefitEnergyHead,
     ActionBenefitTargets,
     BenefitEnergyLossConfig,
@@ -22,7 +22,7 @@ from spectral_detection_posttrain.methods.energy_transport.benefit_energy import
     apply_action_benefit_gate,
     build_action_benefit_targets,
 )
-from spectral_detection_posttrain.methods.energy_transport.candidate_energy import (
+from spectral_detection_posttrain.methods.energy_transport.native.candidate_energy import (
     CandidateEnergyLossConfig,
     CandidateGainLossConfig,
     CandidateQualityTargets,
@@ -91,7 +91,7 @@ from spectral_detection_posttrain.methods.energy_transport.global_top1 import (
     select_global_top1_action,
     select_adaptive_consensus_action,
 )
-from spectral_detection_posttrain.methods.energy_transport.native_topology import (
+from spectral_detection_posttrain.methods.energy_transport.native.native_topology import (
     NATIVE_TOPOLOGY_FEATURE_NAMES,
     native_action_nms_topology,
 )

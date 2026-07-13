@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "created": "2026-07-13",
-  "created_by": "refactor plan Task 13 (action core migration)",
-  "provenance": "SYNTHETIC parity fixtures created in Task 13 (T13) of the repository research-state refactor. These are freshly seeded, randomly initialized CPU state dicts whose ONLY purpose is to verify that the old flat import paths and the new energy_transport.action.* import paths strict-load the same weights and produce identical outputs. They are not historical experiment weights, carry no trained behavior, and must never be cited as experimental results.",
+  "created_by": "refactor plan Task 13 (action core + native migration)",
+  "provenance": "SYNTHETIC parity fixtures created in Task 13 (T13) of the repository research-state refactor. These are freshly seeded, randomly initialized CPU state dicts whose ONLY purpose is to verify that the old flat import paths and the new energy_transport.action.* / energy_transport.native.* import paths strict-load the same weights and produce identical outputs. They are not historical experiment weights, carry no trained behavior, and must never be cited as experimental results.",
   "torch_version": "2.1.0+cu121",
   "fixtures": [
     {
@@ -31,6 +31,109 @@
         "keep_head.weight",
         "keep_head.bias"
       ],
+      "format": "torch.save state_dict, CPU tensors, float32",
+      "input_spec": {
+        "kind": "feature_only",
+        "batch": 4,
+        "seed": 99
+      }
+    },
+    {
+      "name": "spatial_candidate_energy_head_seed43",
+      "module": "spectral_detection_posttrain.methods.energy_transport.native.candidate_energy",
+      "class": "SpatialCandidateEnergyHead",
+      "file": "spatial_candidate_energy_head_seed43.pt",
+      "sha256": "7fba3562d56d921b9fa42e830bfa28dcea8bc776bc08c273b79ee46e83cdbe2a",
+      "seed": 43,
+      "init_kwargs": {
+        "in_channels": 2,
+        "num_classes": 3,
+        "hidden_dim": 8,
+        "spatial_size": 2
+      },
+      "input_spec": {
+        "kind": "roi_energy",
+        "spatial": true,
+        "batch": 4,
+        "seed": 101
+      },
+      "state_dict_keys": [
+        "feature_encoder.0.weight",
+        "feature_encoder.0.bias",
+        "feature_encoder.1.weight",
+        "feature_encoder.1.bias",
+        "feature_encoder.3.weight",
+        "feature_encoder.3.bias",
+        "feature_encoder.4.weight",
+        "feature_encoder.4.bias",
+        "feature_encoder.7.weight",
+        "feature_encoder.7.bias",
+        "context_encoder.0.weight",
+        "context_encoder.0.bias",
+        "energy_head.0.weight",
+        "energy_head.0.bias",
+        "energy_head.2.weight",
+        "energy_head.2.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32"
+    },
+    {
+      "name": "context_only_candidate_energy_head_seed44",
+      "module": "spectral_detection_posttrain.methods.energy_transport.native.candidate_energy",
+      "class": "ContextOnlyCandidateEnergyHead",
+      "file": "context_only_candidate_energy_head_seed44.pt",
+      "sha256": "da197fa02b828d68009e0d2dc8f0a646f2c740a484ec0caaf4eec0c8ddcb8035",
+      "seed": 44,
+      "init_kwargs": {
+        "num_classes": 3,
+        "hidden_dim": 16
+      },
+      "input_spec": {
+        "kind": "roi_energy",
+        "spatial": false,
+        "batch": 4,
+        "seed": 102
+      },
+      "state_dict_keys": [
+        "context_encoder.0.weight",
+        "context_encoder.0.bias",
+        "energy_head.0.weight",
+        "energy_head.0.bias",
+        "energy_head.2.weight",
+        "energy_head.2.bias"
+      ],
+      "format": "torch.save state_dict, CPU tensors, float32"
+    },
+    {
+      "name": "action_benefit_energy_head_seed45",
+      "module": "spectral_detection_posttrain.methods.energy_transport.native.benefit_energy",
+      "class": "ActionBenefitEnergyHead",
+      "file": "action_benefit_energy_head_seed45.pt",
+      "sha256": "dc98859b424447349976ab2e3a7b09e0ba4d09a5b75ebd8286495f967a3c9d84",
+      "seed": 45,
+      "init_kwargs": {
+        "feature_dim": 8,
+        "num_classes": 3,
+        "hidden_dim": 16
+      },
+      "input_spec": {
+        "kind": "roi_energy",
+        "spatial": false,
+        "batch": 4,
+        "seed": 103
+      },
+      "state_dict_keys": [
+        "feature_encoder.0.weight",
+        "feature_encoder.0.bias",
+        "feature_encoder.1.weight",
+        "feature_encoder.1.bias",
+        "context_encoder.0.weight",
+        "context_encoder.0.bias",
+        "energy_head.0.weight",
+        "energy_head.0.bias",
+        "energy_head.2.weight",
+        "energy_head.2.bias"
+      ],
       "format": "torch.save state_dict, CPU tensors, float32"
     }
   ],
@@ -50,6 +153,14 @@
     {
       "module": "spectral_detection_posttrain.methods.energy_transport.action.geometric_constraints",
       "reason": "frozen dataclass config plus pure loss functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.native.native_contract",
+      "reason": "frozen dataclass (DetectorNativeCandidates) plus pure validation/gate helpers; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.native.native_topology",
+      "reason": "single pure function (native_action_nms_topology) plus a feature-name constant; no torch.nn.Module and no state_dict to serialize"
     }
   ]
 }
