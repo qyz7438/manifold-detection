@@ -1,0 +1,103 @@
+{
+  "completion": "completed",
+  "environment": {
+    "api_key": "sk-0123456789abcdef0123456789",
+    "python": "3.10.12"
+  },
+  "evaluation_scope": {
+    "image_count": 4952,
+    "kind": "full_val",
+    "limit_train": null,
+    "limit_val": null
+  },
+  "experiment_id": "det.rlvr.clean.002",
+  "gates": {
+    "clean_eval": true,
+    "formal_review": false
+  },
+  "git_commit": "57b198cfdc8586900785cc534345dfdfeb7681b2",
+  "git_dirty": true,
+  "inputs": [
+    {
+      "logical_path": "data/nwpu/annotations.json",
+      "semantic_kind": "dataset_annotation",
+      "sha256": "b3c4b791367c14d00212b86f8c7585163d53063d30fafc4f754d9c7a26d8f292",
+      "size_bytes": 8192
+    },
+    {
+      "logical_path": "runs/nwpu_full_s42/split.json",
+      "semantic_kind": "split_manifest",
+      "sha256": "4c484563444a571c38799df654a8251c58b08c2f2a94f0f76190ff9711aff616",
+      "size_bytes": 512
+    },
+    {
+      "logical_path": "remote:manifold/checkpoints/base.pth",
+      "semantic_kind": "initial_checkpoint",
+      "sha256": "eeb067a0657135037fa7cc7cc2412f5bc1a699deae5d54908b7c3c2f8c370d20",
+      "size_bytes": 1048576
+    },
+    {
+      "logical_path": "configs/metrics/coco_eval.json",
+      "semantic_kind": "metric_protocol",
+      "sha256": "0fd3d45a3e65bed2f7b615ae2323a3ad5ddde280a505db73c71f517d32c93c59",
+      "size_bytes": 256
+    },
+    {
+      "logical_path": "runs/nwpu_full_s42/postprocess.json",
+      "semantic_kind": "postprocess_config",
+      "sha256": "ab2877e7106387a0e1dd4b95043dc6db59ebbadfda8c5170f7824f061fc0f93d",
+      "size_bytes": 256
+    }
+  ],
+  "invocation": [
+    "python",
+    "scripts/round28_train_eval.py",
+    "--dataset",
+    "nwpu",
+    "--limit-train",
+    "16",
+    "--limit-val",
+    "16"
+  ],
+  "manifest_id": "det.rlvr.clean.002:nwpu_full_s42",
+  "manifest_kind": "runtime",
+  "metrics_summary": {
+    "AP50": 0.6123,
+    "AP75": 0.201,
+    "clean_eval": true,
+    "ece": null,
+    "note": "smoke",
+    "num_predictions": 142,
+    "precision": 0.55
+  },
+  "missing_evidence": [],
+  "observed_at_utc": null,
+  "observed_host_alias": null,
+  "observed_workspace_revision": null,
+  "outputs": [
+    {
+      "logical_path": "runs/nwpu_smoke_s42/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "d5db52eaa1ecafbc95f76e07f8d4be4ed1f776b22bea6f8d38f363214b9f54b0",
+      "size_bytes": 2048
+    },
+    {
+      "logical_path": "runs/nwpu_smoke_s42/checkpoint.pth",
+      "semantic_kind": "checkpoint",
+      "sha256": "47320987f9a49d5b00119b960f247a956773f57543982b8bfcb6da5bb3afd9ef",
+      "size_bytes": 1048576
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "runs/nwpu_smoke_s42/resolved_config.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "685286b87b1af9fa9068bc6880c7b869295375d3b50d6aa0ac76a6c7a0383a66",
+    "size_bytes": 4096
+  },
+  "run_id": "nwpu_full_s42",
+  "runtime_manifest_sha256": null,
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": null,
+  "supersedes": null,
+  "unavailable_reason": null
+}

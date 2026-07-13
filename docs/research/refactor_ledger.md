@@ -52,7 +52,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — feat: add research status registry
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `987a134`
 - task ID: T2 (W1 parallel wave)
 - agent/model and write owner: Kimi coder subagent (contracts + registry + tests); Kimi main orchestrator reviewed and committed
 - files changed: `spectral_detection_posttrain/experiments/contracts.py`, `spectral_detection_posttrain/experiments/research_status.py`, `spectral_detection_posttrain/configs/registry/research_lines.json`, `tests/experiments/test_research_status.py`
@@ -63,3 +63,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; registry is metadata only. **No experiment is authorized by this refactor** — registry contains zero authorized lines.
 - rollback command: `git revert <this-commit>`
 - remaining risks: transition matrix is the strict reading; if a future decision requires an unlisted transition (e.g. active -> historical), the matrix needs a reviewed amendment commit.
+
+### 2026-07-13 — feat: add immutable artifact manifests
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T4 (W1 parallel wave). Note: committed before T3, deviating from the Section 8 example order (T2 -> T3 -> T4); dependencies are unaffected because T3 depends only on T2 contracts, and this reorder is recorded here as the actual order.
+- agent/model and write owner: Kimi coder subagent (artifacts module + tests + fixtures); Kimi main orchestrator reviewed and committed
+- files changed: `spectral_detection_posttrain/experiments/artifacts.py`, `tests/experiments/test_artifact_manifest.py`, `tests/fixtures/artifacts/completed_manifest.json`, `tests/fixtures/artifacts/invalid_dirty_formal_manifest.json`
+- RED command/result: `pytest tests/experiments/test_artifact_manifest.py -q` -> ModuleNotFoundError: `spectral_detection_posttrain.experiments.artifacts`
+- GREEN command/result: same command -> 94 passed
+- full-suite result: 712 passed (main-verified)
+- reviewer and findings accepted/rejected: main-orchestrator review. Accepted judgment calls: (1) substring secret patterns (stricter than word-boundary); (2) `fail_manifest` stores `"<type>: <message>"` in `unavailable_reason` with reject-on-secret-hit; (3) reviewed manifests require `runtime_manifest_sha256` whenever completion != unavailable; (4) runtime manifests keep observation fields null until promotion; (5) `ObservationRecord` extended with expected hash / manifest_id / supersedes for testable binding; (6) fixtures generated through the serializer for byte-identical round-trip. Self-contained `EvaluationScope` in `artifacts.py` duplicates the contracts v1 type by design (disjoint write surfaces); unification happens at contracts v2 (Task 5).
+- scientific artifacts checked: none touched; module defines provenance contracts only. Secret rejection, dirty-formal rejection, and reviewed append-only semantics are test-enforced.
+- rollback command: `git revert <this-commit>`
+- remaining risks: duplicate `EvaluationScope` definitions in `contracts.py` and `artifacts.py` until Task 5 reconciles exports; secret substring matching may need tuning if future legitimate fields contain the scanned substrings.

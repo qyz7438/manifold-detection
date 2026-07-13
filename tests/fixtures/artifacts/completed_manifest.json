@@ -1,0 +1,86 @@
+{
+  "completion": "completed",
+  "environment": {
+    "cuda_visible_devices": "2",
+    "python": "3.10.12",
+    "torch": "2.1.0+cu121"
+  },
+  "evaluation_scope": {
+    "image_count": 16,
+    "kind": "smoke",
+    "limit_train": 16,
+    "limit_val": 16
+  },
+  "experiment_id": "det.rlvr.smoke.001",
+  "gates": {
+    "clean_eval": true,
+    "formal_review": false
+  },
+  "git_commit": "57b198cfdc8586900785cc534345dfdfeb7681b2",
+  "git_dirty": false,
+  "inputs": [
+    {
+      "logical_path": "configs/nwpu_smoke.yaml",
+      "semantic_kind": "training_config",
+      "sha256": "cc94a8740813e7bc84d2ae29b468548ef1e76f7646c6d936d0938daf7940ff9d",
+      "size_bytes": 1024
+    },
+    {
+      "logical_path": "runs/nwpu_smoke_s42/split.json",
+      "semantic_kind": "dataset_slice",
+      "sha256": "3d6a2c0dc51f40d937c8c2de948ee4ccfd8eb756829811bf324f82d1b7e43969",
+      "size_bytes": 512
+    }
+  ],
+  "invocation": [
+    "python",
+    "scripts/round28_train_eval.py",
+    "--dataset",
+    "nwpu",
+    "--limit-train",
+    "16",
+    "--limit-val",
+    "16"
+  ],
+  "manifest_id": "det.rlvr.smoke.001:nwpu_smoke_s42",
+  "manifest_kind": "runtime",
+  "metrics_summary": {
+    "AP50": 0.6123,
+    "AP75": 0.201,
+    "clean_eval": true,
+    "ece": null,
+    "note": "smoke",
+    "num_predictions": 142,
+    "precision": 0.55
+  },
+  "missing_evidence": [],
+  "observed_at_utc": null,
+  "observed_host_alias": null,
+  "observed_workspace_revision": null,
+  "outputs": [
+    {
+      "logical_path": "runs/nwpu_smoke_s42/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "d5db52eaa1ecafbc95f76e07f8d4be4ed1f776b22bea6f8d38f363214b9f54b0",
+      "size_bytes": 2048
+    },
+    {
+      "logical_path": "runs/nwpu_smoke_s42/checkpoint.pth",
+      "semantic_kind": "checkpoint",
+      "sha256": "47320987f9a49d5b00119b960f247a956773f57543982b8bfcb6da5bb3afd9ef",
+      "size_bytes": 1048576
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "runs/nwpu_smoke_s42/resolved_config.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "685286b87b1af9fa9068bc6880c7b869295375d3b50d6aa0ac76a6c7a0383a66",
+    "size_bytes": 4096
+  },
+  "run_id": "nwpu_smoke_s42",
+  "runtime_manifest_sha256": null,
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": null,
+  "supersedes": null,
+  "unavailable_reason": null
+}
