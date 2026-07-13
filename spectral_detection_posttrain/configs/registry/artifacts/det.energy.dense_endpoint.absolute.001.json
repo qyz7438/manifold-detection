@@ -1,0 +1,86 @@
+{
+  "completion": "completed",
+  "environment": {
+    "cuda_visible_devices": "2",
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": 454,
+    "kind": "train_only",
+    "limit_train": null,
+    "limit_val": null
+  },
+  "experiment_id": "det.energy.dense_endpoint.absolute.001",
+  "gates": {
+    "all_passed": false,
+    "constant_baseline": true,
+    "fit_outer_gap": true,
+    "mae_controls": false,
+    "outer_auroc": true,
+    "outer_pairwise": true,
+    "outer_support": true,
+    "pairwise_controls": false
+  },
+  "git_commit": "52c826859e5edaecbf7f6121fff7bc2feb6816ee",
+  "git_dirty": false,
+  "inputs": [
+    {
+      "logical_path": "remote:manifold/data/NWPU_VHR10_coco.json",
+      "semantic_kind": "dataset_annotation",
+      "sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+      "size_bytes": 1265416
+    },
+    {
+      "logical_path": "spectral_detection_posttrain/configs/splits/nwpu_dense_endpoint_s42_nested.json",
+      "semantic_kind": "split_manifest",
+      "sha256": "ce19316aeaef1cbdf85f2c9668c5ae2c8443da8e848de2d22ed0f0f3a687e080",
+      "size_bytes": 8241
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+      "semantic_kind": "initial_checkpoint",
+      "sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+      "size_bytes": 76205690
+    }
+  ],
+  "invocation": [],
+  "manifest_id": "det.energy.dense_endpoint.absolute.001:nwpu_dense_endpoint_absolute_s42_nested",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "scientific_status": "reduced_absolute_endpoint_frozen",
+    "tune_auroc_positive": 0.9721011519432068,
+    "tune_count": 68,
+    "tune_mae": 0.30195393714615526,
+    "tune_pairwise_accuracy": 0.885864794254303,
+    "tune_pearson": 0.9793149711176107,
+    "tune_rmse": 0.45398632106863723
+  },
+  "missing_evidence": [
+    "no runtime manifest.json exists for this historical run; runtime_manifest_sha256 binds the primary result JSON instead",
+    "original CLI invocation not recorded in the evidence; entrypoints, where recorded, are documented in spectral_detection_posttrain/configs/registry/experiments.json",
+    "run-time python/torch versions not recorded in the evidence; see spectral_detection_posttrain/configs/registry/environments/ snapshots"
+  ],
+  "observed_at_utc": "2026-07-13T06:21:43Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "7e1f2404699df997883678274491e88d3ec253c0",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/nwpu_dense_endpoint_absolute_s42_nested/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "d0e4afb68bd9c6f7636672e501c3638400efe82c91ec24ef5c68740b30043c2f",
+      "size_bytes": 13959
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "spectral_detection_posttrain/configs/versions/det.energy.dense_endpoint.absolute.001.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "e69f42129ec6aa409299c64ecbb4b8eecdb82365004f333249fa4db92e8798fa",
+    "size_bytes": 4503
+  },
+  "run_id": "nwpu_dense_endpoint_absolute_s42_nested",
+  "runtime_manifest_sha256": "d0e4afb68bd9c6f7636672e501c3638400efe82c91ec24ef5c68740b30043c2f",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}

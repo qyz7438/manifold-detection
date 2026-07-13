@@ -1,0 +1,102 @@
+{
+  "completion": "completed",
+  "environment": {
+    "cuda_visible_devices": "2",
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": 196,
+    "kind": "detector_unseen",
+    "limit_train": null,
+    "limit_val": null
+  },
+  "experiment_id": "det.energy.dense_endpoint.cleanval.001",
+  "gates": {
+    "all_passed": false,
+    "constant_baseline": true,
+    "full_auroc": true,
+    "full_pairwise": true,
+    "mae_controls": true,
+    "pairwise_controls": true,
+    "train_validation_gap": false,
+    "validation_support": true
+  },
+  "git_commit": "b0cc54282b50005f81e1e1a11028d5ef7bbec6a7",
+  "git_dirty": false,
+  "inputs": [
+    {
+      "logical_path": "remote:manifold/data/NWPU_VHR10_coco.json",
+      "semantic_kind": "dataset_annotation",
+      "sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+      "size_bytes": 1265416
+    },
+    {
+      "logical_path": "derived:nwpu_vhr10/seed42/validation_image_ids",
+      "semantic_kind": "split_manifest",
+      "sha256": "49f05cc9fa82ccaf924ff3be58a8f6376387c225e020ea6138182a4637219684",
+      "size_bytes": null
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+      "semantic_kind": "initial_checkpoint",
+      "sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+      "size_bytes": 76205690
+    },
+    {
+      "logical_path": "scripts/validate_dense_endpoint_cleanval.py",
+      "semantic_kind": "metric_protocol",
+      "sha256": "066a5b11313c97325c3ddf57d73619cb28e0c9f556f980229c5a3c0c101a0c57",
+      "size_bytes": 14202
+    },
+    {
+      "logical_path": "spectral_detection_posttrain/configs/versions/det.energy.dense_endpoint.cleanval.001.json",
+      "semantic_kind": "postprocess_config",
+      "sha256": "82f56e7772042904c6da3dbb8559e630a351a35ccba5582421aeb1d0d8f8d05e",
+      "size_bytes": 4161
+    }
+  ],
+  "invocation": [],
+  "manifest_id": "det.energy.dense_endpoint.cleanval.001:nwpu_dense_endpoint_cleanval_s42",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "scientific_status": "detector_unseen_absolute_endpoint_frozen",
+    "train_auroc_positive": 0.9843994379043579,
+    "train_mae": 0.25106445890297446,
+    "train_pairwise_accuracy": 0.9261701107025146,
+    "train_pearson": 0.9874941779103765,
+    "validation_auroc_positive": 0.9357954263687134,
+    "validation_count": 196,
+    "validation_mae": 1.7698389031563182,
+    "validation_pairwise_accuracy": 0.8092621564865112,
+    "validation_pearson": 0.8846051876117843
+  },
+  "missing_evidence": [
+    "no runtime manifest.json exists for this historical run; runtime_manifest_sha256 binds the primary result JSON instead",
+    "original CLI invocation not recorded in the evidence; entrypoints, where recorded, are documented in spectral_detection_posttrain/configs/registry/experiments.json",
+    "run-time python/torch versions not recorded in the evidence; see spectral_detection_posttrain/configs/registry/environments/ snapshots",
+    "split manifest is a derived image-id digest recorded in the run evidence, not a standalone file"
+  ],
+  "observed_at_utc": "2026-07-13T06:21:43Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "7e1f2404699df997883678274491e88d3ec253c0",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/nwpu_dense_endpoint_cleanval_s42/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "024f9ed8cd89a52ac743d35b1bb6a54717772dfd51b2027e47ad30de51f80f8f",
+      "size_bytes": 8660
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "spectral_detection_posttrain/configs/versions/det.energy.dense_endpoint.cleanval.001.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "82f56e7772042904c6da3dbb8559e630a351a35ccba5582421aeb1d0d8f8d05e",
+    "size_bytes": 4161
+  },
+  "run_id": "nwpu_dense_endpoint_cleanval_s42",
+  "runtime_manifest_sha256": "024f9ed8cd89a52ac743d35b1bb6a54717772dfd51b2027e47ad30de51f80f8f",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}

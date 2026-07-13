@@ -192,7 +192,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — docs: backfill critical experiment provenance
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `0311589`
 - task ID: T10 family 4/6 (native-actions)
 - agent/model and write owner: same pipeline as family 1 (coder builder, Terra review, main commit); no new builder output in this commit
 - files changed: `spectral_detection_posttrain/configs/registry/artifacts/det.energy.global_delta_u.c3b.balanced.001.json`, `.../det.energy.native_topology.d2b.001.json`, `.../det.energy.post_nms_suppress.e1.001.json`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, `docs/research/refactor_ledger.md`
@@ -203,3 +203,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: remote cross-check recorded in the family-1 entry covers all three result JSONs. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: 8 manifests remain in the hold directory; transitional suite red persists until family 6.
+
+### 2026-07-13 — docs: backfill critical experiment provenance
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T10 family 5/6 (dense-endpoint)
+- agent/model and write owner: same pipeline as family 1 (coder builder, Terra review, main commit); no new builder output in this commit
+- files changed: `spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_endpoint.{absolute,geometry_control,cleanval,shift_audit}.001.json`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, `docs/research/refactor_ledger.md`
+- RED command/result: covered by the family-1 entry
+- GREEN command/result: `pytest tests/experiments/test_artifact_manifest.py tests/experiments/test_generated_research_docs.py tests/contracts/test_script_inventory.py -q` -> 141 passed, 1 skipped; docs generator `--check` clean after regeneration
+- full-suite result: 838 passed + 1 skipped; 8 failed + 9 errors, ALL transitional inside `test_backfilled_artifacts.py` (4 held-out manifests now; shrank by exactly 4 from family 4 as designed)
+- reviewer and findings accepted/rejected: Terra verdict for all four dense-endpoint manifests: ACCEPT (one optional nit, resolved by main in the family-1 generator adjustments: shift_audit null `image_count` now carries an explicit disclosure). Spot-checks against `docs/autonomous_exploration_ledger.md`: absolute (`52c82685`, artifact `d0e4af…`, nested train-only protocol); cleanval (`b0cc5428`, val MAE `1.76984` / pairwise `0.80926` / AUROC `0.93580`, gap-gate failure recorded); scopes stay train_only / detector_unseen / cache_only — nothing reads as full-val.
+- scientific artifacts checked: remote cross-check recorded in the family-1 entry covers all four result JSONs. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: 4 manifests remain in the hold directory; transitional suite red persists until family 6.

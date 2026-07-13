@@ -1,0 +1,68 @@
+{
+  "completion": "completed",
+  "environment": {
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": 318,
+    "kind": "train_only",
+    "limit_train": null,
+    "limit_val": null
+  },
+  "experiment_id": "det.energy.dense_endpoint.geometry_control.001",
+  "gates": {
+    "all_passed": true,
+    "constant_baseline": true,
+    "fit_holdout_gap": true,
+    "full_auroc": true,
+    "full_pairwise": true,
+    "holdout_support": true,
+    "mae_controls": true,
+    "pairwise_controls": true
+  },
+  "git_commit": "c29264184acafb17d436272cd143e079080ac2a0",
+  "git_dirty": false,
+  "inputs": [],
+  "invocation": [],
+  "manifest_id": "det.energy.dense_endpoint.geometry_control.001:nwpu_dense_endpoint_geometry_control_s42_resplit",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "fit_auroc_positive": 0.9944541454315186,
+    "fit_mae": 0.2716106102603862,
+    "fit_pairwise_accuracy": 0.9279201030731201,
+    "fit_pearson": 0.9808445975701344,
+    "holdout_auroc_positive": 0.984375,
+    "holdout_mae": 0.42828662757528946,
+    "holdout_pairwise_accuracy": 0.8784722089767456,
+    "holdout_pearson": 0.9723083847372462,
+    "scientific_status": "geometry_endpoint_signal_supported_train_only_resplit"
+  },
+  "missing_evidence": [
+    "no runtime manifest.json exists for this historical run; runtime_manifest_sha256 binds the primary result JSON instead",
+    "original CLI invocation not recorded in the evidence; entrypoints, where recorded, are documented in spectral_detection_posttrain/configs/registry/experiments.json",
+    "run-time python/torch versions not recorded in the evidence; see spectral_detection_posttrain/configs/registry/environments/ snapshots"
+  ],
+  "observed_at_utc": "2026-07-13T06:21:43Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "7e1f2404699df997883678274491e88d3ec253c0",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/nwpu_dense_endpoint_geometry_control_s42_resplit/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "ca5fbbef4ee19faa35a925eec6245bac456bc90525c76426e250a24f69b1171d",
+      "size_bytes": 7247
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "spectral_detection_posttrain/configs/versions/det.energy.dense_endpoint.geometry_control.001.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "612dfd2be6cc57767a4234267a5ed3f078d84048129905bc2f86256b3e0b04b4",
+    "size_bytes": 3180
+  },
+  "run_id": "nwpu_dense_endpoint_geometry_control_s42_resplit",
+  "runtime_manifest_sha256": "ca5fbbef4ee19faa35a925eec6245bac456bc90525c76426e250a24f69b1171d",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}

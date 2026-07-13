@@ -1,0 +1,59 @@
+{
+  "completion": "completed",
+  "environment": {
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": null,
+    "kind": "cache_only",
+    "limit_train": null,
+    "limit_val": null
+  },
+  "experiment_id": "det.energy.dense_endpoint.shift_audit.001",
+  "gates": {},
+  "git_commit": "b831dcba5bcc812f3d92dedd040c3d5703a78995",
+  "git_dirty": false,
+  "inputs": [],
+  "invocation": [],
+  "manifest_id": "det.energy.dense_endpoint.shift_audit.001:nwpu_dense_endpoint_shift_audit_s42",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "oracle_centered_mae_relative_gain": 0.3984907222011253,
+    "scientific_status": "calibration_shift_without_feature_ood",
+    "train_mae": 0.2510644601255918,
+    "validation_mae": 1.7698389530295924,
+    "validation_pairwise_accuracy": 0.8092621564865112,
+    "validation_pearson": 0.8846051851990766,
+    "validation_residual_mean": 1.707392930984497
+  },
+  "missing_evidence": [
+    "no runtime manifest.json exists for this historical run; runtime_manifest_sha256 binds the primary result JSON instead",
+    "original CLI invocation not recorded in the evidence; entrypoints, where recorded, are documented in spectral_detection_posttrain/configs/registry/experiments.json",
+    "run-time python/torch versions not recorded in the evidence; see spectral_detection_posttrain/configs/registry/environments/ snapshots",
+    "evaluation_scope.image_count is null by construction for this cache-only audit; the evidence JSON records explicit counts (454 train / 196 validation) but the audit consumes cached predictions rather than running an evaluation pass",
+    "evidence records no gates: cache-only post-hoc shift diagnosis"
+  ],
+  "observed_at_utc": "2026-07-13T06:21:43Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "7e1f2404699df997883678274491e88d3ec253c0",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/nwpu_dense_endpoint_shift_audit_s42/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "62fc164491e325926873771a1941da0fd8f2a94cdb231b48fa12033d66096ce1",
+      "size_bytes": 10044
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "spectral_detection_posttrain/configs/versions/det.energy.dense_endpoint.shift_audit.001.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "daeb0ee3229e5554ce034d7293ed3bb4fa5ee4cbfb830e0dcbe2c1a88e9b2d69",
+    "size_bytes": 2423
+  },
+  "run_id": "nwpu_dense_endpoint_shift_audit_s42",
+  "runtime_manifest_sha256": "62fc164491e325926873771a1941da0fd8f2a94cdb231b48fa12033d66096ce1",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}

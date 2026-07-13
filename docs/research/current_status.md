@@ -2,6 +2,10 @@
 <!-- generation inputs:
      spectral_detection_posttrain/configs/registry/research_lines.json sha256=8fca2dc9756a973cc5f18c298d9b1dd4edd533fbfb8519f1dcd52285003712dc
      spectral_detection_posttrain/configs/registry/experiments.json sha256=bf983727105c70398a6bcf388ebe0667bfe88f9b3f7c7a9f844d221fd1741cb7
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_endpoint.absolute.001.json sha256=9b93d5de0b015248c610c6f8d5b2e911bc78274a0e227a7867247c05cfb64c9c
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_endpoint.cleanval.001.json sha256=b1a1e35b64397b666cb8aaa8e499f0a71ab8f7a7f52b9da87e98e3c1cfa5955d
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_endpoint.geometry_control.001.json sha256=e9a294f1a1707d4a7e6b0b792b6c435717e34b424a7807189593f2b371b693a0
+     spectral_detection_posttrain/configs/registry/artifacts/det.energy.dense_endpoint.shift_audit.001.json sha256=ffe1349e5f9a5b46965ef633a9e0ba2ab9c85349916b4bec8946d6ac90a07f1a
      spectral_detection_posttrain/configs/registry/artifacts/det.energy.global_delta_u.c3b.balanced.001.json sha256=92366b78d4c8fa6a5d65b6e988d0cf666f29bee2d7d469250553ef7fb02028a1
      spectral_detection_posttrain/configs/registry/artifacts/det.energy.native_topology.d2b.001.json sha256=3c1ffe28c276de54d81ba9eea10652ddd142cdc1273b6f2e587af5745540683f
      spectral_detection_posttrain/configs/registry/artifacts/det.energy.post_nms_suppress.e1.001.json sha256=cc6a35c734b7d9b6013bb92f0c2ff6a6d497affc7d52ec350661de54553c2e5c
