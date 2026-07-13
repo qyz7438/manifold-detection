@@ -248,7 +248,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — docs: define energy transport package boundaries
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `3f69594`
 - task ID: T12 (developed in parallel with T7; disjoint file surfaces)
 - agent/model and write owner: Kimi coder subagent (ADR + AST boundary test + decision index row); Kimi main orchestrator reviewed research semantics and committed
 - files changed: `docs/decisions/adr-energy-transport-package-boundaries.md` (new), `tests/contracts/test_energy_transport_import_boundaries.py` (new, 11 tests), `docs/decisions/index.md` (one index row appended — plan-mandated modification; the T0 protected-history inventory records the pre-change blob, and the diff is exactly one line)
@@ -259,3 +259,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; no module was moved or edited. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: 2 allowlist entries must be cleared by Task 14 policy migration (stale-entry test will fail until allowlist and ADR table are emptied together); Task 14 Step 3 adds the stricter import-safety gate (no reads/mkdir/CUDA at import) not covered here.
+
+### 2026-07-13 — feat: add explicit experiment dispatcher
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T7
+- agent/model and write owner: Kimi coder subagent (dispatcher + handlers + CLI + 65 tests); Kimi main orchestrator reviewed the guards, regenerated the script inventory, and committed
+- files changed: `spectral_detection_posttrain/experiments/dispatcher.py`, `spectral_detection_posttrain/experiments/handlers/{__init__,standard_detection,native_contract,dense_endpoint}.py`, `scripts/run_experiment.py`, `tests/experiments/test_dispatcher.py`, regenerated `spectral_detection_posttrain/configs/registry/script_inventory.json` (adds `scripts/run_experiment.py`), `docs/research/refactor_ledger.md`
+- RED command/result: `pytest tests/experiments/test_dispatcher.py -q` -> ModuleNotFoundError: `spectral_detection_posttrain.experiments.dispatcher` (collection error)
+- GREEN command/result: same command -> 65 passed
+- full-suite result: 931 passed + 1 skipped (855 baseline + 65 dispatcher + 11 T12 boundary tests integrated mid-task)
+- reviewer and findings accepted/rejected: main-orchestrator review. Guards verified directly: `run` on a historical artifact exits 1 with a clear refusal; frozen dry-run without `--allow-frozen-reproduction` exits 1; no run directory is created by dry-run; `status` reports active 0 / queued 0 / authorized 0 and prints "No experiment is currently authorized."; a static source-scan test forbids `importlib`/`__import__`/`eval`/`exec` and dataset/torch/canonical_runner imports in dispatcher+handlers. Accepted judgment calls: (1) `ExperimentCapability` + exceptions live in `handlers/__init__.py` with concrete handlers imported after base definitions (cycle-free DAG; registry types TYPE_CHECKING-only); (2) "exact command" renders `python <legacy_entrypoint>` only, because frozen entrypoints hardcode their locked config with an internal sha256 check — fabricating flags would be dishonest; (3) the frozen flag gates dry-run too, per plan section 3.2; (4) `DispatchRefusedError` subclasses `DispatchError` so both guard surfaces hold; (5) no `experiments/__init__.py` export changes (main-owned surface; tests import the submodule directly — a future export pass may add them). The four required verification dry-runs all render `authorized: no` (C1 `det.energy.native_listwise.c1.001`, c3b balanced, dense absolute, family prior).
+- scientific artifacts checked: none touched; dry-run only hashes the locked config JSON. **No experiment is authorized by this refactor** — `run` is gated on `registry.can_dispatch`, currently false for all 21 records.
+- rollback command: `git revert <this-commit>`
+- remaining risks: `run` capability is unexercised by design (zero authorized records); when a record is ever authorized, its handler's `run` path needs a fresh review gate before first use.
