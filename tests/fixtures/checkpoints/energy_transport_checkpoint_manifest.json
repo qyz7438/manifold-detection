@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "created": "2026-07-13",
-  "created_by": "refactor plan Task 13 (action core + native migration) + Task 14 phase 1 (policy migration) + Task 14 phase 2 (endpoint migration)",
-  "provenance": "SYNTHETIC parity fixtures created in Task 13 (T13) of the repository research-state refactor. These are freshly seeded, randomly initialized CPU state dicts whose ONLY purpose is to verify that the old flat import paths and the new energy_transport.action.* / energy_transport.native.* import paths strict-load the same weights and produce identical outputs. They are not historical experiment weights, carry no trained behavior, and must never be cited as experimental results. Task 14 phase 1 adds the same kind of fixtures for the energy_transport.policy.* heads (set_policy, global_top1, joint_delta_u, post_nms_suppress). Task 14 phase 2 adds the same kind of fixture for the energy_transport.endpoint.* head (dense_endpoint).",
+  "created_by": "refactor plan Task 13 (action core + native migration) + Task 14 phase 1 (policy migration) + Task 14 phase 2 (endpoint migration) + Task 14 phase 3 (diagnostics migration)",
+  "provenance": "SYNTHETIC parity fixtures created in Task 13 (T13) of the repository research-state refactor. These are freshly seeded, randomly initialized CPU state dicts whose ONLY purpose is to verify that the old flat import paths and the new energy_transport.action.* / energy_transport.native.* import paths strict-load the same weights and produce identical outputs. They are not historical experiment weights, carry no trained behavior, and must never be cited as experimental results. Task 14 phase 1 adds the same kind of fixtures for the energy_transport.policy.* heads (set_policy, global_top1, joint_delta_u, post_nms_suppress). Task 14 phase 2 adds the same kind of fixture for the energy_transport.endpoint.* head (dense_endpoint). Task 14 phase 3 registers the nine energy_transport.diagnostics.* modules as skipped: they are frozen dataclasses plus pure diagnostic functions with no torch.nn.Module, so no state-dict fixture exists for them; behavioral parity is pinned by the seeded parity tests instead.",
   "torch_version": "2.1.0+cu121",
   "fixtures": [
     {
@@ -697,6 +697,42 @@
     {
       "module": "spectral_detection_posttrain.methods.energy_transport.endpoint.dense_set_energy",
       "reason": "frozen dataclasses (DenseTeacherConfig, DenseTeacherComponents) plus pure teacher/summary functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics",
+      "reason": "frozen dataclasses (PrototypeBasinGeometry, ROIStructureSignature, ROIDualEnergy) plus pure structure/basin metric functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection",
+      "reason": "frozen dataclasses (ConeDecomposition, ConeProjectionEndpoint) and a Callable alias (EnergyFn) plus pure cone-projection/energy functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark",
+      "reason": "frozen/plain dataclasses (HighWaterMarkLossConfig, HighWaterMarkModuleSnapshot) plus pure teacher-anchoring loss functions over external modules; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.diagnostics.linear_identifiability",
+      "reason": "frozen dataclasses (LocalCandidateRows, FrozenLocalFeatureMap, RidgeRegressor) plus pure identifiability probe functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.diagnostics.spatial_counterfactual",
+      "reason": "frozen dataclasses (SpatialCandidateRows, FrozenSpatialFeatureMap) plus pure counterfactual/shuffle functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.diagnostics.step_strata",
+      "reason": "frozen dataclass (StepActionRows) plus pure strata summary and control functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.diagnostics.top_focused_audit",
+      "reason": "pure top-focused audit metric and gate functions only; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.diagnostics.decomposed_actionability",
+      "reason": "frozen dataclass (PairwiseRows) plus pure actionability metric and calibration functions; no torch.nn.Module and no state_dict to serialize"
+    },
+    {
+      "module": "spectral_detection_posttrain.methods.energy_transport.diagnostics.joint_probe_validation",
+      "reason": "frozen dataclass (ConservativeCalibration) plus pure calibration and control statistics functions; no torch.nn.Module and no state_dict to serialize"
     }
   ]
 }

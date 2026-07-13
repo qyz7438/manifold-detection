@@ -10,7 +10,9 @@ auto-fixed. Any violation not in the allowlist fails immediately; any allowlist
 entry that stops being a violation also fails (stale entries must be removed).
 The ADR cross-check keeps
 ``docs/decisions/adr-energy-transport-package-boundaries.md`` in lockstep with
-the rules and the allowlist.
+the rules and the allowlist. Task 14 phase 3 adds a diagnostics import-safety
+gate: no module-level file reads, CUDA touches, or artifact writes in the nine
+diagnostics modules (flat files pre-move, ``diagnostics/`` modules post-move).
 """
 
 from __future__ import annotations
@@ -263,6 +265,91 @@ def find_diagnostics_side_effects() -> list[str]:
     return findings
 
 
+# Import-time reads forbidden in diagnostics modules (Task 14 phase 3):
+# importing a diagnostics module must not touch the file system at all.
+ARTIFACT_READ_CALLS = {
+    "open",
+    "read_text",
+    "read_bytes",
+    "load",
+}
+
+# Import-time CUDA access forbidden in diagnostics modules: the short attr
+# name ``cuda`` (tensor/module ``.cuda()``) plus any dotted call under
+# ``torch.cuda.*``.
+CUDA_TOUCH_CALLS = {"cuda"}
+CUDA_TOUCH_PREFIXES = ("torch.cuda.",)
+
+
+def _iter_module_level_statements(tree: ast.Module):
+    """Yield statements executed at import time (bodies and __main__ exempt)."""
+    for statement in tree.body:
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if (
+            isinstance(statement, ast.If)
+            and isinstance(statement.test, ast.Compare)
+            and isinstance(statement.test.left, ast.Name)
+            and statement.test.left.id == "__name__"
+        ):
+            continue
+        yield statement
+
+
+def _dotted_call_name(func: ast.AST) -> str | None:
+    """Dotted name for a call target (``json.load``); attr only for complex bases."""
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        parts = [func.attr]
+        current = func.value
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if isinstance(current, ast.Name):
+            parts.append(current.id)
+            return ".".join(reversed(parts))
+        return func.attr
+    return None
+
+
+def _module_level_dotted_calls(path: Path):
+    """Yield (lineno, dotted call name) for calls executed at import time."""
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for statement in _iter_module_level_statements(tree):
+        for node in ast.walk(statement):
+            if isinstance(node, ast.Call):
+                name = _dotted_call_name(node.func)
+                if name is not None:
+                    yield node.lineno, name
+
+
+def find_diagnostics_import_safety_violations() -> list[str]:
+    """Report import-time reads, CUDA touches, and writes in diagnostics modules.
+
+    Pre-move this scans the flat real modules; post-move the real modules live
+    in ``diagnostics/`` and the flat files are import-only shims, which are
+    scanned as well.
+    """
+    findings = []
+    for module_stem in SUBPACKAGE_MODULES["diagnostics"]:
+        candidates = [PACKAGE_DIR / f"{module_stem}.py"]
+        moved = PACKAGE_DIR / "diagnostics" / f"{module_stem}.py"
+        if moved.exists():
+            candidates.append(moved)
+        for path in candidates:
+            label = path.relative_to(PACKAGE_DIR)
+            for lineno, name in _module_level_dotted_calls(path):
+                short = name.rsplit(".", 1)[-1]
+                if short in ARTIFACT_WRITE_CALLS:
+                    findings.append(f"{label}:{lineno}: import-time write {name}()")
+                elif short in ARTIFACT_READ_CALLS:
+                    findings.append(f"{label}:{lineno}: import-time read {name}()")
+                elif short in CUDA_TOUCH_CALLS or name.startswith(CUDA_TOUCH_PREFIXES):
+                    findings.append(f"{label}:{lineno}: import-time CUDA touch {name}()")
+    return findings
+
+
 # ---------------------------------------------------------------------------
 # Mapping drift guard
 # ---------------------------------------------------------------------------
@@ -338,6 +425,14 @@ def test_diagnostics_modules_write_no_artifacts_at_import_time():
     findings = find_diagnostics_side_effects()
     assert not findings, (
         "diagnostics must never write artifacts implicitly: " + "; ".join(findings)
+    )
+
+
+def test_diagnostics_modules_have_no_import_time_side_effects():
+    findings = find_diagnostics_import_safety_violations()
+    assert not findings, (
+        "diagnostics modules must be import-safe (no module-level file reads, "
+        "CUDA touches, or artifact writes): " + "; ".join(findings)
     )
 
 

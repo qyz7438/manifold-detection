@@ -34,7 +34,7 @@ from spectral_detection_posttrain.methods.energy_transport.native.candidate_ener
     candidate_action_gain_loss,
     select_min_energy_box_actions,
 )
-from spectral_detection_posttrain.methods.energy_transport.cone_projection import (
+from spectral_detection_posttrain.methods.energy_transport.diagnostics.cone_projection import (
     ConeDecomposition,
     ConeProjectionEndpoint,
     compute_class_prototypes,
@@ -105,7 +105,7 @@ from spectral_detection_posttrain.methods.energy_transport.policy.post_nms_suppr
     select_post_nms_suppression,
     suppress_detection,
 )
-from spectral_detection_posttrain.methods.energy_transport.high_water_mark import (
+from spectral_detection_posttrain.methods.energy_transport.diagnostics.high_water_mark import (
     HighWaterMarkLossConfig,
     HighWaterMarkModuleSnapshot,
     ap75_boundary_weights,
@@ -127,7 +127,7 @@ from spectral_detection_posttrain.methods.energy_transport.policy.joint_delta_u 
     joint_delta_u_metrics,
     select_joint_delta_u_actions,
 )
-from spectral_detection_posttrain.methods.energy_transport.joint_probe_validation import (
+from spectral_detection_posttrain.methods.energy_transport.diagnostics.joint_probe_validation import (
     ConservativeCalibration,
     calibrate_conservative_threshold,
     calibrated_selection_metrics,
@@ -170,7 +170,7 @@ from spectral_detection_posttrain.methods.energy_transport.policy.set_search imp
     paired_bootstrap_summary,
     set_outcome_from_prediction,
 )
-from spectral_detection_posttrain.methods.energy_transport.structure_metrics import (
+from spectral_detection_posttrain.methods.energy_transport.diagnostics.structure_metrics import (
     PrototypeBasinGeometry,
     ROIDualEnergy,
     ROIStructureSignature,

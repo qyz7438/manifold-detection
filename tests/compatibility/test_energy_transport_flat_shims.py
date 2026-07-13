@@ -9,10 +9,14 @@ the policy selection modules (``search``, ``set_search``, ``set_policy``,
 ``global_top1``, ``listwise_noop``, ``joint_delta_u``, ``adaptive_consensus``,
 ``post_nms_suppress``) into ``energy_transport.policy``; Task 14 phase 2 moves
 the endpoint modules (``dense_set_energy``, ``dense_endpoint``) into
-``energy_transport.endpoint``. The flat modules
+``energy_transport.endpoint``; Task 14 phase 3 moves the diagnostics modules
+(``structure_metrics``, ``cone_projection``, ``high_water_mark``,
+``linear_identifiability``, ``spatial_counterfactual``, ``step_strata``,
+``top_focused_audit``, ``decomposed_actionability``, ``joint_probe_validation``)
+into ``energy_transport.diagnostics``. The flat modules
 remain as pure forwarding shims.
 
-This test pins the migration contract for all three subpackages:
+This test pins the migration contract for all five subpackages:
 
 1. Every public symbol resolves to the *same object* through the old flat
    path and the new ``energy_transport.action.*`` / ``energy_transport.native.*``
@@ -22,7 +26,9 @@ This test pins the migration contract for all three subpackages:
    native parity helpers, class expansion, BoxCoder decode, small-box
    filtering, class-wise NMS, ordering, top-K behavior, policy search
    tie-breaking and budgets, seeded policy statistics, policy head forwards,
-   and listwise no-op calibration.
+   listwise no-op calibration, and the seeded diagnostics evaluators
+   (structure metrics, cone projection, high-water-mark, identifiability,
+   counterfactual, strata, focused audit, actionability, probe validation).
 3. The flat shims contain imports and ``__all__`` only — no function bodies,
    no classes, no logic.
 4. The hash-locked synthetic checkpoint fixture
@@ -30,6 +36,8 @@ This test pins the migration contract for all three subpackages:
    strict-loads through both import paths with identical state-dict keys,
    tensors, and deterministic outputs. The fixture files are SYNTHETIC parity
    fixtures created in T13/T14, not historical experiment weights.
+5. Diagnostics modules are import-safe: a fresh subprocess importing all nine
+   modules through both paths touches no CUDA and creates no files.
 """
 
 from __future__ import annotations
@@ -40,6 +48,9 @@ import hashlib
 import importlib
 import inspect
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -241,17 +252,133 @@ ENDPOINT_PUBLIC_SYMBOLS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# Public surface of each diagnostics module (Task 14 phase 3). Diagnostics is
+# the leaf layer: frozen dataclasses plus pure evaluation functions over
+# tensors and payloads. Only ``structure_metrics``, ``cone_projection``,
+# ``high_water_mark`` and ``joint_probe_validation`` are re-exported by the
+# package facade; the rest are consumed through the flat shims directly
+# (``cone_projection`` additionally exposes ``normalize_l2``,
+# ``project_to_tangent`` and the ``EnergyFn`` type alias for script consumers).
+DIAGNOSTICS_PUBLIC_SYMBOLS: dict[str, tuple[str, ...]] = {
+    "structure_metrics": (
+        "PrototypeBasinGeometry",
+        "ROIStructureSignature",
+        "ROIDualEnergy",
+        "roi_compactness_energy",
+        "roi_basin_energy",
+        "roi_basin_retention",
+        "centered_relation_matrix",
+        "relation_cka",
+        "inter_class_separation_energy",
+        "prototype_anchor_energy",
+        "inter_class_relation_energy",
+        "simplex_energy",
+        "class_topk_adjacency",
+        "graph_jaccard",
+        "basin_leakage_graph",
+        "prototype_basin_geometry",
+        "roi_structure_signature",
+        "roi_dual_energy",
+    ),
+    "cone_projection": (
+        "ConeDecomposition",
+        "ConeProjectionEndpoint",
+        "EnergyFn",
+        "compute_class_prototypes",
+        "cone_dpog_regularizer",
+        "cone_residual_alignment_loss",
+        "cross_entropy_energy",
+        "decompose_cone_features",
+        "local_tangent_energy_endpoint",
+        "normalize_l2",
+        "project_to_tangent",
+    ),
+    "high_water_mark": (
+        "HighWaterMarkLossConfig",
+        "HighWaterMarkModuleSnapshot",
+        "should_update_high_water_mark",
+        "capture_high_water_mark_module",
+        "load_high_water_mark_module",
+        "ap75_boundary_weights",
+        "high_water_mark_action_loss",
+        "stop_high_water_mark_loss",
+    ),
+    "linear_identifiability": (
+        "LocalCandidateRows",
+        "FrozenLocalFeatureMap",
+        "RidgeRegressor",
+        "extract_local_candidate_rows",
+        "move_local_candidate_rows",
+        "fit_local_feature_map",
+        "transform_local_candidate_rows",
+        "within_image_shuffle_order",
+        "image_balanced_weights",
+        "fit_ridge_regression",
+        "predict_ridge_regression",
+        "evaluate_identifiability_gates",
+    ),
+    "spatial_counterfactual": (
+        "SpatialCandidateRows",
+        "FrozenSpatialFeatureMap",
+        "extract_spatial_candidate_rows",
+        "move_spatial_candidate_rows",
+        "replace_action_features",
+        "spatial_counterfactual_blocks",
+        "spatial_layout_shuffle",
+        "within_image_delta_alignment_shuffle",
+        "fit_spatial_feature_map",
+        "transform_spatial_features",
+        "evaluate_spatial_counterfactual_gates",
+    ),
+    "step_strata": (
+        "StepActionRows",
+        "extract_step_action_rows",
+        "strata_masks",
+        "summarize_stratum",
+        "discover_stable_strata",
+        "select_primary_stratum",
+        "rate_matched_uniform_control",
+        "target_permutation_control",
+        "evaluate_step_strata_gates",
+    ),
+    "top_focused_audit": (
+        "median_sign_metrics",
+        "top_focused_rank_metrics",
+        "evaluate_top_focused_gates",
+    ),
+    "decomposed_actionability": (
+        "PairwiseRows",
+        "within_image_pairwise_rows",
+        "class_image_balanced_weights",
+        "sign_classification_metrics",
+        "ranked_abstention_metrics",
+        "calibrate_ranked_abstention",
+        "evaluate_decomposed_actionability_gates",
+    ),
+    "joint_probe_validation": (
+        "ConservativeCalibration",
+        "calibrate_conservative_threshold",
+        "calibrated_selection_metrics",
+        "constant_utility_baselines",
+        "imagewise_pairwise_accuracy",
+        "paired_bootstrap_mean_difference",
+        "shuffle_edge_topology",
+    ),
+}
+
 SHIM_PUBLIC_SYMBOLS: dict[str, tuple[str, ...]] = {
     **ACTION_PUBLIC_SYMBOLS,
     **NATIVE_PUBLIC_SYMBOLS,
     **POLICY_PUBLIC_SYMBOLS,
     **ENDPOINT_PUBLIC_SYMBOLS,
+    **DIAGNOSTICS_PUBLIC_SYMBOLS,
 }
 SUBPACKAGE_BY_STEM = {
     **{stem: "action" for stem in ACTION_PUBLIC_SYMBOLS},
     **{stem: "native" for stem in NATIVE_PUBLIC_SYMBOLS},
     **{stem: "policy" for stem in POLICY_PUBLIC_SYMBOLS},
     **{stem: "endpoint" for stem in ENDPOINT_PUBLIC_SYMBOLS},
+    **{stem: "diagnostics" for stem in DIAGNOSTICS_PUBLIC_SYMBOLS},
 }
 
 _ALL_SYMBOLS = [
@@ -1590,6 +1717,381 @@ def test_dense_endpoint_parity():
 
 
 # ---------------------------------------------------------------------------
+# 3e. Diagnostics modules: behavioral parity + import safety (Task 14 phase 3)
+# ---------------------------------------------------------------------------
+
+
+def _call_pair(stem: str, symbol: str, *args, **kwargs):
+    """Call the same function through the flat and diagnostics import paths."""
+    flat_value = getattr(_flat_module(stem), symbol)(*args, **kwargs)
+    new_value = getattr(_new_module(stem), symbol)(*args, **kwargs)
+    return flat_value, new_value
+
+
+def test_structure_metrics_parity():
+    """Basin energies are bit-identical through both import paths."""
+    features = _tensor(71, 6, 3)
+    labels = torch.tensor([0, 1, 2, 0, 1, 2])
+    prototypes = _tensor(72, 3, 3)
+
+    compact_flat, compact_new = _call_pair(
+        "structure_metrics", "roi_compactness_energy", features, labels, prototypes
+    )
+    assert torch.equal(compact_flat, compact_new)
+
+    retention_flat, retention_new = _call_pair(
+        "structure_metrics",
+        "roi_basin_retention",
+        features,
+        labels,
+        prototypes,
+        perturb_radius=0.0,
+        num_perturbations=0,
+    )
+    assert torch.equal(retention_flat, retention_new)
+
+
+def test_cone_projection_parity():
+    """Prototypes, decomposition, energy closure, and endpoint parity."""
+    features = _tensor(73, 4, 3)
+    labels = torch.tensor([0, 1, 0, 1])
+
+    prototypes_flat, prototypes_new = _call_pair(
+        "cone_projection", "compute_class_prototypes", features, labels, num_classes=2
+    )
+    assert torch.equal(prototypes_flat, prototypes_new)
+
+    decomposed_flat, decomposed_new = _call_pair(
+        "cone_projection", "decompose_cone_features", features, labels, prototypes_flat
+    )
+    _assert_value_equal(decomposed_flat, decomposed_new, "cone decomposition")
+
+    classifier = torch.nn.Linear(3, 2, bias=False)
+    with torch.no_grad():
+        classifier.weight.copy_(_tensor(74, 2, 3))
+    energy_flat = _flat_module("cone_projection").cross_entropy_energy(classifier)
+    energy_new = _new_module("cone_projection").cross_entropy_energy(classifier)
+    assert torch.equal(energy_flat(features, labels), energy_new(features, labels))
+
+    endpoint_flat, endpoint_new = _call_pair(
+        "cone_projection",
+        "local_tangent_energy_endpoint",
+        features,
+        labels,
+        prototypes_flat,
+        energy_flat,
+        steps=4,
+        step_size=0.1,
+    )
+    _assert_value_equal(endpoint_flat, endpoint_new, "cone endpoint")
+
+
+def test_high_water_mark_parity():
+    """Snapshot gating, boundary weights, and anchoring loss parity."""
+    flat = _flat_module("high_water_mark")
+    new = _new_module("high_water_mark")
+
+    assert flat.should_update_high_water_mark(
+        0.5, None
+    ) == new.should_update_high_water_mark(0.5, None)
+    snapshot_flat = flat.HighWaterMarkModuleSnapshot(metric_value=0.4)
+    snapshot_new = new.HighWaterMarkModuleSnapshot(metric_value=0.4)
+    assert flat.should_update_high_water_mark(
+        0.5, snapshot_flat, min_delta=0.05
+    ) == new.should_update_high_water_mark(0.5, snapshot_new, min_delta=0.05)
+
+    ious = torch.tensor([0.75, 0.7, 0.9, 0.1])
+    weights_flat, weights_new = _call_pair(
+        "high_water_mark", "ap75_boundary_weights", ious, center=0.75, band=0.1
+    )
+    assert torch.equal(weights_flat, weights_new)
+
+    contracts_flat = _flat_module("contracts")
+    contracts_new = _new_module("contracts")
+    actions_flat = _flat_module("actions")
+    actions_new = _new_module("actions")
+    state_flat = _make_roi_state(contracts_flat)
+    state_new = _make_roi_state(contracts_new)
+    current_flat = _make_actions(actions_flat)
+    current_new = _make_actions(actions_new)
+    zero_teacher = dict(
+        feature_delta=torch.zeros(6, 8),
+        score_delta=torch.zeros(6),
+        box_delta=torch.zeros(6, 4),
+        keep_logit=torch.zeros(6),
+    )
+    teacher_flat = actions_flat.ROITransportActions(**zero_teacher)
+    teacher_new = actions_new.ROITransportActions(**zero_teacher)
+
+    loss_flat = flat.high_water_mark_action_loss(
+        state_flat,
+        current_flat,
+        teacher_flat,
+        flat.HighWaterMarkLossConfig(lambda_anchor=0.5),
+    )
+    loss_new = new.high_water_mark_action_loss(
+        state_new,
+        current_new,
+        teacher_new,
+        new.HighWaterMarkLossConfig(lambda_anchor=0.5),
+    )
+    _assert_value_equal(loss_flat, loss_new, "high-water-mark loss")
+
+
+def test_linear_identifiability_parity():
+    """Shuffle order, balanced weights, and ridge fit/predict parity."""
+    image_ids = torch.tensor([1, 1, 1, 2, 3, 3])
+
+    order_flat, order_new = _call_pair(
+        "linear_identifiability", "within_image_shuffle_order", image_ids, seed=19
+    )
+    _assert_value_equal(order_flat, order_new, "shuffle order")
+
+    weights_flat, weights_new = _call_pair(
+        "linear_identifiability", "image_balanced_weights", image_ids
+    )
+    assert torch.equal(weights_flat, weights_new)
+
+    features = _tensor(75, 6, 4)
+    target = _tensor(76, 6)
+    model_flat, model_new = _call_pair(
+        "linear_identifiability",
+        "fit_ridge_regression",
+        features,
+        target,
+        sample_weights=weights_flat,
+        l2=1e-6,
+    )
+    _assert_value_equal(model_flat, model_new, "ridge model")
+
+    predicted_flat = _flat_module(
+        "linear_identifiability"
+    ).predict_ridge_regression(model_flat, features)
+    predicted_new = _new_module(
+        "linear_identifiability"
+    ).predict_ridge_regression(model_new, features)
+    assert torch.equal(predicted_flat, predicted_new)
+
+
+def test_spatial_counterfactual_parity():
+    """Block layout, seeded layout shuffle, and delta-alignment shuffle parity."""
+    spatial = _tensor(77, 1, 1, 7, 7)
+    action = _tensor(78, 1, 5)
+
+    blocks_flat, blocks_new = _call_pair(
+        "spatial_counterfactual", "spatial_counterfactual_blocks", spatial, action
+    )
+    assert torch.equal(blocks_flat, blocks_new)
+
+    shuffled_flat, shuffled_new = _call_pair(
+        "spatial_counterfactual", "spatial_layout_shuffle", spatial, seed=31
+    )
+    _assert_value_equal(shuffled_flat, shuffled_new, "layout shuffle")
+
+    delta = _tensor(79, 4, 4)
+    image_ids = torch.tensor([0, 0, 1, 1])
+    alignment_flat, alignment_new = _call_pair(
+        "spatial_counterfactual",
+        "within_image_delta_alignment_shuffle",
+        delta,
+        image_ids,
+        seed=11,
+    )
+    _assert_value_equal(alignment_flat, alignment_new, "delta alignment shuffle")
+
+
+def test_step_strata_parity():
+    """Strata masks, image-balanced summary, and seeded permutation parity."""
+    rows = _flat_module("step_strata").StepActionRows(
+        target=torch.tensor([0.3, -0.1, 0.2, 0.4]),
+        image_ids=torch.tensor([1, 1, 2, 2]),
+        family=("translation", "scale", "translation", "translation"),
+        direction=("d1", "d2", "d1", "d1"),
+        class_ids=torch.tensor([1, 1, 2, 2]),
+        scale_bin=("small", "small", "large", "large"),
+    )
+    mask = torch.tensor([True, False, True, True])
+
+    masks_flat, masks_new = _call_pair("step_strata", "strata_masks", rows)
+    _assert_value_equal(masks_flat, masks_new, "strata masks")
+
+    summary_flat, summary_new = _call_pair(
+        "step_strata",
+        "summarize_stratum",
+        rows,
+        mask,
+        manifest_image_ids=[1, 2, 3],
+        target_epsilon=1e-3,
+        lcb_z=1.645,
+    )
+    _assert_value_equal(summary_flat, summary_new, "stratum summary")
+
+    permuted_flat, permuted_new = _call_pair(
+        "step_strata",
+        "target_permutation_control",
+        rows,
+        mask,
+        manifest_image_ids=[1, 2, 3],
+        trials=50,
+        seed=23,
+    )
+    _assert_value_equal(permuted_flat, permuted_new, "target permutation control")
+
+
+def test_top_focused_audit_parity():
+    """Median-sign and top-focused rank metrics parity."""
+    scores = torch.tensor([2.0, 1.0, 0.0, 1.0])
+    target = torch.tensor([0.2, -0.1, 0.3, -0.2])
+    image_ids = torch.tensor([0, 0, 1, 1])
+
+    median_flat, median_new = _call_pair(
+        "top_focused_audit", "median_sign_metrics", scores, target, image_ids
+    )
+    _assert_value_equal(median_flat, median_new, "median sign metrics")
+
+    rank_flat, rank_new = _call_pair(
+        "top_focused_audit",
+        "top_focused_rank_metrics",
+        scores,
+        target,
+        image_ids,
+        target_epsilon=0.001,
+        min_target_gap=0.001,
+        lcb_z=0.0,
+    )
+    _assert_value_equal(rank_flat, rank_new, "top focused rank metrics")
+
+
+def test_decomposed_actionability_parity():
+    """Pairwise rows, balanced weights, and sign metrics parity."""
+    features = torch.tensor([[0.0], [1.0], [3.0], [7.0]])
+    target = torch.tensor([0.2, -0.1, 0.5, 0.8])
+    image_ids = torch.tensor([4, 4, 4, 9])
+
+    pairs_flat, pairs_new = _call_pair(
+        "decomposed_actionability",
+        "within_image_pairwise_rows",
+        features,
+        target,
+        image_ids,
+        min_target_gap=0.001,
+    )
+    _assert_value_equal(pairs_flat, pairs_new, "pairwise rows")
+
+    sign_target = torch.tensor([1.0, -1.0, -1.0, -1.0, 1.0, -1.0])
+    weight_ids = torch.tensor([0, 0, 0, 0, 1, 1])
+    weights_flat, weights_new = _call_pair(
+        "decomposed_actionability",
+        "class_image_balanced_weights",
+        sign_target,
+        weight_ids,
+    )
+    assert torch.equal(weights_flat, weights_new)
+
+    scores = torch.tensor([-2.0, 2.0, -1.0, 1.0, -3.0, 3.0])
+    eval_target = torch.tensor([-0.2, 0.4, -0.1, 0.2, -0.3, 0.5])
+    eval_ids = torch.tensor([0, 0, 1, 1, 2, 2])
+    metrics_flat, metrics_new = _call_pair(
+        "decomposed_actionability",
+        "sign_classification_metrics",
+        scores,
+        eval_target,
+        eval_ids,
+        target_epsilon=0.001,
+    )
+    _assert_value_equal(metrics_flat, metrics_new, "sign classification metrics")
+
+
+def test_joint_probe_validation_parity():
+    """Edge topology shuffle and conservative calibration parity."""
+    policy = _flat_module("joint_delta_u")
+    edges = policy.ProposalSetEdges(
+        edge_index=torch.tensor(
+            [[0, 1, 2, 3, 4, 5], [1, 2, 0, 4, 5, 3]], dtype=torch.long
+        ),
+        edge_features=torch.arange(48, dtype=torch.float32).reshape(6, 8),
+        node_count=6,
+    )
+    labels = torch.tensor([1, 1, 1, 2, 2, 2])
+    image_indices = torch.zeros(6, dtype=torch.long)
+
+    shuffled_flat, shuffled_new = _call_pair(
+        "joint_probe_validation",
+        "shuffle_edge_topology",
+        edges,
+        labels,
+        image_indices,
+        seed=17,
+    )
+    _assert_value_equal(shuffled_flat, shuffled_new, "edge topology shuffle")
+
+    predicted = torch.tensor(
+        [0.90, 0.10, 0.80, 0.20, 0.70, 0.30, 0.40, 0.10, 0.35, 0.05, 0.25, 0.15]
+    )
+    target = torch.tensor(
+        [1.20, -0.05, 1.00, -0.04, 0.80, -0.03, -0.20, -0.02, -0.15, -0.01, -0.10, -0.02]
+    )
+    image_ids = torch.repeat_interleave(torch.arange(6), 2)
+    calibrated_flat, calibrated_new = _call_pair(
+        "joint_probe_validation",
+        "calibrate_conservative_threshold",
+        predicted,
+        target,
+        image_ids,
+        target_epsilon=1e-3,
+        min_selected_actions=2,
+        max_action_image_rate=0.5,
+        min_positive_precision_lift=0.20,
+        min_mean_delta_u_lcb=0.0,
+        lcb_z=1.0,
+    )
+    _assert_value_equal(calibrated_flat, calibrated_new, "conservative calibration")
+
+
+def test_diagnostics_import_is_side_effect_free(tmp_path):
+    """Importing diagnostics modules touches no CUDA and creates no files.
+
+    Runs in a subprocess so the probe covers a fresh interpreter (no prior
+    CUDA initialization from other tests) with an empty working directory.
+    """
+    script = (
+        "import importlib, os, sys\n"
+        "workdir = sys.argv[1]\n"
+        "os.chdir(workdir)\n"
+        "import torch\n"
+        "package = 'spectral_detection_posttrain.methods.energy_transport'\n"
+        "stems = [\n"
+        "    'structure_metrics', 'cone_projection', 'high_water_mark',\n"
+        "    'linear_identifiability', 'spatial_counterfactual', 'step_strata',\n"
+        "    'top_focused_audit', 'decomposed_actionability',\n"
+        "    'joint_probe_validation',\n"
+        "]\n"
+        "for stem in stems:\n"
+        "    importlib.import_module(f'{package}.diagnostics.{stem}')\n"
+        "    importlib.import_module(f'{package}.{stem}')\n"
+        "assert not torch.cuda.is_initialized(), 'diagnostics import touched CUDA'\n"
+        "leftovers = os.listdir(workdir)\n"
+        "assert leftovers == [], f'diagnostics import created files: {leftovers}'\n"
+        "print('OK')\n"
+    )
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(
+        part for part in (str(REPO_ROOT), env.get("PYTHONPATH", "")) if part
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(tmp_path)],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=180,
+    )
+    assert result.returncode == 0, (
+        "diagnostics import-safety probe failed:\n"
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # 4. Hash-locked synthetic checkpoint fixture: strict-load through both paths
 # ---------------------------------------------------------------------------
 
@@ -1752,7 +2254,7 @@ def test_fixture_state_dict_strict_loads_through_both_paths():
 
 
 def test_manifest_covers_every_shimmed_module():
-    """Each action/native/policy/endpoint module is fixture-backed or skipped."""
+    """Action/native/policy/endpoint/diagnostics modules: fixture or skipped."""
     manifest = _load_manifest()
     covered = {entry["module"].rsplit(".", 1)[-1] for entry in manifest["fixtures"]}
     skipped = {entry["module"].rsplit(".", 1)[-1] for entry in manifest["skipped"]}
