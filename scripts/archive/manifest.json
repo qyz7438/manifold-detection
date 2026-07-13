@@ -875,6 +875,76 @@
       ],
       "research_status": "maintained",
       "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "C",
+      "current_reproduction_wrapper": "scripts/train_dense_local_delta_learner.py",
+      "destination": "scripts/archive/historical/dense/train_dense_local_delta_learner.py",
+      "historical_invocation": "scripts/experiments/run_nwpu_dense_local_delta_learner_s42_48_16.sh",
+      "kind": "trainer",
+      "known_failure_modes": [
+        "direct execution from the archived path resolves Path(__file__).parents[1] to scripts/archive/historical and fails the locked config/input sha256 gates; run through the old-path wrapper or the dispatcher dry-run",
+        "missing delta-stats or teacher-checkpoint artifacts fail the locked input sha256 gates",
+        "--require-clean-git refuses to run on a dirty worktree"
+      ],
+      "original_blob_sha": "8d9f753c6f6b5e985015cbd0a7edf52576bf8389",
+      "original_entrypoint_path": "scripts/train_dense_local_delta_learner.py",
+      "replacement_command": "python scripts/run_experiment.py dry-run --experiment det.energy.dense_local_delta_learner.001 --run-name nwpu_dense_local_delta_learner_s42_48_16 --allow-frozen-reproduction",
+      "required_ignored_artifacts": [
+        "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+        "runs/nwpu_dense_local_delta_stats_v2_s42_train64/eval_metrics.json",
+        "runs/nwpu_dense_endpoint_cleanval_s42/local_full/endpoint.pth",
+        "data/NWPU_VHR10_coco.json",
+        "data/NWPU VHR-10 dataset/"
+      ],
+      "research_status": "frozen_reproduction",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "C",
+      "current_reproduction_wrapper": "scripts/train_nwpu_dense_endpoint_absolute.py",
+      "destination": "scripts/archive/historical/dense/train_nwpu_dense_endpoint_absolute.py",
+      "historical_invocation": "scripts/experiments/run_nwpu_dense_endpoint_absolute_s42_nested.sh",
+      "kind": "trainer",
+      "known_failure_modes": [
+        "direct execution from the archived path resolves Path(__file__).parents[1] to scripts/archive/historical and fails the locked config/input sha256 gates; run through the old-path wrapper or the dispatcher dry-run",
+        "missing checkpoint, teacher-stats, or confounding artifacts fail the locked input sha256 gates",
+        "outer split is read-once-after-selection; reruns without the nested split manifest fail the dataset gates"
+      ],
+      "original_blob_sha": "dd609b2627582262f49eef62adb7ca4faa937ac4",
+      "original_entrypoint_path": "scripts/train_nwpu_dense_endpoint_absolute.py",
+      "replacement_command": "python scripts/run_experiment.py dry-run --experiment det.energy.dense_endpoint.absolute.001 --run-name nwpu_dense_endpoint_absolute_s42_nested --allow-frozen-reproduction",
+      "required_ignored_artifacts": [
+        "runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+        "runs/nwpu_dense_teacher_stats_s42_innerfit/eval_metrics.json",
+        "runs/nwpu_dense_teacher_confound_s42_innerfit/eval_metrics.json",
+        "data/NWPU_VHR10_coco.json",
+        "data/NWPU VHR-10 dataset/"
+      ],
+      "research_status": "frozen_reproduction",
+      "runnable_state": "runnable_via_wrapper"
+    },
+    {
+      "archive_wave": "C",
+      "current_reproduction_wrapper": "scripts/verify_nwpu_native_c1_contract.py",
+      "destination": "scripts/archive/historical/nwpu_c1/verify_nwpu_native_c1_contract.py",
+      "historical_invocation": "scripts/experiments/run_nwpu_native_c1_contract_s42.sh",
+      "kind": "diagnostic",
+      "known_failure_modes": [
+        "direct execution from the archived path resolves Path(__file__).parents[1] to scripts/archive/historical and fails the locked config/input sha256 gates; run through the old-path wrapper or the dispatcher dry-run",
+        "missing parity-baseline, parity-fullft, or native_m1 eval_metrics artifacts fail the locked source sha256 gates",
+        "remote launcher exits 3 when GPU2 free memory <= 8192 MiB and exits 4 on a dirty tree"
+      ],
+      "original_blob_sha": "f55594bf3848fba9c6688d8a1d9648df6e46be72",
+      "original_entrypoint_path": "scripts/verify_nwpu_native_c1_contract.py",
+      "replacement_command": "python scripts/run_experiment.py dry-run --experiment det.energy.native_listwise.c1.001 --run-name nwpu_native_c1_contract_s42 --allow-frozen-reproduction",
+      "required_ignored_artifacts": [
+        "runs/det_action_zero_parity_nativefix_baseline_s42/eval_metrics.json",
+        "runs/det_action_zero_parity_nativefix_fullft18best_s42/eval_metrics.json",
+        "runs/nwpu_m1_set_policy_s42_fulltrain_fullval/eval_metrics.json"
+      ],
+      "research_status": "frozen_reproduction",
+      "runnable_state": "runnable_via_wrapper"
     }
   ],
   "schema_version": "script-archive-manifest.v1"

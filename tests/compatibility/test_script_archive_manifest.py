@@ -15,7 +15,7 @@ in the git object database. Scratch-wave (A) entries must have no wrapper at
 the old path; future waves that leave wrappers must keep the original blob
 identity distinct from the wrapper now occupying the old path. Maintained
 code (``tests/`` and ``spectral_detection_posttrain/``) must not import or
-reference scratch-wave (A) modules by their original path; wave-B modules are
+reference scratch-wave (A) modules by their original path; wave-B/C modules are
 intentionally still reachable through their wrappers at the old paths.
 """
 
@@ -238,6 +238,38 @@ def test_wave_b_wrappers_delegate_to_destination(entries) -> None:
         assert entry["runnable_state"] == "runnable_via_wrapper", (
             f"{entry['original_entrypoint_path']}: wave-B entries must be "
             "runnable_via_wrapper"
+        )
+
+
+def test_wave_c_wrappers_delegate_and_announce_frozen_status(entries) -> None:
+    """Wave-C wrappers keep frozen reproduction working from the old path."""
+    for entry in entries:
+        if entry["archive_wave"] != "C":
+            continue
+        original = ROOT / entry["original_entrypoint_path"]
+        wrapper_source = original.read_text(encoding="utf-8")
+        assert entry["destination"] in wrapper_source, (
+            f"{entry['original_entrypoint_path']}: wrapper does not reference "
+            f"{entry['destination']}"
+        )
+        assert "frozen" in wrapper_source.lower(), (
+            f"{entry['original_entrypoint_path']}: wrapper must announce the frozen status"
+        )
+        replacement = entry["replacement_command"]
+        assert (
+            "scripts/run_experiment.py dry-run" in replacement
+            or entry["destination"] in replacement
+        ), (
+            f"{entry['original_entrypoint_path']}: replacement_command must use the "
+            "dispatcher dry-run or the archived path"
+        )
+        assert entry["runnable_state"] == "runnable_via_wrapper", (
+            f"{entry['original_entrypoint_path']}: wave-C entries must be "
+            "runnable_via_wrapper"
+        )
+        assert entry["research_status"] == "frozen_reproduction", (
+            f"{entry['original_entrypoint_path']}: wave-C entries must be "
+            "frozen_reproduction"
         )
 
 
