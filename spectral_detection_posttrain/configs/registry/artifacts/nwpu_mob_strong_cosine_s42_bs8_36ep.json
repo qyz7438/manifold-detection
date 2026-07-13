@@ -1,0 +1,103 @@
+{
+  "completion": "completed",
+  "environment": {
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": 196,
+    "kind": "full_val",
+    "limit_train": null,
+    "limit_val": null
+  },
+  "experiment_id": "nwpu_mob_strong_cosine_s42_bs8_36ep",
+  "gates": {},
+  "git_commit": "dfaf494b8d8cafeace6d6661912c23304a9b8fdb",
+  "git_dirty": false,
+  "inputs": [
+    {
+      "logical_path": "remote:manifold/data/NWPU_VHR10_coco.json",
+      "semantic_kind": "dataset_annotation",
+      "sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+      "size_bytes": 1265416
+    },
+    {
+      "logical_path": "derived:nwpu_vhr10/seed42/validation_image_ids",
+      "semantic_kind": "split_manifest",
+      "sha256": "49f05cc9fa82ccaf924ff3be58a8f6376387c225e020ea6138182a4637219684",
+      "size_bytes": null
+    },
+    {
+      "logical_path": "spectral_detection_posttrain/configs/registry/environments/remote_gpu2_py310_cu121.json",
+      "semantic_kind": "initial_checkpoint",
+      "sha256": "d1256cf14f31ac27f31812197705b910985ead42262cb1b0d769d75d69d8570f",
+      "size_bytes": 1517
+    },
+    {
+      "logical_path": "spectral_detection_posttrain/eval/detection_metrics.py",
+      "semantic_kind": "metric_protocol",
+      "sha256": "f5b547d99420c8e0a0d59320671b0ec5eb05ecf279ec4d833f8aeca672a30848",
+      "size_bytes": 12359
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_mob_strong_cosine_s42_bs8_36ep/config.json",
+      "semantic_kind": "postprocess_config",
+      "sha256": "74f20c711826a32598b422d520735600275e4556a701320068ed85c5f2282341",
+      "size_bytes": 2843
+    }
+  ],
+  "invocation": [],
+  "manifest_id": "nwpu_mob_strong_cosine_s42_bs8_36ep:nwpu_mob_strong_cosine_s42_bs8_36ep",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "ap50": 0.6608888572398024,
+    "ap75": 0.308384053391374,
+    "best_ap50": 0.6721873811449312,
+    "best_ap75": 0.31772923834372174,
+    "best_epoch": 33,
+    "ece": 0.11224613767899444,
+    "false_positive_rate": 0.43412033511043413,
+    "num_gt": 1041,
+    "num_predictions": 1313,
+    "precision": 0.5658796648895659,
+    "recall": 0.7137367915465899,
+    "selection_metric": "ap75"
+  },
+  "missing_evidence": [
+    "no runtime manifest.json exists for this historical run; runtime_manifest_sha256 binds the primary result JSON instead",
+    "original CLI invocation not recorded in the evidence; entrypoints, where recorded, are documented in spectral_detection_posttrain/configs/registry/experiments.json",
+    "run-time python/torch versions not recorded in the evidence; see spectral_detection_posttrain/configs/registry/environments/ snapshots",
+    "split manifest is a derived image-id digest recorded in the run evidence, not a standalone file",
+    "torchvision pretrained weight file sha256 not recorded; the initial_checkpoint ref identifies the weight source by the pinned torchvision version in the remote environment snapshot (run config records pretrained=true)",
+    "run git_commit copied from the remote run config.json; the cited review report lists implementation commits but not the run commit",
+    "no preregistered gates recorded in the evidence"
+  ],
+  "observed_at_utc": "2026-07-13T06:21:43Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "7e1f2404699df997883678274491e88d3ec253c0",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/nwpu_mob_strong_cosine_s42_bs8_36ep/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "2de795a78dc4f29375f61e67a06ccdb0a0fa1e549ef20f398adb7132cbd3ebd6",
+      "size_bytes": 15712
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+      "semantic_kind": "checkpoint",
+      "sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+      "size_bytes": 76205690
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "remote:manifold/runs/nwpu_mob_strong_cosine_s42_bs8_36ep/config.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "74f20c711826a32598b422d520735600275e4556a701320068ed85c5f2282341",
+    "size_bytes": 2843
+  },
+  "run_id": "nwpu_mob_strong_cosine_s42_bs8_36ep",
+  "runtime_manifest_sha256": "2de795a78dc4f29375f61e67a06ccdb0a0fa1e549ef20f398adb7132cbd3ebd6",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/reports/nwpu_strong_native_candidate_energy_review_2026-07-10.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}

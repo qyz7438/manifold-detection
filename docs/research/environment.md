@@ -50,6 +50,23 @@ are redacted uniformly (`C:\Users\<name>` → `C:\Users\<redacted>`,
 matches a token/password/private-key pattern, and the contract tests re-scan
 both committed snapshots for leaks.
 
+## Path aliases used in artifact manifests
+
+Reviewed artifact manifests under
+[spectral_detection_posttrain/configs/registry/artifacts/](../spectral_detection_posttrain/configs/registry/artifacts/)
+reference files by host alias instead of absolute paths:
+
+- `remote:manifold` — the remote workspace
+  `/home/<user>/lzz/manifold-detection-energy-transport` on the GPU host
+  above; paths below the alias are workspace-relative.
+- `remote:rlimage` — the separate legacy workspace `/home/<user>/lzz/RLimage`
+  on the same host. It is outside the permitted read scope; refs with this
+  alias carry hashes copied from evidence plus an explicit `missing_evidence`
+  entry, and their bytes are not re-verified.
+- `derived:` — a value derived from recorded evidence (for example a
+  deterministic split's image-id digest), not a standalone file; such refs
+  carry `size_bytes: null`.
+
 ## requirements.txt and optional legacy dependencies
 
 [requirements.txt](../requirements.txt) covers the **maintained runtime /

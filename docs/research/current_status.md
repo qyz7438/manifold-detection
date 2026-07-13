@@ -2,7 +2,7 @@
 <!-- generation inputs:
      spectral_detection_posttrain/configs/registry/research_lines.json sha256=8fca2dc9756a973cc5f18c298d9b1dd4edd533fbfb8519f1dcd52285003712dc
      spectral_detection_posttrain/configs/registry/experiments.json sha256=bf983727105c70398a6bcf388ebe0667bfe88f9b3f7c7a9f844d221fd1741cb7
-     spectral_detection_posttrain/configs/registry/artifacts/ (no reviewed manifests)
+     spectral_detection_posttrain/configs/registry/artifacts/nwpu_mob_strong_cosine_s42_bs8_36ep.json sha256=b5e4ea4bb3118a079a7e43852f6bc6d20205d3112106b30192f4caf8c4486c39
 -->
 
 # Current Research Status
