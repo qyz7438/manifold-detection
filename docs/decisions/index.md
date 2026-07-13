@@ -42,3 +42,4 @@ Create ADRs for:
 
 | ADR | Title | Status |
 |-----|-------|--------|
+| [adr-energy-transport-package-boundaries](./adr-energy-transport-package-boundaries.md) | Energy-Transport Package Boundaries | accepted |

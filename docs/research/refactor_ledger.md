@@ -234,7 +234,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — feat: track canonical experiment lifecycle
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `c405ea1`
 - task ID: T6 (developed in parallel with the T10 per-family commits; committed after them so its gate is the fully green post-T10 suite)
 - agent/model and write owner: Kimi coder subagent (lifecycle module + hooks + tests); Kimi main orchestrator reviewed the diff and committed
 - files changed: `spectral_detection_posttrain/experiments/canonical_runner.py` (additive: lifecycle import, `ExperimentContext.manifest_path` default field, precondition check + manifest start inside `prepare_experiment_from_config`; metadata collection reordered before `mkdir` so a formal dirty tree is rejected before any run-directory mutation; signatures unchanged), `spectral_detection_posttrain/experiments/lifecycle.py` (new), `tests/experiments/test_experiment_lifecycle.py` (new, 8 tests), `tests/test_canonical_runner_e2e.py` (additive manifest assertions)
@@ -245,3 +245,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; runtime `manifest.json` is written only under the ignored run directory. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: existing production callers are non-formal until they adopt `finalize_experiment`; checkpoint logical_path uses the basename to keep absolute temp paths out of the secret scrubber (documented in-code).
+
+### 2026-07-13 — docs: define energy transport package boundaries
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T12 (developed in parallel with T7; disjoint file surfaces)
+- agent/model and write owner: Kimi coder subagent (ADR + AST boundary test + decision index row); Kimi main orchestrator reviewed research semantics and committed
+- files changed: `docs/decisions/adr-energy-transport-package-boundaries.md` (new), `tests/contracts/test_energy_transport_import_boundaries.py` (new, 11 tests), `docs/decisions/index.md` (one index row appended — plan-mandated modification; the T0 protected-history inventory records the pre-change blob, and the diff is exactly one line)
+- RED command/result: boundary test absent at HEAD; the ADR/test pair is documentation-plus-contract, so the meaningful RED is the classifier exercised out-of-band by the builder: 12 hypothetical new violations (trainer/experiment/dataset/scripts/runs/legacy imports, native->policy, action->policy, endpoint->core, cross-family, third-party) all flagged; 9 allowed cases all clean; stale-allowlist detection verified
+- GREEN command/result: `pytest tests/contracts/test_energy_transport_import_boundaries.py -q` -> 11 passed (main-verified)
+- full-suite result: 866 passed + 1 skipped = 855 baseline + 11 new, zero failures (run with `--ignore=tests/experiments/test_dispatcher.py` — that untracked file belongs to the in-flight T7 builder and errors at collection until T7 lands; no relation to this task)
+- reviewer and findings accepted/rejected: main-orchestrator review per plan Step 4 (boundaries must preserve research semantics). Verified: the ADR reproduces the plan's 5-subpackage mapping and 5 dependency rules verbatim and moves no implementation code; only 2 allowlist violations exist (`adaptive_consensus.py` and `set_search.py` importing `spectral_detection_posttrain.core.matching` directly), both assigned to Task 14 for removal; the ratchet (stale allowlist entries fail) forces ADR+allowlist cleanup when Task 14 fixes them. Accepted interpretation judgments: (1) the "not" clause is the enforced prohibition and `core.*` access is restricted to action/native — this is what produces the 2 entries; (2) diagnostics = leaf layer over the other four subpackages; (3) endpoint = self-contained (dense_set_energy teacher) + substrate; (4) side-effect rule enforced at import time only, function bodies and `__main__` blocks exempt; (5) imports of future `energy_transport.<subpkg>.*` shim paths are classified by target subpackage so Tasks 13/14 do not trip the rules.
+- scientific artifacts checked: none touched; no module was moved or edited. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: 2 allowlist entries must be cleared by Task 14 policy migration (stale-entry test will fail until allowlist and ADR table are emptied together); Task 14 Step 3 adds the stricter import-safety gate (no reads/mkdir/CUDA at import) not covered here.
