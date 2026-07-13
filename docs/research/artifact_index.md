@@ -2,6 +2,8 @@
 <!-- generation inputs:
      spectral_detection_posttrain/configs/registry/research_lines.json sha256=8fca2dc9756a973cc5f18c298d9b1dd4edd533fbfb8519f1dcd52285003712dc
      spectral_detection_posttrain/configs/registry/experiments.json sha256=bf983727105c70398a6bcf388ebe0667bfe88f9b3f7c7a9f844d221fd1741cb7
+     spectral_detection_posttrain/configs/registry/artifacts/native_zero_parity_baseline.json sha256=0c5712b8e44fb9a0ee54902bbea11410c10c6cd4ac60180719dbb2e4c0730204
+     spectral_detection_posttrain/configs/registry/artifacts/native_zero_parity_fullft.json sha256=588fab40be106cf04f562d22a7687f4eb6af1f8ebc789633a978f4bbbd171b26
      spectral_detection_posttrain/configs/registry/artifacts/nwpu_mob_strong_cosine_s42_bs8_36ep.json sha256=b5e4ea4bb3118a079a7e43852f6bc6d20205d3112106b30192f4caf8c4486c39
 -->
 
@@ -16,4 +18,6 @@ metric values must never be hand-written into this file.
 
 | Manifest ID | Experiment ID | Completion | Scope | Metrics summary | Source evidence |
 |-------------|---------------|------------|-------|-----------------|-----------------|
+| `native_zero_parity_baseline:det_action_zero_parity_nativefix_baseline_s42` | `native_zero_parity_baseline` | `completed` | full_val (196 images) | `{"ap50":0.5176863360079142,"ap75":0.19165639069786988,"ece":0.03679973743707088,"false_positive_rate":0.669417225373904,"num_gt":1041,"num_predictions":1939,"precision":0.3305827746260959,"recall":0.6157540826128722,"strict_parity_images":196,"strict_parity_max_box_abs_error":0.0,"strict_parity_max_score_abs_error":0.0,"strict_parity_mismatched_images":0}` | [docs/reports/nwpu_c0_native_parity_review_2026-07-10.md](../reports/nwpu_c0_native_parity_review_2026-07-10.md) |
+| `native_zero_parity_fullft:det_action_zero_parity_nativefix_fullft18best_s42` | `native_zero_parity_fullft` | `completed` | full_val (196 images) | `{"ap50":0.6022590778178841,"ap75":0.28152208933069595,"ece":0.09222601517015794,"false_positive_rate":0.5729103111653447,"num_gt":1041,"num_predictions":1639,"precision":0.42708968883465526,"recall":0.6724303554274735,"strict_parity_images":196,"strict_parity_max_box_abs_error":0.0,"strict_parity_max_score_abs_error":0.0,"strict_parity_mismatched_images":0}` | [docs/reports/nwpu_c0_native_parity_review_2026-07-10.md](../reports/nwpu_c0_native_parity_review_2026-07-10.md) |
 | `nwpu_mob_strong_cosine_s42_bs8_36ep:nwpu_mob_strong_cosine_s42_bs8_36ep` | `nwpu_mob_strong_cosine_s42_bs8_36ep` | `completed` | full_val (196 images) | `{"ap50":0.6608888572398024,"ap75":0.308384053391374,"best_ap50":0.6721873811449312,"best_ap75":0.31772923834372174,"best_epoch":33,"ece":0.11224613767899444,"false_positive_rate":0.43412033511043413,"num_gt":1041,"num_predictions":1313,"precision":0.5658796648895659,"recall":0.7137367915465899,"selection_metric":"ap75"}` | [docs/reports/nwpu_strong_native_candidate_energy_review_2026-07-10.md](../reports/nwpu_strong_native_candidate_energy_review_2026-07-10.md) |

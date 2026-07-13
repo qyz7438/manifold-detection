@@ -1,0 +1,100 @@
+{
+  "completion": "completed",
+  "environment": {
+    "cuda_visible_devices": "2",
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": 196,
+    "kind": "full_val",
+    "limit_train": null,
+    "limit_val": null
+  },
+  "experiment_id": "native_zero_parity_fullft",
+  "gates": {
+    "aggregate_zero_action_parity": true,
+    "strict_zero_action_parity": true
+  },
+  "git_commit": "da54b19df7576d2dd2864a17bb4daaee650c1c48",
+  "git_dirty": false,
+  "inputs": [
+    {
+      "logical_path": "remote:manifold/data/NWPU_VHR10_coco.json",
+      "semantic_kind": "dataset_annotation",
+      "sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+      "size_bytes": 1265416
+    },
+    {
+      "logical_path": "derived:nwpu_vhr10/seed42/validation_image_ids",
+      "semantic_kind": "split_manifest",
+      "sha256": "49f05cc9fa82ccaf924ff3be58a8f6376387c225e020ea6138182a4637219684",
+      "size_bytes": null
+    },
+    {
+      "logical_path": "remote:manifold/runs/ctrl_full_ft18_from12best_fullnw0_nwpu_s42_bs8_ep18/checkpoint_best.pth",
+      "semantic_kind": "initial_checkpoint",
+      "sha256": "950bc89a8083ece77e39fd22c757462a66f63d3d028a94e61f42d6cd09eb9668",
+      "size_bytes": 76205690
+    },
+    {
+      "logical_path": "spectral_detection_posttrain/eval/detection_metrics.py",
+      "semantic_kind": "metric_protocol",
+      "sha256": "f5b547d99420c8e0a0d59320671b0ec5eb05ecf279ec4d833f8aeca672a30848",
+      "size_bytes": 12359
+    },
+    {
+      "logical_path": "remote:manifold/runs/det_action_zero_parity_nativefix_fullft18best_s42/eval_metrics.json",
+      "semantic_kind": "postprocess_config",
+      "sha256": "5324392a0629f7b450ab3332bf7e22fd9631698fb1f1e71352fb8832e135c42e",
+      "size_bytes": 5884
+    }
+  ],
+  "invocation": [],
+  "manifest_id": "native_zero_parity_fullft:det_action_zero_parity_nativefix_fullft18best_s42",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "ap50": 0.6022590778178841,
+    "ap75": 0.28152208933069595,
+    "ece": 0.09222601517015794,
+    "false_positive_rate": 0.5729103111653447,
+    "num_gt": 1041,
+    "num_predictions": 1639,
+    "precision": 0.42708968883465526,
+    "recall": 0.6724303554274735,
+    "strict_parity_images": 196,
+    "strict_parity_max_box_abs_error": 0.0,
+    "strict_parity_max_score_abs_error": 0.0,
+    "strict_parity_mismatched_images": 0
+  },
+  "missing_evidence": [
+    "no runtime manifest.json exists for this historical run; runtime_manifest_sha256 binds the primary result JSON instead",
+    "original CLI invocation not recorded in the evidence; entrypoints, where recorded, are documented in spectral_detection_posttrain/configs/registry/experiments.json",
+    "run-time python/torch versions not recorded in the evidence; see spectral_detection_posttrain/configs/registry/environments/ snapshots",
+    "split digest copied from the strong-baseline run config (same deterministic seed-42 0.7 split); the parity evidence JSON records no split digest",
+    "the cited c0 review doc predates these runs (queued state); parity results are reported in docs/reports/nwpu_strong_native_candidate_energy_review_2026-07-10.md and the metrics bind the hashed result JSONs",
+    "no standalone resolved config file; the resolved config is embedded in the result JSON"
+  ],
+  "observed_at_utc": "2026-07-13T06:21:43Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "7e1f2404699df997883678274491e88d3ec253c0",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/det_action_zero_parity_nativefix_fullft18best_s42/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "5324392a0629f7b450ab3332bf7e22fd9631698fb1f1e71352fb8832e135c42e",
+      "size_bytes": 5884
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "remote:manifold/runs/det_action_zero_parity_nativefix_fullft18best_s42/eval_metrics.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "5324392a0629f7b450ab3332bf7e22fd9631698fb1f1e71352fb8832e135c42e",
+    "size_bytes": 5884
+  },
+  "run_id": "det_action_zero_parity_nativefix_fullft18best_s42",
+  "runtime_manifest_sha256": "5324392a0629f7b450ab3332bf7e22fd9631698fb1f1e71352fb8832e135c42e",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/reports/nwpu_c0_native_parity_review_2026-07-10.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}

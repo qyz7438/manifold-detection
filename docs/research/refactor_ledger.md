@@ -150,7 +150,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — docs: backfill critical experiment provenance
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `b0a1d73`
 - task ID: T10 family 1/6 (nwpu-mobile) + main integration fixes
 - agent/model and write owner: Kimi coder subagent (generator + 15 manifests + 31 tests, "Luna" role); Kimi explore subagent ("Terra" provenance review of all 15); Kimi main orchestrator applied the review adjustments, regenerated docs/inventory, and owns the per-family commits
 - files changed: `spectral_detection_posttrain/configs/registry/artifacts/nwpu_mob_strong_cosine_s42_bs8_36ep.json` (family 1 only; the other 14 manifests are held outside the worktree for their own family commits), `scripts/dev/backfill_artifact_manifests.py`, `tests/experiments/test_backfilled_artifacts.py`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, regenerated `spectral_detection_posttrain/configs/registry/script_inventory.json` (adds the 3 dev scripts from T8/T10/T11 — the T8/T11 drift is fixed here), `docs/research/environment.md` (path-alias section), `docs/research/refactor_ledger.md`
@@ -161,3 +161,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: remote cross-check (read-only SSH, 2026-07-13): workspace `7e1f240…` clean; all 15 result JSONs, strong `config.json`, NWPU annotation JSON, and both verifiable checkpoints match their recorded hashes/sizes. No remote writes, no installs, no GPU use. **No experiment is authorized by this refactor** — manifests are provenance records, not run requests.
 - rollback command: `git revert <this-commit>` (held-out manifests live outside the worktree and are unaffected)
 - remaining risks: 14 manifests await their family commits from the hold directory; the transitional suite red (above) persists until family 6; `runtime_manifest_sha256` binding a result JSON (contract-required) needs a future docstring amendment to stop describing only the idealized path.
+
+### 2026-07-13 — docs: backfill critical experiment provenance
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T10 family 2/6 (zero-parity)
+- agent/model and write owner: same pipeline as family 1 (coder builder, Terra review, main commit); no new builder output in this commit
+- files changed: `spectral_detection_posttrain/configs/registry/artifacts/native_zero_parity_baseline.json`, `.../native_zero_parity_fullft.json`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, `docs/research/refactor_ledger.md`
+- RED command/result: covered by the family-1 entry (required-artifact tests failed before any manifest existed)
+- GREEN command/result: `pytest tests/experiments/test_artifact_manifest.py tests/experiments/test_generated_research_docs.py tests/contracts/test_script_inventory.py -q` -> 141 passed, 1 skipped; docs generator `--check` clean after regeneration
+- full-suite result: 830 passed + 1 skipped; 16 failed + 9 errors, ALL transitional inside `test_backfilled_artifacts.py` (12 held-out manifests now; shrank by exactly 2 from family 1 as designed)
+- reviewer and findings accepted/rejected: Terra verdicts for both parity manifests: ACCEPT. Verified: full_val/196 scope matches the strict-parity evidence (196 images, 0 mismatched); all 12 metrics float-exact vs the bound result JSONs (baseline sha `d4db4d9f…`, fullft sha `5324392a…`); `da54b19` equals the evidence `config.git_state.commit`; fullft ap75 `0.281522` matches the c0 doc native AP75. Disclosures carried: RLimage initial checkpoint unverifiable (outside permitted read scope, sha copied from evidence); c0 doc predates the runs (parity results reported in the strong review doc; metrics bind the hashed JSONs).
+- scientific artifacts checked: remote cross-check already recorded in the family-1 entry covers both parity result JSONs; fullft initial checkpoint `950bc89a…` verified remotely (size 76205690). **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: 12 manifests remain in the hold directory; transitional suite red persists until family 6.
