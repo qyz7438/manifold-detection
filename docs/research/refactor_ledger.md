@@ -164,7 +164,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — docs: backfill critical experiment provenance
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `02c6ddb`
 - task ID: T10 family 2/6 (zero-parity)
 - agent/model and write owner: same pipeline as family 1 (coder builder, Terra review, main commit); no new builder output in this commit
 - files changed: `spectral_detection_posttrain/configs/registry/artifacts/native_zero_parity_baseline.json`, `.../native_zero_parity_fullft.json`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, `docs/research/refactor_ledger.md`
@@ -175,3 +175,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: remote cross-check already recorded in the family-1 entry covers both parity result JSONs; fullft initial checkpoint `950bc89a…` verified remotely (size 76205690). **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: 12 manifests remain in the hold directory; transitional suite red persists until family 6.
+
+### 2026-07-13 — docs: backfill critical experiment provenance
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T10 family 3/6 (set-policy)
+- agent/model and write owner: same pipeline as family 1 (coder builder, Terra review, main commit); no new builder output in this commit
+- files changed: `spectral_detection_posttrain/configs/registry/artifacts/det.energy.set_policy.m1.001.json`, regenerated `docs/research/{README,current_status,experiment_index,artifact_index}.md`, `docs/research/refactor_ledger.md`
+- RED command/result: covered by the family-1 entry
+- GREEN command/result: `pytest tests/experiments/test_artifact_manifest.py tests/experiments/test_generated_research_docs.py tests/contracts/test_script_inventory.py -q` -> 141 passed, 1 skipped; docs generator `--check` clean after regeneration
+- full-suite result: 831 passed + 1 skipped; 15 failed + 9 errors, ALL transitional inside `test_backfilled_artifacts.py` (11 held-out manifests now; shrank by exactly 1 from family 2 as designed)
+- reviewer and findings accepted/rejected: Terra verdict for `det.energy.set_policy.m1.001`: ACCEPT (fully verified end-to-end). Verified: full_val/196 scope matches report section 5 and the run config `validation_images=196`; all 8 metrics and all 7 gates float-exact vs the local run JSON `runs/nwpu_m1_set_policy_s42_fulltrain_fullval/eval_metrics.json` (sha `9b089b66…` matches the report's recorded result SHA); `bf857497` equals the report + evidence commit; the manifest correctly shows `all_passed: false` with gate G2 failed — no promotion wording anywhere.
+- scientific artifacts checked: remote cross-check recorded in the family-1 entry covers the M1 result JSON; local run directory hash independently matches. **No experiment is authorized by this refactor.**
+- rollback command: `git revert <this-commit>`
+- remaining risks: 11 manifests remain in the hold directory; transitional suite red persists until family 6.
