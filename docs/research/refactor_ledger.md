@@ -498,3 +498,19 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none. **No experiment is authorized by this refactor.**
 - rollback command: `git revert <this-commit>`
 - remaining risks: GitHub-hosted runners may lack the conda `RLimage` environment; the workflow installs from `requirements.txt` and should fall back to PyPI wheels, but any platform-specific compiled dependency may still need adjustment when first enabled.
+
+
+### 2026-07-13 — docs: add guarded GPU2 execution contract
+
+- commit hash: `6a1e6d8`
+- task ID: T20 (remote GPU2 runbook + guarded launcher contract)
+- agent/model and write owner: Kimi main orchestrator
+- files changed: new `scripts/run/guard_gpu2.py` (query/check/dry-run/execute commands; enforces physical GPU2, `memory.free > 8192 MiB`, clean Git, authorized/frozen-reproduction experiment, and no kill/stop/signal behavior); new `tests/contracts/test_gpu2_guard.py` (20 tests covering mocked nvidia-smi parsing, wrong GPU index, malformed output, non-numeric memory, nvidia-smi failure, clean/dirty Git tree, runtime-dir untracked ignore, unauthorized experiment statuses, memory threshold equality/rejection, command construction, command hash, and absence of kill/signal helpers); new `docs/research/remote_gpu2_runbook.md` (host/environment table, locked launch rules, pre-flight commands, remote launch procedure, logs/artifacts, failure handling); edited `scripts/dev/generate_research_docs.py` (added runbook link to generated `docs/research/README.md`); regenerated `docs/research/README.md` and `spectral_detection_posttrain/configs/registry/script_inventory.json`
+- RED command/result: `pytest tests/contracts/test_gpu2_guard.py -q` before guard existed -> import error (module not found)
+- GREEN command/result: `pytest tests/contracts/test_gpu2_guard.py -q` -> 20 passed
+- full-suite result: 1528 passed, 3 skipped, 2 xfailed (`E:/anaconda/01/envs/RLimage/python.exe -m pytest tests -q`)
+- reviewer and findings accepted/rejected: main-orchestrator self-review. Accepted: (1) guard defaults to dry-run; `--execute` only starts a subprocess and records PID/manifest, never signals other processes; (2) memory threshold is strict (`> 8192`), matching the user's rule; (3) experiment authorization allows only active/active or frozen_reproduction_only/frozen; (4) runtime directories are ignored by the clean-tree gate; (5) remote read-only GPU query via SSH returned `2, NVIDIA GeForce RTX 4090, 49140, 48628`. Rejected: none.
+- scientific artifacts checked: none. **No experiment is authorized by this refactor.**
+- remote verification: read-only SSH to `ps@122.51.19.136` succeeded; `nvidia-smi -i 2` returned 48628 MiB free. The guard script itself is not yet present on the remote because the refactor branch has not been pushed; full remote guard verification (`python scripts/run/guard_gpu2.py query/check/dry-run`) is deferred to T21 after an explicit push/pull step.
+- rollback command: `git revert <this-commit>`
+- remaining risks: remote workspace is at base commit `7e1f240`; pushing the branch is required before the guard can be exercised on GPU2.

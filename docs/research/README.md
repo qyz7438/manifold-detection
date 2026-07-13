@@ -42,6 +42,9 @@ registries under `spectral_detection_posttrain/configs/registry/`.
 - [refactor_ledger.md](refactor_ledger.md) — hand-maintained ledger of
   the repository research-state refactor; dates and commit history live
   here, never in generated files.
+- [remote_gpu2_runbook.md](remote_gpu2_runbook.md) — guarded launch
+  procedure for the remote GPU2 host; companion to
+  `scripts/run/guard_gpu2.py`.
 
 ## How The Registries Govern Status
 
