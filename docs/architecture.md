@@ -1,6 +1,6 @@
 # Manifold Detection Architecture
 
-This project studies post-training and architecture changes for visual detection.  The current active family is:
+This project studies post-training and architecture changes for visual detection.  The maintained framing is (research-line status is governed by the registries; see [`docs/research/current_status.md`](research/current_status.md)):
 
 - Energy-guided ROI transport: action-local feature, score, bbox, and keep/reject corrections under low-energy and detection-environment constraints.
 

@@ -38,9 +38,7 @@ shared.runner.validated.001
 | Round 2100+ | `det.signal.clean.*`, `det.rlvr.clean.*`, `det.dpo.smoke.*` | NWPU signal and posttrain runs |
 | Plan 4.x | `seg.afm.proto.*`, `seg.rlvr.proto.*`, `seg.dpo.proto.*` | segmentation path not yet mature |
 
-## Recommended Current Series
-
-Current active lines:
+## Recommended Series (not a registry status claim)
 
 | Series | Meaning | Starting version |
 |---|---|---|

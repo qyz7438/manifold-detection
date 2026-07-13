@@ -4,9 +4,9 @@
 
 Build and evaluate an **energy-guided ROI transport framework for object detection**. The goal is to move beyond ordinary manifold regularization and test whether verifiable signals can help a detector learn small local actions: which boxes are trustworthy, where evidence should come from, how scores or boxes should change, and when a proposal should remain below threshold.
 
-The current active line is **action-local, non-AFM ROI transport** unless the user explicitly asks for AFM/FPN-SM. Treat AFM, FPN-SM, and old external FFT rewards as documented baselines or historical branches, not the default path for new work.
+The maintained default path is **action-local, non-AFM ROI transport** unless the user explicitly asks for AFM/FPN-SM. Research-line status is governed by `spectral_detection_posttrain/configs/registry/research_lines.json` and rendered in [`docs/research/current_status.md`](docs/research/current_status.md). Treat AFM, FPN-SM, and old external FFT rewards as documented baselines or historical branches, not the default path for new work.
 
-## Current Active Research Lines
+## Maintained Research Lines
 
 ### 1. Energy-Guided ROI Transport
 

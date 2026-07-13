@@ -1,7 +1,7 @@
 # Active Reports Index
 
 This directory holds experiment plans, interim results, and analysis reports.
-Obsolete round artifacts are archived in `docs/reports/archive/`.
+Obsolete round artifacts are archived in [`docs/reports/archive/`](archive/README.md).
 
 ## Plans and Roadmaps
 
@@ -33,4 +33,4 @@ Obsolete round artifacts are archived in `docs/reports/archive/`.
 
 ## Historical Archives
 
-See `docs/reports/archive/` for older Penn-Fudan round summaries and deprecated plans.
+See [`docs/reports/archive/`](archive/README.md) for older Penn-Fudan round summaries and deprecated plans.

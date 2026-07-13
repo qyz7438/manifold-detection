@@ -71,6 +71,7 @@ Moved:
 - `matching/box_iou.py`, `matching/pred_gt_matcher.py` -> `core/matching/`
 - `rlvr/action_verifier.py` -> `methods/dpo/`
 - `rlvr/confidence_rescue.py`, `rlvr/detection_verifier.py`, `rlvr/roi_policy_loss.py` -> `methods/rlvr/`
+- `models/verifiers.py` -> `methods/rlvr/verifiers.py` (canonical) / `legacy/models/verifiers.py` (historical)
 - `train/action_verifier_posttrain.py`, `train/posttrain_rlvr.py`, `train/posttrain_reward_weighted.py`, `train/rollout.py`, `train/train_baseline.py`, `train/train_quality_head.py` -> `trainers/detection/`
 
 Compatibility kept:
@@ -119,4 +120,3 @@ Every archived script should have a manifest entry:
 - `scripts/round*.py`
 - CLI defaults for historical runners
 - `spectral_detection_posttrain/rlvr/round211_spatial_verifier.py`
-- `spectral_detection_posttrain/models/verifiers.py`

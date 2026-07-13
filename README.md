@@ -1,6 +1,6 @@
 # Manifold Detection
 
-This repository is a research codebase for **energy-guided ROI transport in object detection**.  The current active question is whether a detector can learn small, verifiable local actions that move uncertain proposals toward valid detection states without flooding NMS with false positives.
+This repository is a research codebase for **energy-guided ROI transport in object detection**.  The current research question is whether a detector can learn small, verifiable local actions that move uncertain proposals toward valid detection states without flooding NMS with false positives.
 
 The project evolved through RLVR-style score rescue, DPO proposal preferences, FFT/raw-iFFT verifier signals, and prototype manifold losses.  The current refactor keeps those lessons but changes the main framing: the class-conditioned target manifold is unknown, so transport must be modeled as an **action-local, low-energy, constrained policy** rather than as direct attraction to a known class prototype.
 

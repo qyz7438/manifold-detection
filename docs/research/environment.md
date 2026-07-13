@@ -4,13 +4,13 @@ This page is maintained prose; it documents the committed machine-readable
 snapshots and how to regenerate them. The snapshots are the authoritative
 records:
 
-- [local_windows_py310.json](../spectral_detection_posttrain/configs/registry/environments/local_windows_py310.json) — local Windows development host
-- [remote_gpu2_py310_cu121.json](../spectral_detection_posttrain/configs/registry/environments/remote_gpu2_py310_cu121.json) — remote GPU training host
+- [local_windows_py310.json](../../spectral_detection_posttrain/configs/registry/environments/local_windows_py310.json) — local Windows development host
+- [remote_gpu2_py310_cu121.json](../../spectral_detection_posttrain/configs/registry/environments/remote_gpu2_py310_cu121.json) — remote GPU training host
 
 Both are produced by the read-only collector
-[scripts/dev/snapshot_environment.py](../scripts/dev/snapshot_environment.py)
+[scripts/dev/snapshot_environment.py](../../scripts/dev/snapshot_environment.py)
 and are validated by
-[tests/contracts/test_environment_snapshot.py](../tests/contracts/test_environment_snapshot.py).
+[tests/contracts/test_environment_snapshot.py](../../tests/contracts/test_environment_snapshot.py).
 `captured_at_utc` is an observed value: tests validate its format but never
 compare it for equality, so re-capturing a snapshot never breaks the suite.
 
@@ -53,7 +53,7 @@ both committed snapshots for leaks.
 ## Path aliases used in artifact manifests
 
 Reviewed artifact manifests under
-[spectral_detection_posttrain/configs/registry/artifacts/](../spectral_detection_posttrain/configs/registry/artifacts/)
+[spectral_detection_posttrain/configs/registry/artifacts/](../../spectral_detection_posttrain/configs/registry/artifacts/)
 reference files by host alias instead of absolute paths:
 
 - `remote:manifold` — the remote workspace
@@ -69,7 +69,7 @@ reference files by host alias instead of absolute paths:
 
 ## requirements.txt and optional legacy dependencies
 
-[requirements.txt](../requirements.txt) covers the **maintained runtime /
+[requirements.txt](../../requirements.txt) covers the **maintained runtime /
 CPU test path** only. Optional legacy analysis dependencies (scikit-learn)
 are documented there as comments and recorded in the snapshots as semantic
 notes — they are never installed by default, and no unverified CUDA wheel

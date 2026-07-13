@@ -75,6 +75,7 @@ patch_*.py
 
 # Archived legacy experiment artifacts (kept locally but not tracked)
 docs/reports/archive/
+!docs/reports/archive/README.md
 scripts/legacy/
 tests/legacy/
 
