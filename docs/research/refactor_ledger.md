@@ -66,7 +66,7 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 
 ### 2026-07-13 — feat: add immutable artifact manifests
 
-- commit hash: pending (filled by next ledger entry)
+- commit hash: `fdf4374`
 - task ID: T4 (W1 parallel wave). Note: committed before T3, deviating from the Section 8 example order (T2 -> T3 -> T4); dependencies are unaffected because T3 depends only on T2 contracts, and this reorder is recorded here as the actual order.
 - agent/model and write owner: Kimi coder subagent (artifacts module + tests + fixtures); Kimi main orchestrator reviewed and committed
 - files changed: `spectral_detection_posttrain/experiments/artifacts.py`, `tests/experiments/test_artifact_manifest.py`, `tests/fixtures/artifacts/completed_manifest.json`, `tests/fixtures/artifacts/invalid_dirty_formal_manifest.json`
@@ -77,3 +77,17 @@ Convention: the commit hash of entry N is filled in by the ledger update of entr
 - scientific artifacts checked: none touched; module defines provenance contracts only. Secret rejection, dirty-formal rejection, and reviewed append-only semantics are test-enforced.
 - rollback command: `git revert <this-commit>`
 - remaining risks: duplicate `EvaluationScope` definitions in `contracts.py` and `artifacts.py` until Task 5 reconciles exports; secret substring matching may need tuning if future legitimate fields contain the scanned substrings.
+
+### 2026-07-13 — chore: inventory research scripts and entrypoints
+
+- commit hash: pending (filled by next ledger entry)
+- task ID: T9 (W1 parallel wave). Note: committed before T3, deviating from the Section 8 example order; no files were moved in this task, and the inventory is an input to T3/T7/T10 adjudication.
+- agent/model and write owner: Kimi coder subagent (generator + inventory + tests); Kimi main orchestrator reviewed and committed
+- files changed: `scripts/dev/inventory_scripts.py`, `spectral_detection_posttrain/configs/registry/script_inventory.json`, `tests/contracts/test_script_inventory.py`
+- RED command/result: `pytest tests/contracts/test_script_inventory.py -q` -> 2 failed, 8 errors (missing inventory/APIs)
+- GREEN command/result: same command -> 10 passed; generation run twice, sha256 identical: `4228098d6e0edf4fd52a308a68e93502c893291c516e887e89aed12c268a0cf1`; `--check` reports up to date
+- full-suite result: 712 passed (main-verified)
+- reviewer and findings accepted/rejected: main-orchestrator review. Accepted: 228 entries with exact git-tracked coverage (206 `scripts/` + 8 root `*.py` + 13 root launchers + generator self-inclusion); only 3 `reviewed` entries (`scripts/dev/*`, `scripts/round28_train_eval.py`); 225 `proposed` + `review_required` — adjudication deferred to the tasks that need them. Finding recorded for T3/T8: `det.dpo.smoke.001.json` references stale script paths (`scripts/round2129_nwpu_posttrain_smoke.py` untracked; `scripts/run_round2218_short_dpo_sweep.py` lives at `legacy/scripts/`).
+- scientific artifacts checked: none touched; no script was moved, deleted, or executed.
+- rollback command: `git revert <this-commit>`
+- remaining risks: 225 proposed classifications await bounded adjudication before their archive wave (Task 16); scientific status must come from registries, not these heuristic labels.
