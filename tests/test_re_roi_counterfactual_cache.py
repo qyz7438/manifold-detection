@@ -18,6 +18,7 @@ from scripts.experiments.re_roi_counterfactual.teacher import (
 from scripts.experiments.re_roi_counterfactual.cache_builder import (
     _resize_target_to_image_size,
 )
+from scripts.experiments.re_roi_counterfactual.build_cache import _resolve_requested_device
 
 
 def test_action_family_is_frozen_and_has_identity() -> None:
@@ -29,6 +30,10 @@ def test_action_family_is_frozen_and_has_identity() -> None:
     non_identity = [spec for spec in family if spec.family != "identity_permutation"]
     assert len(non_identity) == 9
     assert action_family_hash() == "re_roi_action_family_v2_9_non_identity_002_step"
+
+
+def test_cache_cli_resolves_string_device_through_config_contract() -> None:
+    assert _resolve_requested_device("cpu") == torch.device("cpu")
 
 
 def test_identity_action_preserves_boxes_and_scores() -> None:

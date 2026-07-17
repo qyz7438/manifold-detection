@@ -72,6 +72,10 @@ def clean_git_commit() -> str:
     return commit
 
 
+def _resolve_requested_device(requested: str) -> torch.device:
+    return resolve_device({"device": requested})
+
+
 def load_split_manifest(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("version_id") != "det.energy.re_roi_counterfactual.split.001":
@@ -205,7 +209,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     set_seed(args.seed)
-    device = resolve_device(args.device)
+    device = _resolve_requested_device(args.device)
     summary = build_cache(
         data_root=args.data_root,
         annotation=args.annotation,
