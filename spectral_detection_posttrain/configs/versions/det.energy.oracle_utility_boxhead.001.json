@@ -1,0 +1,50 @@
+{
+  "version_id": "det.energy.oracle_utility_boxhead.001",
+  "status": "preregistered_not_run",
+  "claim_boundary": "train-only image-level oracle-utility weighted supervised box-head fine-tuning",
+  "dataset": "nwpu_vhr10",
+  "split_manifest": "spectral_detection_posttrain/configs/splits/nwpu_re_roi_counterfactual_s42_nested.json",
+  "utility_source": "re_roi_counterfactual_v1_fit_only_raw_locked_scalarization_v1",
+  "fallback_utility_source": null,
+  "arms": ["Z", "U", "W", "F", "S"],
+  "training_seeds": [42, 2024, 999],
+  "train": {
+    "epochs": 10,
+    "logical_batch_size": 8,
+    "image_exposures_per_epoch": 250,
+    "optimizer": "sgd",
+    "lr": 0.001,
+    "momentum": 0.9,
+    "weight_decay": 0.0005,
+    "scheduler": "none",
+    "checkpoint_selection": "fixed_final_epoch",
+    "trainable": ["roi_heads.box_head", "roi_heads.box_predictor"]
+  },
+  "weighting": {
+    "lambda": 1.0,
+    "weight_max": 20.0,
+    "normalization": "global_fit_mean",
+    "batch_objective": "mean_image_weighted_box_loss"
+  },
+  "model": {
+    "name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+    "num_classes": 11,
+    "min_size": 480,
+    "max_size": 480
+  },
+  "postprocess": {
+    "score_threshold": 0.05,
+    "nms_threshold": 0.5,
+    "detections_per_image": 100
+  },
+  "bootstrap": {
+    "resamples": 10000,
+    "seed": 42,
+    "unit": "paired_image_with_hierarchical_training_seed_resampling",
+    "metric": "global_ap75"
+  },
+  "gpu_policy": {
+    "cuda_visible_devices": "2",
+    "minimum_free_mib_exclusive": 8192
+  }
+}

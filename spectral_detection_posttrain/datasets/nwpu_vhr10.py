@@ -153,11 +153,36 @@ def nwpu_positive_image_ids(root: str | Path, coco_json: str | Path) -> list[int
     )
 
 
+def _validated_explicit_split(
+    train_ids: Iterable[int],
+    val_ids: Iterable[int],
+    available_ids: Iterable[int],
+) -> tuple[list[int], list[int]]:
+    train_ids = [int(image_id) for image_id in train_ids]
+    val_ids = [int(image_id) for image_id in val_ids]
+    if len(train_ids) != len(set(train_ids)):
+        raise ValueError("Explicit NWPU train_ids contain duplicate image IDs")
+    if len(val_ids) != len(set(val_ids)):
+        raise ValueError("Explicit NWPU val_ids contain duplicate image IDs")
+
+    overlap = set(train_ids).intersection(val_ids)
+    if overlap:
+        raise ValueError("Explicit NWPU train_ids and val_ids overlap")
+
+    unknown_ids = set(train_ids).union(val_ids).difference(available_ids)
+    if unknown_ids:
+        raise ValueError(f"Explicit NWPU image IDs are unknown: {sorted(unknown_ids)}")
+    return sorted(train_ids), sorted(val_ids)
+
+
 def build_nwpu_vhr10_loaders(
     config: dict,
     limit_train: int | None = None,
     limit_val: int | None = None,
     batch_size: int | None = None,
+    *,
+    train_ids: Iterable[int] | None = None,
+    val_ids: Iterable[int] | None = None,
 ) -> tuple[DataLoader, DataLoader]:
     data_cfg = config["data"]
     root = Path(data_cfg.get("root", "./data/NWPU VHR-10 dataset"))
@@ -168,12 +193,32 @@ def build_nwpu_vhr10_loaders(
         )
     )
     max_size = data_cfg.get("max_size")
+    configured_train_ids = data_cfg.get("train_ids")
+    configured_val_ids = data_cfg.get("val_ids")
+    if train_ids is not None or val_ids is not None:
+        if configured_train_ids is not None or configured_val_ids is not None:
+            raise ValueError(
+                "Provide explicit NWPU IDs through either builder arguments or config data, not both"
+            )
+        explicit_train_ids, explicit_val_ids = train_ids, val_ids
+    else:
+        explicit_train_ids, explicit_val_ids = configured_train_ids, configured_val_ids
+
     ids = nwpu_positive_image_ids(root, annotation)
-    rng = np.random.RandomState(int(config.get("data_seed", config.get("seed", 42))))
-    rng.shuffle(ids)
-    split = int(len(ids) * float(data_cfg.get("train_fraction", 0.7)))
-    train_ids = ids[:split]
-    val_ids = ids[split:]
+    if explicit_train_ids is not None or explicit_val_ids is not None:
+        if explicit_train_ids is None or explicit_val_ids is None:
+            raise ValueError("Explicit NWPU splits require both train_ids and val_ids")
+        train_ids, val_ids = _validated_explicit_split(
+            explicit_train_ids,
+            explicit_val_ids,
+            ids,
+        )
+    else:
+        rng = np.random.RandomState(int(config.get("data_seed", config.get("seed", 42))))
+        rng.shuffle(ids)
+        split = int(len(ids) * float(data_cfg.get("train_fraction", 0.7)))
+        train_ids = ids[:split]
+        val_ids = ids[split:]
     if limit_train is not None:
         train_ids = train_ids[: min(int(limit_train), len(train_ids))]
     if limit_val is not None:

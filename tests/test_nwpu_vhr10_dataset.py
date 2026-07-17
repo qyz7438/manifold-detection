@@ -159,3 +159,59 @@ def test_nwpu_loader_uses_data_seed_independently_of_model_seed(tmp_path: Path) 
 
     assert set(train_loader.dataset.img_ids) == set(expected_ids[:7])
     assert set(val_loader.dataset.img_ids) == set(expected_ids[7:])
+
+
+def test_nwpu_loader_honors_explicit_manifest_ids_before_limits(tmp_path: Path) -> None:
+    annotation_path = _write_tiny_nwpu(tmp_path, image_count=5)
+    config = {
+        "seed": 42,
+        "data": {
+            "dataset": "nwpu_vhr10",
+            "root": str(tmp_path / "NWPU VHR-10 dataset"),
+            "annotation": str(annotation_path),
+            "train_ids": [5, 1, 3],
+            "val_ids": [4, 2],
+            "num_workers": 0,
+        },
+        "train": {"batch_size": 1},
+    }
+
+    train_loader, val_loader = build_detection_loaders(
+        config,
+        limit_train=2,
+        limit_val=1,
+    )
+
+    assert train_loader.dataset.img_ids == [1, 3]
+    assert val_loader.dataset.img_ids == [2]
+
+
+@pytest.mark.parametrize(
+    ("train_ids", "val_ids", "message"),
+    [
+        ([1, 1], [2], "duplicate"),
+        ([1], [1], "overlap"),
+        ([1, 6], [2], "unknown"),
+    ],
+)
+def test_nwpu_loader_rejects_invalid_explicit_manifest_ids(
+    tmp_path: Path,
+    train_ids: list[int],
+    val_ids: list[int],
+    message: str,
+) -> None:
+    annotation_path = _write_tiny_nwpu(tmp_path, image_count=5)
+    config = {
+        "data": {
+            "dataset": "nwpu_vhr10",
+            "root": str(tmp_path / "NWPU VHR-10 dataset"),
+            "annotation": str(annotation_path),
+            "train_ids": train_ids,
+            "val_ids": val_ids,
+            "num_workers": 0,
+        },
+        "train": {"batch_size": 1},
+    }
+
+    with pytest.raises(ValueError, match=message):
+        build_detection_loaders(config)

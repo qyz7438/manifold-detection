@@ -1,0 +1,273 @@
+"""Build the locked NWPU train-only nested split for re-ROI counterfactual evidence.
+
+This split is researcher-adaptive: the full 454-image NWPU train set has already
+been used in prior exploration (dense endpoint, local Delta-Q, set policy). The
+new split uses a fresh seed and a four-way partition so that no phase reads an
+image assigned to another phase, but the overall image pool is not independent
+of prior experiments.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import sys
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Any, Sequence
+
+import numpy as np
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+
+EXPECTED_FULL_TRAIN_HASH = "7abe3c8370985f49698dcc3c42ca5917f1e17941fa024643147a58479c7cd9bd"
+EXPECTED_FULL_TRAIN_COUNT = 454
+DATA_SEED = 42
+NESTED_SEED = 20260714
+
+# Prior splits that contextualize this manifest. The image pool overlaps with
+# these researcher-adaptive splits; the partition itself is new.
+PRIOR_SPLITS = {
+    "dense_endpoint_nested": {
+        "path": "spectral_detection_posttrain/configs/splits/nwpu_dense_endpoint_s42_nested.json",
+        "sha256": "ce19316aeaef1cbdf85f2c9668c5ae2c8443da8e848de2d22ed0f0f3a687e080",
+    },
+}
+
+
+def manifest_hash(image_ids: Sequence[int]) -> str:
+    encoded = json.dumps(sorted(int(value) for value in image_ids), separators=(",", ":")).encode("ascii")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def partition_train_ids(
+    image_ids: Sequence[int],
+    *,
+    seed: int = NESTED_SEED,
+    image_classes: dict[int, set[int]] | None = None,
+    proportions: dict[str, float] | None = None,
+    min_class_support: int = 3,
+) -> dict[str, list[int]]:
+    ordered = sorted(int(value) for value in image_ids)
+    if proportions is None:
+        proportions = {"fit": 0.55, "tune": 0.15, "calibration": 0.15, "outer_heldout": 0.15}
+    total = len(ordered)
+    capacities = {
+        name: max(1, int(round(proportions[name] * total))) for name in proportions
+    }
+    # Adjust rounding so the sum equals the total.
+    deficit = total - sum(capacities.values())
+    if deficit != 0:
+        largest = max(capacities, key=lambda name: capacities[name])
+        capacities[largest] += deficit
+
+    if image_classes is None:
+        return {
+            "fit": sorted(ordered[: capacities["fit"]]),
+            "tune": sorted(ordered[capacities["fit"] : capacities["fit"] + capacities["tune"]]),
+            "calibration": sorted(
+                ordered[
+                    capacities["fit"]
+                    + capacities["tune"] : capacities["fit"]
+                    + capacities["tune"]
+                    + capacities["calibration"]
+                ]
+            ),
+            "outer_heldout": sorted(ordered[capacities["fit"] + capacities["tune"] + capacities["calibration"] :]),
+        }
+
+    class_totals: Counter[int] = Counter()
+    for image_id in ordered:
+        class_totals.update(image_classes.get(image_id, set()))
+
+    ordered = list(ordered)
+    ordered.sort(
+        key=lambda image_id: (
+            min((class_totals[label] for label in image_classes.get(image_id, set())), default=10**9),
+            -len(image_classes.get(image_id, set())),
+            hashlib.sha256(f"re-roi-counterfactual:{seed}:{image_id}".encode("ascii")).digest(),
+        )
+    )
+
+    non_fit_names = [name for name in capacities if name != "fit"]
+    assigned: dict[str, list[int]] = {name: [] for name in capacities}
+    class_counts: dict[str, Counter[int]] = {name: Counter() for name in capacities}
+
+    # Phase 1: guarantee min_class_support for every real class in every non-fit split.
+    real_classes = sorted(label for label in class_totals if label < 100)
+    for label in real_classes:
+        needed_per_split = min(min_class_support, class_totals[label])
+        eligible = [image_id for image_id in ordered if label in image_classes.get(image_id, set())]
+        for _ in range(needed_per_split * len(non_fit_names)):
+            if not eligible:
+                break
+            under_represented = [
+                name
+                for name in non_fit_names
+                if class_counts[name][label] < needed_per_split and len(assigned[name]) < capacities[name]
+            ]
+            if not under_represented:
+                break
+            image_id = eligible[0]
+            selected = min(
+                under_represented,
+                key=lambda name: (class_counts[name][label], len(assigned[name]) / capacities[name]),
+            )
+            assigned[selected].append(image_id)
+            class_counts[selected].update(image_classes.get(image_id, set()))
+            ordered.remove(image_id)
+            eligible.remove(image_id)
+
+    # Phase 2: fill remaining capacity with the original greedy cost.
+    for image_id in ordered:
+        labels = image_classes.get(image_id, set())
+        options = [name for name, capacity in capacities.items() if len(assigned[name]) < capacity]
+
+        def assignment_cost(name: str) -> tuple[float, str]:
+            size_ratio = (len(assigned[name]) + 1) / capacities[name]
+            class_ratio = 0.0
+            for label in labels:
+                target = class_totals[label] * capacities[name] / total
+                class_ratio += (class_counts[name][label] + 1) / max(target, 1e-8)
+            return (class_ratio + 0.5 * size_ratio, name)
+
+        selected = min(options, key=assignment_cost)
+        assigned[selected].append(image_id)
+        class_counts[selected].update(labels)
+
+    return {name: sorted(values) for name, values in assigned.items()}
+
+
+def summarize_split(image_ids: Sequence[int], annotations: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    selected = {int(value) for value in image_ids}
+    instance_support: Counter[int] = Counter()
+    image_classes: dict[int, set[int]] = defaultdict(set)
+    objects_per_image: Counter[int] = Counter()
+    for annotation in annotations:
+        image_id = int(annotation["image_id"])
+        if image_id not in selected or int(annotation.get("iscrowd", 0)) != 0:
+            continue
+        category = int(annotation["category_id"])
+        instance_support[category] += 1
+        image_classes[image_id].add(category)
+        objects_per_image[image_id] += 1
+    image_support: Counter[int] = Counter()
+    for classes in image_classes.values():
+        image_support.update(classes)
+    counts = [objects_per_image[image_id] for image_id in selected]
+    return {
+        "count": len(selected),
+        "image_ids_sha256": manifest_hash(image_ids),
+        "objects": int(sum(counts)),
+        "mean_objects_per_image": float(sum(counts) / max(1, len(counts))),
+        "class_image_support": {str(key): int(image_support[key]) for key in sorted(image_support)},
+        "class_instance_support": {str(key): int(instance_support[key]) for key in sorted(instance_support)},
+    }
+
+
+def build_manifest(root: Path, annotation_path: Path) -> dict[str, Any]:
+    from spectral_detection_posttrain.datasets.nwpu_vhr10 import nwpu_positive_image_ids
+
+    payload = json.loads(annotation_path.read_text(encoding="utf-8"))
+    positive_ids = nwpu_positive_image_ids(root, annotation_path)
+    rng = np.random.RandomState(DATA_SEED)
+    rng.shuffle(positive_ids)
+    train_count = int(len(positive_ids) * 0.70)
+    train_ids = [int(value) for value in positive_ids[:train_count]]
+    source_hash = manifest_hash(train_ids)
+    if len(train_ids) != EXPECTED_FULL_TRAIN_COUNT or source_hash != EXPECTED_FULL_TRAIN_HASH:
+        raise RuntimeError(f"NWPU full-train source drift: count={len(train_ids)} hash={source_hash}")
+
+    train_set = set(train_ids)
+    image_classes: dict[int, set[int]] = defaultdict(set)
+    object_counts: Counter[int] = Counter()
+    for annotation in payload.get("annotations", []):
+        image_id = int(annotation["image_id"])
+        if image_id in train_set and int(annotation.get("iscrowd", 0)) == 0:
+            image_classes[image_id].add(int(annotation["category_id"]))
+            object_counts[image_id] += 1
+    for image_id in train_ids:
+        count = object_counts[image_id]
+        density_bin = 0 if count <= 2 else 1 if count <= 5 else 2 if count <= 10 else 3
+        image_classes[image_id].add(100 + density_bin)
+
+    partitions = partition_train_ids(train_ids, image_classes=image_classes)
+    union = set().union(*(set(values) for values in partitions.values()))
+    if len(union) != len(train_ids) or any(
+        set(left) & set(right)
+        for index, left in enumerate(partitions.values())
+        for right in list(partitions.values())[index + 1 :]
+    ):
+        raise RuntimeError("nested split overlap or coverage failure")
+
+    split_payload = {
+        name: {
+            "image_ids": values,
+            **summarize_split(values, payload.get("annotations", [])),
+        }
+        for name, values in partitions.items()
+    }
+    for name, row in split_payload.items():
+        supported = set(int(key) for key in row["class_image_support"])
+        if supported != set(range(1, 11)):
+            raise RuntimeError(f"{name} lacks NWPU class coverage: {sorted(supported)}")
+        if name != "fit" and min(row["class_image_support"].values()) < 3:
+            raise RuntimeError(f"{name} has fewer than three images for a class")
+
+    prior_context = {}
+    for key, meta in PRIOR_SPLITS.items():
+        prior_path = ROOT / meta["path"]
+        if prior_path.exists():
+            prior_context[key] = {
+                "sha256": hashlib.sha256(prior_path.read_bytes()).hexdigest(),
+                "expected_sha256": meta["sha256"],
+                "matches": hashlib.sha256(prior_path.read_bytes()).hexdigest() == meta["sha256"],
+            }
+
+    return {
+        "version_id": "det.energy.re_roi_counterfactual.split.001",
+        "dataset": "nwpu_vhr10",
+        "data_seed": DATA_SEED,
+        "nested_seed": NESTED_SEED,
+        "proportions": {"fit": 0.55, "tune": 0.15, "calibration": 0.15, "outer_heldout": 0.15},
+        "stratification": "multilabel_class_presence_plus_object_count_bins_0_2_3_5_6_10_gt10",
+        "researcher_adaptive": True,
+        "source": {
+            "scope": "full_train_only_never_detector_validation",
+            "count": len(train_ids),
+            "image_ids_sha256": source_hash,
+        },
+        "prior_split_context": prior_context,
+        "splits": split_payload,
+    }
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-root", type=Path, required=True)
+    parser.add_argument("--annotation", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    manifest = build_manifest(args.data_root, args.annotation)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    args.output.write_text(text, encoding="utf-8")
+    print(
+        json.dumps(
+            {name: {key: value for key, value in row.items() if key != "image_ids"} for name, row in manifest["splits"].items()},
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
