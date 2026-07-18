@@ -179,6 +179,9 @@ def _cache_payload(*, transform_size: int = 480):
                 {
                     "candidate_index": 0,
                     "family": family,
+                    "h_pre": torch.ones(4),
+                    "h_post": torch.zeros(4) if family == "drop" else torch.ones(4),
+                    "h_post_present": family != "drop",
                     "q_teacher": 0.0 if family == "identity_permutation" else 0.1,
                 }
                 for family in action_families
@@ -216,6 +219,22 @@ def test_cache_provenance_accepts_exact_locked_contract() -> None:
         checkpoint_sha256="checkpoint-sha",
         annotation_sha256="annotation-sha",
     )
+    assert [record["image_id"] for record in records] == [1, 2]
+
+
+def test_cache_provenance_accepts_explicit_tune_split() -> None:
+    payload = _cache_payload()
+    payload["metadata"]["split_name"] = "tune"
+
+    records = validate_re_roi_cache(
+        payload,
+        fit_image_ids=[1, 2],
+        split_manifest_sha256="split-sha",
+        checkpoint_sha256="checkpoint-sha",
+        annotation_sha256="annotation-sha",
+        split_name="tune",
+    )
+
     assert [record["image_id"] for record in records] == [1, 2]
 
 
@@ -257,6 +276,62 @@ def test_cache_provenance_rejects_incomplete_candidate_action_family() -> None:
     payload["records"][0]["actions"].pop()
 
     with pytest.raises(ValueError, match="complete action family"):
+        validate_re_roi_cache(
+            payload,
+            fit_image_ids=[1, 2],
+            split_manifest_sha256="split-sha",
+            checkpoint_sha256="checkpoint-sha",
+            annotation_sha256="annotation-sha",
+        )
+
+
+def test_cache_provenance_rejects_missing_or_misaligned_re_roi_features() -> None:
+    payload = _cache_payload()
+    del payload["records"][0]["actions"][0]["h_post"]
+    with pytest.raises(ValueError, match="h_pre/h_post"):
+        validate_re_roi_cache(
+            payload,
+            fit_image_ids=[1, 2],
+            split_manifest_sha256="split-sha",
+            checkpoint_sha256="checkpoint-sha",
+            annotation_sha256="annotation-sha",
+        )
+
+
+def test_cache_provenance_enforces_drop_feature_presence_semantics() -> None:
+    payload = _cache_payload()
+    drop = next(
+        row for row in payload["records"][0]["actions"] if row["family"] == "drop"
+    )
+    drop["h_post_present"] = True
+    with pytest.raises(ValueError, match="drop h_post"):
+        validate_re_roi_cache(
+            payload,
+            fit_image_ids=[1, 2],
+            split_manifest_sha256="split-sha",
+            checkpoint_sha256="checkpoint-sha",
+            annotation_sha256="annotation-sha",
+        )
+
+    payload = _cache_payload()
+    score_up = next(
+        row
+        for row in payload["records"][0]["actions"]
+        if row["family"] == "score_up"
+    )
+    score_up["h_post_present"] = False
+    with pytest.raises(ValueError, match="non-drop h_post"):
+        validate_re_roi_cache(
+            payload,
+            fit_image_ids=[1, 2],
+            split_manifest_sha256="split-sha",
+            checkpoint_sha256="checkpoint-sha",
+            annotation_sha256="annotation-sha",
+        )
+
+    payload = _cache_payload()
+    payload["records"][0]["actions"][0]["h_pre"] = torch.ones(5)
+    with pytest.raises(ValueError, match="feature shape"):
         validate_re_roi_cache(
             payload,
             fit_image_ids=[1, 2],

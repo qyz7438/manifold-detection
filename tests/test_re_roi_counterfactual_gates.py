@@ -9,11 +9,14 @@ import torch
 
 from scripts.experiments.re_roi_counterfactual.action_family import get_action_family
 from scripts.experiments.re_roi_counterfactual.gates import (
+    _conformal_upper_quantile,
+    check_bundle_integrity,
     check_calibration,
     check_identity,
     check_re_roi_gain,
     check_static_baseline,
     check_support,
+    run_protocol_evaluation,
     run_all_gates,
 )
 from scripts.experiments.re_roi_counterfactual.ranker import ReROIRankerDataset, evaluate_ranker, make_model_for_arm, train_ranker
@@ -91,6 +94,70 @@ def test_support_gate_passes_with_enough_records() -> None:
     assert result.name == "support"
 
 
+def test_support_gate_requires_all_nine_non_identity_families() -> None:
+    tune = _synthetic_split(num_images=60, seed=21)
+    cal = _synthetic_split(num_images=40, seed=22)
+    for record in tune:
+        record["actions"] = [
+            row for row in record["actions"] if row["family"] != "drop"
+        ]
+
+    result = check_support(tune, cal)
+
+    assert result.passed is False
+    assert len(result.detail["family_tune_images"]) == 8
+
+
+def test_support_gate_requires_all_nine_fit_families() -> None:
+    fit = _synthetic_split(num_images=60, seed=23)
+    tune = _synthetic_split(num_images=60, seed=24)
+    cal = _synthetic_split(num_images=40, seed=25)
+    for record in fit:
+        record["actions"] = [
+            row for row in record["actions"] if row["family"] != "drop"
+        ]
+
+    result = check_support(tune, cal, fit_records=fit)
+
+    assert result.passed is False
+    assert len(result.detail["fit_families"]) == 8
+
+
+def test_bundle_integrity_compares_intact_c_with_shuffled_d(monkeypatch) -> None:
+    model_c = object()
+    model_d = object()
+    tune_c = object()
+    tune_d = object()
+    calls: list[tuple[object, object]] = []
+
+    class Metrics:
+        def __init__(self, accuracy: float):
+            self.pairwise_accuracy = accuracy
+            self.per_image_pairwise = {1: {1: accuracy}}
+
+    def fake_evaluate(model, dataset, **_kwargs):
+        calls.append((model, dataset))
+        if model is model_c and dataset is tune_c:
+            return Metrics(0.70)
+        if model is model_d and dataset is tune_d:
+            return Metrics(0.50)
+        raise AssertionError("bundle integrity evaluated an arm on the wrong dataset")
+
+    monkeypatch.setattr(
+        "scripts.experiments.re_roi_counterfactual.gates.evaluate_ranker",
+        fake_evaluate,
+    )
+    monkeypatch.setattr(
+        "scripts.experiments.re_roi_counterfactual.gates.paired_bootstrap_lcb",
+        lambda *_args, **_kwargs: 0.10,
+    )
+
+    result = check_bundle_integrity(model_c, model_d, tune_c, tune_d)
+
+    assert result.passed
+    assert calls == [(model_c, tune_c), (model_d, tune_d)]
+
+
 def test_identity_gate_passes_for_zero_identity() -> None:
     tune = _synthetic_split(num_images=10, seed=3)
     dataset = ReROIRankerDataset(tune, arm="C")
@@ -127,6 +194,68 @@ def test_calibration_positive_rate_uses_raw_noop_relative_utility() -> None:
     assert result.passed is False
     assert result.detail["positive_rate"] == 0.0
     assert result.value <= 1e-7
+
+
+def test_calibration_selects_reconstructed_total_utility() -> None:
+    records = _synthetic_split(num_images=1, top_k=1, seed=26)
+    for row in records[0]["actions"]:
+        row["q_teacher"] = 0.2 if row["family"] == "score_up" else -0.1
+    prior = {spec.family: 0.0 for spec in get_action_family()}
+    prior["score_up"] = 1.0
+    dataset = ReROIRankerDataset(
+        records,
+        arm="C",
+        prior=prior,
+        q_stats={"median": torch.tensor(0.0), "iqr": torch.tensor(1.0)},
+    )
+    score_up = dataset.family_to_index["score_up"]
+    scale_up = dataset.family_to_index["scale_up"]
+
+    class PreferWrongResidual(torch.nn.Module):
+        def forward(self, batch):
+            return (
+                (batch["family_idx"] == score_up).float() * 0.1
+                + (batch["family_idx"] == scale_up).float() * 0.9
+            )
+
+    result = check_calibration(
+        PreferWrongResidual(),
+        dataset,
+        min_positive_rate=1.0,
+        min_coverage=0.0,
+    )
+
+    assert result.passed
+    assert result.detail["positive_rate"] == 1.0
+
+
+def test_calibration_uses_worst_action_error_per_image_for_lcb() -> None:
+    records = _synthetic_split(num_images=1, top_k=1, seed=27)
+    for row in records[0]["actions"]:
+        row["q_teacher"] = -1.0 if row["family"] == "score_up" else 0.0
+    dataset = ReROIRankerDataset(
+        records,
+        arm="C",
+        prior={spec.family: 0.0 for spec in get_action_family()},
+        q_stats={"median": torch.tensor(0.0), "iqr": torch.tensor(1.0)},
+    )
+    score_up = dataset.family_to_index["score_up"]
+
+    class OneLargeOverestimate(torch.nn.Module):
+        def forward(self, batch):
+            return (batch["family_idx"] == score_up).float() * 10.0
+
+    result = check_calibration(
+        OneLargeOverestimate(), dataset, min_positive_rate=0.0, min_coverage=0.0
+    )
+
+    assert result.detail["correction"] == pytest.approx(11.0)
+
+
+def test_conformal_quantile_uses_finite_sample_order_statistic() -> None:
+    scores = torch.arange(1.0, 11.0)
+
+    assert _conformal_upper_quantile(scores, alpha=0.10) == 10.0
 
 
 def test_re_roi_gain_gate_detects_post_action_signal() -> None:
@@ -178,3 +307,34 @@ def test_run_all_gates_runs_and_reports_keys() -> None:
     # Support and identity are structural and must pass on clean synthetic data.
     assert results["support"].passed
     assert results["identity"].passed
+
+
+def test_protocol_evaluation_reports_models_metrics_and_controls() -> None:
+    fit = _synthetic_split(num_images=60, seed=31)
+    tune = _synthetic_split(num_images=60, seed=32)
+    cal = _synthetic_split(num_images=40, seed=33)
+
+    result = run_protocol_evaluation(
+        fit,
+        tune,
+        cal,
+        feature_dim=4,
+        epochs=1,
+        lr=1e-2,
+        batch_size=32,
+        seed=42,
+    )
+
+    assert set(result.models) == {"B", "C", "D"}
+    assert set(result.metrics["tune"]) == {"A", "B", "C", "D"}
+    assert set(result.metrics["tune"]["C"]) == {
+        "residual",
+        "reconstructed_total",
+    }
+    assert set(result.controls) == {
+        "utility_shuffle",
+        "paired_residual_pairwise_intervals",
+        "oracle_top1",
+        "matched_rate_random",
+        "always_noop",
+    }

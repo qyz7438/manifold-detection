@@ -155,6 +155,7 @@ def validate_re_roi_cache(
     split_manifest_sha256: str,
     checkpoint_sha256: str,
     annotation_sha256: str,
+    split_name: str = "fit",
 ) -> list[Mapping[str, Any]]:
     """Validate the exact cache contract consumed by weighted training."""
     if not isinstance(payload, Mapping):
@@ -165,7 +166,7 @@ def validate_re_roi_cache(
         raise ValueError("re-ROI cache must contain metadata and records")
     expected_metadata = {
         "format": (EXPECTED_CACHE_FORMAT, "cache format"),
-        "split_name": ("fit", "cache split"),
+        "split_name": (split_name, "cache split"),
         "split_manifest_sha256": (split_manifest_sha256, "split manifest"),
         "checkpoint_sha256": (checkpoint_sha256, "checkpoint"),
         "annotation_sha256": (annotation_sha256, "annotation"),
@@ -226,6 +227,13 @@ def _validate_complete_cache_record(record: Mapping[str, Any]) -> None:
     scores = baseline["scores"]
     labels = baseline["labels"]
     roi_features = baseline["roi_features"]
+    image_size = record.get("image_size")
+    if (
+        not isinstance(image_size, (tuple, list))
+        or len(image_size) != 2
+        or any(not isinstance(value, int) or value <= 0 for value in image_size)
+    ):
+        raise ValueError("re-ROI cache image_size must contain two positive integers")
     if boxes.ndim != 2 or boxes.shape[1] != 4:
         raise ValueError("re-ROI cache baseline boxes must have shape [N, 4]")
     detection_count = int(boxes.shape[0])
@@ -256,6 +264,34 @@ def _validate_complete_cache_record(record: Mapping[str, Any]) -> None:
             raise ValueError("re-ROI cache candidate has a duplicate action family")
         if family not in EXPECTED_ACTION_FAMILIES or not math.isfinite(q_teacher):
             raise ValueError("re-ROI cache action family or utility is invalid")
+        h_pre = row.get("h_pre")
+        h_post = row.get("h_post")
+        if not torch.is_tensor(h_pre) or not torch.is_tensor(h_post):
+            raise ValueError("re-ROI cache action h_pre/h_post tensors are missing")
+        expected_feature = roi_features[candidate_index]
+        if (
+            h_pre.ndim != 1
+            or h_post.ndim != 1
+            or h_pre.shape != expected_feature.shape
+            or h_post.shape != expected_feature.shape
+        ):
+            raise ValueError("re-ROI cache action feature shape mismatch")
+        if (
+            not torch.is_floating_point(h_pre)
+            or not torch.is_floating_point(h_post)
+            or not bool(torch.isfinite(h_pre).all().item())
+            or not bool(torch.isfinite(h_post).all().item())
+        ):
+            raise ValueError("re-ROI cache action features must be finite floating tensors")
+        if not torch.equal(h_pre, expected_feature):
+            raise ValueError("re-ROI cache h_pre is not aligned with the candidate feature")
+        if not isinstance(row.get("h_post_present"), bool):
+            raise ValueError("re-ROI cache h_post_present must be boolean")
+        if family == "drop":
+            if row["h_post_present"] or bool(torch.count_nonzero(h_post).item()):
+                raise ValueError("re-ROI cache drop h_post must be absent and zero")
+        elif not row["h_post_present"]:
+            raise ValueError("re-ROI cache non-drop h_post must be present")
         if family == "identity_permutation" and q_teacher != 0.0:
             raise ValueError("re-ROI cache identity utility must be exactly zero")
         families_by_candidate[candidate_index].add(family)

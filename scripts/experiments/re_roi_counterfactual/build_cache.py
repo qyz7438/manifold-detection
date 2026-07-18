@@ -60,6 +60,11 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_text_lf(path: str | Path) -> str:
+    normalized = Path(path).read_text(encoding="utf-8").replace("\r\n", "\n")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 def clean_git_commit() -> str:
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True, capture_output=True, text=True
@@ -74,6 +79,15 @@ def clean_git_commit() -> str:
 
 def _resolve_requested_device(requested: str) -> torch.device:
     return resolve_device({"device": requested})
+
+
+def _validate_split_name(split_name: str) -> str:
+    allowed = {"fit", "tune", "calibration"}
+    if split_name not in allowed:
+        raise ValueError(
+            f"split {split_name!r} is not cacheable before outer_heldout confirmation"
+        )
+    return split_name
 
 
 def load_split_manifest(path: Path) -> dict[str, Any]:
@@ -114,6 +128,7 @@ def build_cache(
     device: torch.device,
     split_name: str = "fit",
 ) -> dict[str, Any]:
+    split_name = _validate_split_name(split_name)
     if device.type == "cuda" and os.environ.get("CUDA_VISIBLE_DEVICES") != "2":
         raise RuntimeError("re-ROI GPU cache generation requires CUDA_VISIBLE_DEVICES=2")
     git_commit = clean_git_commit()
@@ -135,7 +150,7 @@ def build_cache(
         "format": "re_roi_counterfactual_v1",
         "split_name": split_name,
         "split_manifest": str(split_manifest.resolve()),
-        "split_manifest_sha256": sha256_file(split_manifest),
+        "split_manifest_sha256": sha256_text_lf(split_manifest),
         "checkpoint": str(checkpoint.resolve()),
         "checkpoint_sha256": sha256_file(checkpoint),
         "annotation_sha256": sha256_file(annotation),

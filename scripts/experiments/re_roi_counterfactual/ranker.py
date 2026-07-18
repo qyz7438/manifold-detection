@@ -36,6 +36,7 @@ def _fit_q_teacher_stats_from_records(records: list[dict[str, Any]]) -> dict[str
         float(row["q_teacher"])
         for record in records
         for row in record["actions"]
+        if row["family"] != "identity_permutation"
     ]
     return fit_q_teacher_stats(torch.tensor(values))
 
@@ -90,7 +91,8 @@ def _shuffle_h_post_for_record(
         families = [row["family"] for row in rows]
         posts = [row["h_post"] for row in rows]
         generator = torch.Generator().manual_seed(seed + candidate_index)
-        perm = torch.randperm(len(posts), generator=generator).tolist()
+        offset = int(torch.randint(1, len(posts), (1,), generator=generator).item())
+        perm = [(index + offset) % len(posts) for index in range(len(posts))]
         shuffled[candidate_index] = {families[i]: posts[perm[i]] for i in range(len(rows))}
     return shuffled
 
@@ -252,7 +254,11 @@ class ReROIRankerDataset(Dataset):
             pad_size = target_len - tensor.shape[0]
             if pad_size <= 0:
                 return tensor
-            return F.pad(tensor, (0, 0, 0, pad_size), value=pad_value)
+            if tensor.ndim == 1:
+                return F.pad(tensor, (0, pad_size), value=pad_value)
+            if tensor.ndim == 2:
+                return F.pad(tensor, (0, 0, 0, pad_size), value=pad_value)
+            raise ValueError(f"unsupported per-detection tensor rank: {tensor.ndim}")
 
         fields = {
             "baseline_roi_features": (feature_dim, 0.0),
@@ -284,8 +290,8 @@ class ReROIRankerDataset(Dataset):
             "h_post": torch.stack([item["h_post"] for item in batch]),
             "baseline_roi_features": torch.stack(padded["baseline_roi_features"]),
             "baseline_boxes": torch.stack(padded["baseline_boxes"]),
-            "baseline_scores": torch.stack(padded["baseline_scores"]).squeeze(-1),
-            "baseline_labels": torch.stack(padded["baseline_labels"]).squeeze(-1),
+            "baseline_scores": torch.stack(padded["baseline_scores"]),
+            "baseline_labels": torch.stack(padded["baseline_labels"]),
             "mask": torch.stack(masks),
             "acted_mask": torch.stack(acted_masks),
             "image_size": torch.stack([item["image_size"] for item in batch]),
@@ -332,10 +338,16 @@ class DeepSetResidualRanker(nn.Module):
             nn.Linear(hidden_dim, hidden_dim),
         )
 
+        self.v_net = nn.Sequential(
+            nn.Linear(7, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+
         self.family_embed = nn.Embedding(num_families, label_embed_dim)
 
         self.head = nn.Sequential(
-            nn.Linear(hidden_dim + hidden_dim + label_embed_dim, hidden_dim),
+            nn.Linear(hidden_dim * 3 + label_embed_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, 1),
         )
@@ -352,9 +364,12 @@ class DeepSetResidualRanker(nn.Module):
         h_post = batch["h_post"]
         family_idx = batch["family_idx"]
 
-        # Normalize boxes by image size (broadcast over width/height).
-        wh = image_size[:, None, :].expand(-1, boxes.size(1), -1).repeat(1, 1, 2)
-        boxes_norm = boxes / (wh + 1e-6)
+        # image_size is [height, width], while boxes are [x1, y1, x2, y2].
+        box_scale = torch.stack(
+            [image_size[:, 1], image_size[:, 0], image_size[:, 1], image_size[:, 0]],
+            dim=-1,
+        )[:, None, :]
+        boxes_norm = boxes / (box_scale + 1e-6)
         label_emb = self.label_embed(labels.clamp(0, self.label_embed.num_embeddings - 1))
 
         node_input = torch.cat(
@@ -372,11 +387,51 @@ class DeepSetResidualRanker(nn.Module):
         node_out_sum = (node_out * mask.unsqueeze(-1).float()).sum(dim=1)
         pooled = node_out_sum / (mask.sum(dim=1, keepdim=True).clamp_min(1.0))
 
+        widths = (boxes_norm[..., 2] - boxes_norm[..., 0]).clamp_min(1e-6)
+        heights = (boxes_norm[..., 3] - boxes_norm[..., 1]).clamp_min(1e-6)
+        geometry = torch.stack(
+            [
+                (boxes_norm[..., 0] + boxes_norm[..., 2]) * 0.5,
+                (boxes_norm[..., 1] + boxes_norm[..., 3]) * 0.5,
+                widths.log(),
+                heights.log(),
+            ],
+            dim=-1,
+        )
+        acted_weights = acted_mask.unsqueeze(-1).float()
+        acted_geometry = (geometry * acted_weights).sum(dim=1, keepdim=True)
+        acted_boxes = (boxes_norm * acted_weights).sum(dim=1, keepdim=True)
+        acted_scores = (scores * acted_mask.float()).sum(dim=1, keepdim=True)
+        acted_labels = (labels * acted_mask.long()).sum(dim=1, keepdim=True)
+
+        intersection_lt = torch.maximum(boxes_norm[..., :2], acted_boxes[..., :2])
+        intersection_rb = torch.minimum(boxes_norm[..., 2:], acted_boxes[..., 2:])
+        intersection_wh = (intersection_rb - intersection_lt).clamp_min(0.0)
+        intersection = intersection_wh[..., 0] * intersection_wh[..., 1]
+        node_area = widths * heights
+        acted_area = (
+            (acted_boxes[..., 2] - acted_boxes[..., 0]).clamp_min(1e-6)
+            * (acted_boxes[..., 3] - acted_boxes[..., 1]).clamp_min(1e-6)
+        )
+        iou = intersection / (node_area + acted_area - intersection + 1e-6)
+        edge_input = torch.cat(
+            [
+                geometry - acted_geometry,
+                iou.unsqueeze(-1),
+                (scores - acted_scores).unsqueeze(-1),
+                (labels == acted_labels).float().unsqueeze(-1),
+            ],
+            dim=-1,
+        )
+        edge_out = self.v_net(edge_input)
+        edge_sum = (edge_out * mask.unsqueeze(-1).float()).sum(dim=1)
+        pair_pooled = edge_sum / mask.sum(dim=1, keepdim=True).clamp_min(1.0)
+
         acted_input = torch.cat([h_pre, h_post], dim=-1) if self.use_post else h_pre
         acted_out = self.acted_net(acted_input)
 
         family_vec = self.family_embed(family_idx)
-        combined = torch.cat([pooled, acted_out, family_vec], dim=-1)
+        combined = torch.cat([pooled, pair_pooled, acted_out, family_vec], dim=-1)
         output = self.head(combined).squeeze(-1)
         non_identity = (family_idx != self.identity_idx).float()
         return output * non_identity
@@ -388,6 +443,7 @@ def make_model_for_arm(
     max_label: int,
     num_families: int = 10,
     identity_idx: int = 0,
+    hidden_dim: int = 64,
 ) -> nn.Module:
     """Factory matching the controlled arm input set."""
     if arm == "A":
@@ -395,6 +451,7 @@ def make_model_for_arm(
     if arm == "B":
         return DeepSetResidualRanker(
             feature_dim,
+            hidden_dim=hidden_dim,
             use_post=False,
             max_label=max_label,
             num_families=num_families,
@@ -403,6 +460,7 @@ def make_model_for_arm(
     if arm in ("C", "D"):
         return DeepSetResidualRanker(
             feature_dim,
+            hidden_dim=hidden_dim,
             use_post=True,
             max_label=max_label,
             num_families=num_families,
@@ -421,7 +479,13 @@ def ranker_loss(
     tie_eps: float = 1e-6,
 ) -> torch.Tensor:
     """Smooth L1 on residuals plus a same-image same-family ranking term."""
-    regression = F.smooth_l1_loss(pred, target, beta=0.05)
+    non_identity_rows = family_idx != identity_idx
+    if non_identity_rows.any():
+        regression = F.smooth_l1_loss(
+            pred[non_identity_rows], target[non_identity_rows], beta=0.05
+        )
+    else:
+        regression = pred.sum() * 0.0
 
     if lambda_rank <= 0.0:
         return regression
@@ -456,6 +520,40 @@ def _batch_to_device(batch: dict[str, torch.Tensor], device: torch.device) -> di
     return {key: value.to(device) if isinstance(value, torch.Tensor) else value for key, value in batch.items()}
 
 
+def build_grouped_batches(
+    dataset: ReROIRankerDataset,
+    *,
+    batch_size: int,
+    seed: int,
+    epoch: int,
+) -> list[list[int]]:
+    """Build deterministic batches without splitting image-family rank groups."""
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+    groups: dict[tuple[int, int], list[int]] = {}
+    for index, row in enumerate(dataset.rows):
+        if row.family_idx == dataset.identity_idx:
+            continue
+        groups.setdefault((row.image_id, row.family_idx), []).append(index)
+    if any(len(indices) > batch_size for indices in groups.values()):
+        raise ValueError("batch_size is smaller than an image-family rank group")
+
+    keys = sorted(groups)
+    generator = torch.Generator().manual_seed(int(seed) * 1_000_003 + int(epoch))
+    order = torch.randperm(len(keys), generator=generator).tolist()
+    batches: list[list[int]] = []
+    current: list[int] = []
+    for offset in order:
+        group = groups[keys[offset]]
+        if current and len(current) + len(group) > batch_size:
+            batches.append(current)
+            current = []
+        current.extend(group)
+    if current:
+        batches.append(current)
+    return batches
+
+
 def train_ranker(
     model: nn.Module,
     dataset: ReROIRankerDataset,
@@ -474,16 +572,16 @@ def train_ranker(
     model.to(device)
     model.train()
 
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        collate_fn=ReROIRankerDataset.collate_fn,
-        drop_last=False,
-    )
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
 
-    for _ in range(epochs):
+    for epoch in range(1, epochs + 1):
+        loader = DataLoader(
+            dataset,
+            batch_sampler=build_grouped_batches(
+                dataset, batch_size=batch_size, seed=seed, epoch=epoch
+            ),
+            collate_fn=ReROIRankerDataset.collate_fn,
+        )
         for batch in loader:
             batch = _batch_to_device(batch, device)
             optimizer.zero_grad()
@@ -542,6 +640,7 @@ def _pairwise_accuracy_per_image(
     image_id: torch.Tensor,
     identity_idx: int,
     tie_eps: float = 1e-6,
+    require_same_family: bool = True,
 ) -> dict[int, dict[int, float]]:
     """Return {image_id: {family_idx: accuracy}} for same-image same-family pairs."""
     n = pred.shape[0]
@@ -550,12 +649,13 @@ def _pairwise_accuracy_per_image(
     j = idx.view(1, -1)
     upper = i < j
     same_family = family_idx.unsqueeze(1) == family_idx.unsqueeze(0)
+    family_compatible = same_family if require_same_family else torch.ones_like(same_family)
     same_image = image_id.unsqueeze(1) == image_id.unsqueeze(0)
     non_identity = (family_idx.unsqueeze(1) != identity_idx) & (family_idx.unsqueeze(0) != identity_idx)
     diff_target = target.unsqueeze(1) - target.unsqueeze(0)
     valid = (
         upper
-        & same_family
+        & family_compatible
         & same_image
         & non_identity
         & (diff_target.abs() > tie_eps)
@@ -567,7 +667,7 @@ def _pairwise_accuracy_per_image(
     i_idx, j_idx = valid.nonzero(as_tuple=True)
     correct = ((pred[i_idx] - pred[j_idx]) * (target[i_idx] - target[j_idx])) > 0
     pair_image = image_id[i_idx]
-    pair_family = family_idx[i_idx]
+    pair_family = family_idx[i_idx] if require_same_family else torch.zeros_like(pair_image)
     pair_correct = correct.float()
 
     per_image: dict[int, dict[int, float]] = {}
@@ -620,6 +720,56 @@ class RankerMetrics:
         }
 
 
+def _metrics_from_predictions(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    family_idx: torch.Tensor,
+    image_id: torch.Tensor,
+    identity_idx: int,
+    *,
+    require_same_family: bool,
+) -> RankerMetrics:
+    mae = float(torch.abs(pred - target).mean().item())
+    zero_mae = float(torch.abs(target).mean().item())
+    relative_mae_gain = (zero_mae - mae) / (zero_mae + 1e-12)
+    per_image = _pairwise_accuracy_per_image(
+        pred,
+        target,
+        family_idx,
+        image_id,
+        identity_idx,
+        require_same_family=require_same_family,
+    )
+    return RankerMetrics(
+        mae=mae,
+        relative_mae_gain=relative_mae_gain,
+        pairwise_accuracy=_mean_pairwise_accuracy(per_image),
+        sign_auroc=_sign_auroc(pred, target),
+        per_image_pairwise=per_image,
+        num_rows=int(pred.shape[0]),
+    )
+
+
+def _non_identity_predictions(
+    model: nn.Module,
+    dataset: ReROIRankerDataset,
+    batch_size: int,
+    device: torch.device,
+) -> dict[str, torch.Tensor]:
+    out = _gather_predictions(model, dataset, batch_size, device)
+    mask = out["family_idx"] != dataset.identity_idx
+    return {key: value[mask] for key, value in out.items()}
+
+
+def _prior_for_family_indices(
+    dataset: ReROIRankerDataset, family_idx: torch.Tensor
+) -> torch.Tensor:
+    prior_by_index = torch.zeros(len(dataset.family_to_index), dtype=torch.float32)
+    for family, index in dataset.family_to_index.items():
+        prior_by_index[index] = float(dataset.prior.get(family, 0.0))
+    return prior_by_index[family_idx]
+
+
 def evaluate_ranker(
     model: nn.Module,
     dataset: ReROIRankerDataset,
@@ -632,32 +782,142 @@ def evaluate_ranker(
         device = torch.device("cpu")
     model.to(device)
     model.eval()
-    out = _gather_predictions(model, dataset, batch_size, device)
-    pred = out["pred"]
-    target = out["target"]
-
-    mae = float(torch.abs(pred - target).mean().item())
-    zero_mae = float(torch.abs(target).mean().item())
-    relative_mae_gain = (zero_mae - mae) / (zero_mae + 1e-12)
-
-    per_image = _pairwise_accuracy_per_image(
-        pred,
-        target,
+    out = _non_identity_predictions(model, dataset, batch_size, device)
+    return _metrics_from_predictions(
+        out["pred"],
+        out["target"],
         out["family_idx"],
         out["image_id"],
         dataset.identity_idx,
+        require_same_family=True,
     )
-    pairwise_accuracy = _mean_pairwise_accuracy(per_image)
-    auroc = _sign_auroc(pred, target)
 
-    return RankerMetrics(
-        mae=mae,
-        relative_mae_gain=relative_mae_gain,
-        pairwise_accuracy=pairwise_accuracy,
-        sign_auroc=auroc,
-        per_image_pairwise=per_image,
-        num_rows=int(pred.shape[0]),
+
+def evaluate_reconstructed_ranker(
+    model: nn.Module,
+    dataset: ReROIRankerDataset,
+    *,
+    batch_size: int = 32,
+    device: torch.device | None = None,
+) -> RankerMetrics:
+    """Evaluate reconstructed standardized total utility across action families."""
+    if device is None:
+        device = torch.device("cpu")
+    model.to(device)
+    model.eval()
+    out = _non_identity_predictions(model, dataset, batch_size, device)
+    prior = _prior_for_family_indices(dataset, out["family_idx"])
+    total_pred = out["pred"] + prior
+    total_target = out["target"] + prior
+    baseline_error = out["target"]
+    metrics = _metrics_from_predictions(
+        total_pred,
+        total_target,
+        out["family_idx"],
+        out["image_id"],
+        dataset.identity_idx,
+        require_same_family=False,
     )
+    baseline_mae = float(torch.abs(baseline_error).mean().item())
+    relative_gain = (baseline_mae - metrics.mae) / (baseline_mae + 1e-12)
+    return RankerMetrics(
+        mae=metrics.mae,
+        relative_mae_gain=relative_gain,
+        pairwise_accuracy=metrics.pairwise_accuracy,
+        sign_auroc=metrics.sign_auroc,
+        per_image_pairwise=metrics.per_image_pairwise,
+        num_rows=metrics.num_rows,
+    )
+
+
+def evaluate_utility_shuffle_metrics(
+    dataset: ReROIRankerDataset, *, seed: int = 42
+) -> dict[str, RankerMetrics]:
+    """Evaluate a deterministic within-family utility-permutation null."""
+    rows = [row for row in dataset.rows if row.family_idx != dataset.identity_idx]
+    target = torch.tensor([row.residual for row in rows], dtype=torch.float32)
+    family_idx = torch.tensor([row.family_idx for row in rows], dtype=torch.long)
+    image_id = torch.tensor([row.image_id for row in rows], dtype=torch.long)
+    pred = torch.empty_like(target)
+    generator = torch.Generator().manual_seed(seed)
+    for family in torch.unique(family_idx):
+        indices = (family_idx == family).nonzero(as_tuple=True)[0]
+        permutation = torch.randperm(len(indices), generator=generator)
+        pred[indices] = target[indices[permutation]]
+    residual = _metrics_from_predictions(
+        pred,
+        target,
+        family_idx,
+        image_id,
+        dataset.identity_idx,
+        require_same_family=True,
+    )
+    prior = _prior_for_family_indices(dataset, family_idx)
+    reconstructed = _metrics_from_predictions(
+        pred + prior,
+        target + prior,
+        family_idx,
+        image_id,
+        dataset.identity_idx,
+        require_same_family=False,
+    )
+    return {"residual": residual, "reconstructed_total": reconstructed}
+
+
+def evaluate_utility_shuffle(
+    dataset: ReROIRankerDataset, *, seed: int = 42
+) -> dict[str, dict[str, Any]]:
+    return {
+        name: metrics.to_dict()
+        for name, metrics in evaluate_utility_shuffle_metrics(
+            dataset, seed=seed
+        ).items()
+    }
+
+
+def action_selection_controls(
+    dataset: ReROIRankerDataset, *, seed: int = 42
+) -> dict[str, dict[str, float | int]]:
+    """Return oracle-rate random and no-op action-selection diagnostics."""
+    rows_by_image: dict[int, list[RankerRow]] = {}
+    for row in dataset.rows:
+        if row.family_idx != dataset.identity_idx:
+            rows_by_image.setdefault(row.image_id, []).append(row)
+    image_ids = sorted(rows_by_image)
+    oracle_values = {
+        image_id: max(row.q_teacher_raw for row in rows_by_image[image_id])
+        for image_id in image_ids
+    }
+    oracle_action_ids = [image_id for image_id in image_ids if oracle_values[image_id] > 0.0]
+    generator = torch.Generator().manual_seed(seed)
+    image_order = torch.randperm(len(image_ids), generator=generator).tolist()
+    random_action_ids = {
+        image_ids[index] for index in image_order[: len(oracle_action_ids)]
+    }
+    random_values: dict[int, float] = {}
+    for image_id in sorted(random_action_ids):
+        choices = rows_by_image[image_id]
+        choice = int(torch.randint(0, len(choices), (1,), generator=generator).item())
+        random_values[image_id] = choices[choice].q_teacher_raw
+
+    def summarize(selected: dict[int, float]) -> dict[str, float | int]:
+        values = list(selected.values())
+        total_images = len(image_ids)
+        return {
+            "selected_count": len(values),
+            "action_image_rate": len(values) / total_images if total_images else 0.0,
+            "positive_precision": sum(value > 0.0 for value in values) / len(values) if values else 0.0,
+            "selected_mean_raw_utility": sum(values) / len(values) if values else 0.0,
+            "mean_raw_utility": sum(values) / total_images if total_images else 0.0,
+        }
+
+    return {
+        "oracle_top1": summarize(
+            {image_id: oracle_values[image_id] for image_id in oracle_action_ids}
+        ),
+        "matched_rate_random": summarize(random_values),
+        "always_noop": summarize({}),
+    }
 
 
 def paired_bootstrap_lcb(
@@ -667,11 +927,32 @@ def paired_bootstrap_lcb(
     seed: int = 42,
 ) -> float:
     """Bootstrap LCB of mean(A - B) over images with paired family averages."""
+    return float(
+        paired_bootstrap_interval(
+            per_image_a, per_image_b, n_bootstrap=n_bootstrap, seed=seed
+        )["lower"]
+    )
+
+
+def paired_bootstrap_interval(
+    per_image_a: dict[int, dict[int, float]],
+    per_image_b: dict[int, dict[int, float]],
+    n_bootstrap: int = 10_000,
+    seed: int = 42,
+) -> dict[str, Any]:
+    """Paired image-bootstrap interval on common image-family support."""
     common_images = sorted(set(per_image_a.keys()) & set(per_image_b.keys()))
     if not common_images:
-        return float("-inf")
+        return {
+            "point_delta": float("nan"),
+            "lower": float("-inf"),
+            "upper": float("inf"),
+            "common_image_count": 0,
+            "common_image_ids": [],
+        }
 
     diffs: list[float] = []
+    supporting_images: list[int] = []
     for img in common_images:
         families = set(per_image_a[img].keys()) & set(per_image_b[img].keys())
         if not families:
@@ -679,9 +960,16 @@ def paired_bootstrap_lcb(
         a_mean = sum(per_image_a[img][f] for f in families) / len(families)
         b_mean = sum(per_image_b[img][f] for f in families) / len(families)
         diffs.append(a_mean - b_mean)
+        supporting_images.append(img)
 
     if not diffs:
-        return float("-inf")
+        return {
+            "point_delta": float("nan"),
+            "lower": float("-inf"),
+            "upper": float("inf"),
+            "common_image_count": 0,
+            "common_image_ids": [],
+        }
 
     values = torch.tensor(diffs, dtype=torch.float32)
     n = values.shape[0]
@@ -690,4 +978,11 @@ def paired_bootstrap_lcb(
     for _ in range(n_bootstrap):
         idx = torch.randint(0, n, (n,), generator=generator)
         resampled_means.append(float(values[idx].mean().item()))
-    return float(torch.quantile(torch.tensor(resampled_means), 0.025).item())
+    bootstrap = torch.tensor(resampled_means)
+    return {
+        "point_delta": float(values.mean().item()),
+        "lower": float(torch.quantile(bootstrap, 0.025).item()),
+        "upper": float(torch.quantile(bootstrap, 0.975).item()),
+        "common_image_count": len(supporting_images),
+        "common_image_ids": supporting_images,
+    }

@@ -18,7 +18,11 @@ from scripts.experiments.re_roi_counterfactual.teacher import (
 from scripts.experiments.re_roi_counterfactual.cache_builder import (
     _resize_target_to_image_size,
 )
-from scripts.experiments.re_roi_counterfactual.build_cache import _resolve_requested_device
+from scripts.experiments.re_roi_counterfactual.build_cache import (
+    _resolve_requested_device,
+    _validate_split_name,
+    sha256_text_lf,
+)
 
 
 def test_action_family_is_frozen_and_has_identity() -> None:
@@ -34,6 +38,23 @@ def test_action_family_is_frozen_and_has_identity() -> None:
 
 def test_cache_cli_resolves_string_device_through_config_contract() -> None:
     assert _resolve_requested_device("cpu") == torch.device("cpu")
+
+
+def test_cache_builder_blocks_outer_heldout_before_confirmation() -> None:
+    assert _validate_split_name("fit") == "fit"
+    assert _validate_split_name("tune") == "tune"
+    assert _validate_split_name("calibration") == "calibration"
+    with pytest.raises(ValueError, match="outer_heldout"):
+        _validate_split_name("outer_heldout")
+
+
+def test_split_hash_is_stable_across_lf_and_crlf(tmp_path) -> None:
+    lf = tmp_path / "lf.json"
+    crlf = tmp_path / "crlf.json"
+    lf.write_bytes(b'{\n  "value": 1\n}\n')
+    crlf.write_bytes(b'{\r\n  "value": 1\r\n}\r\n')
+
+    assert sha256_text_lf(lf) == sha256_text_lf(crlf)
 
 
 def test_identity_action_preserves_boxes_and_scores() -> None:
