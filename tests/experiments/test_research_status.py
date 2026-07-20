@@ -52,6 +52,8 @@ EXPECTED_INITIAL_STATUSES = {
     "energy_transport.dense_absolute_endpoint": "frozen",
     "energy_transport.local_delta_q": "frozen",
     "energy_transport.residual_content_protocol": "blocked",
+    "energy_transport.re_roi_counterfactual_evidence": "frozen",
+    "energy_transport.oracle_utility_boxhead": "blocked",
     "manifold.prototype_attraction": "diagnostic",
     "manifold.intrinsic_dimension": "diagnostic",
     "manifold.dual_energy": "diagnostic",

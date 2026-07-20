@@ -1,6 +1,6 @@
-"""Required-artifact tests for the backfilled reviewed manifests (Task 10).
+"""Required-artifact tests for the reviewed artifact manifests.
 
-Fifteen critical experiment artifacts must carry a reviewed manifest under
+Seventeen critical experiment artifacts must carry a reviewed manifest under
 ``spectral_detection_posttrain/configs/registry/artifacts/``. The manifests
 are emitted by the deterministic generator
 ``scripts/dev/backfill_artifact_manifests.py`` and must never be hand-edited.
@@ -61,6 +61,8 @@ REQUIRED_EXPERIMENT_IDS = (
     "det.energy.dense_local_delta_learner.001",
     "det.energy.dense_local_delta_family_audit.001",
     "det.energy.dense_local_delta_family_prior.001",
+    "det.energy.re_roi_counterfactual_evidence.001",
+    "det.energy.oracle_utility_boxhead.001",
 )
 
 REVIEWED_COMPLETION_STATES = ("completed", "failed", "invalid", "unavailable")
@@ -175,9 +177,42 @@ def test_runtime_manifest_substitution_is_documented(manifests: dict[str, Artifa
         if manifest.completion == "unavailable":
             continue
         assert manifest.runtime_manifest_sha256 is not None, experiment_id
+        runtime_outputs = [
+            ref for ref in manifest.outputs if ref.semantic_kind == "runtime_manifest"
+        ]
+        if runtime_outputs:
+            assert manifest.runtime_manifest_sha256 in {
+                ref.sha256 for ref in runtime_outputs
+            }, experiment_id
+            continue
         assert any("runtime manifest" in entry for entry in manifest.missing_evidence), (
             f"{experiment_id}: missing_evidence must document the runtime-manifest substitution"
         )
+
+
+def test_terminal_closure_manifests_preserve_sealed_boundaries(
+    manifests: dict[str, ArtifactManifest],
+) -> None:
+    re_roi = manifests["det.energy.re_roi_counterfactual_evidence.001"]
+    assert re_roi.metrics_summary["outer_heldout_read"] is False
+    assert re_roi.metrics_summary["detector_validation_read"] is False
+    assert re_roi.gates == {
+        "support": True,
+        "identity": True,
+        "re_roi_gain": False,
+        "bundle_integrity": False,
+        "static_baseline": True,
+        "calibration": False,
+        "generalization": False,
+        "all_passed": False,
+    }
+
+    awr = manifests["det.energy.oracle_utility_boxhead.001"]
+    assert awr.metrics_summary["training_started"] is False
+    assert awr.metrics_summary["downstream_arms_started"] is False
+    assert awr.metrics_summary["positive_candidates"] == 93
+    assert awr.metrics_summary["minimum_positive_candidates"] == 500
+    assert awr.gates["support"] is False
 
 
 def test_no_absolute_user_paths_in_raw_manifest_text() -> None:

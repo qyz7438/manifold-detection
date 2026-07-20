@@ -85,6 +85,8 @@ HISTORICAL_IDS = (
     "det.energy.dense_endpoint.shift_audit.001",
     "det.energy.dense_local_delta_stats.002",
     "det.energy.dense_local_delta_family_audit.001",
+    "det.energy.re_roi_counterfactual_evidence.001",
+    "det.energy.oracle_utility_boxhead.001",
 )
 
 ALL_IDS = EXECUTABLE_IDS + HISTORICAL_IDS
@@ -398,9 +400,9 @@ def test_list_is_deterministic_and_covers_every_record(registry):
     assert first == second
     for experiment_id in ALL_IDS:
         assert experiment_id in first
-    assert "21 records" in first
+    assert "23 records" in first
     assert "13 executable_definition" in first
-    assert "8 historical_artifact" in first
+    assert "10 historical_artifact" in first
 
 
 def test_status_reports_zero_authorized(registry):
@@ -420,7 +422,7 @@ def test_status_reports_zero_authorized(registry):
 def test_cli_list_and_status(cli, capsys):
     assert cli.main(["list"]) == 0
     out = capsys.readouterr().out
-    assert "21 records" in out
+    assert "23 records" in out
     assert cli.main(["status"]) == 0
     out = capsys.readouterr().out
     assert "No experiment is currently authorized." in out

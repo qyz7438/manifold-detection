@@ -54,6 +54,8 @@ HISTORICAL_IDS = (
     "det.energy.dense_endpoint.shift_audit.001",
     "det.energy.dense_local_delta_stats.002",
     "det.energy.dense_local_delta_family_audit.001",
+    "det.energy.re_roi_counterfactual_evidence.001",
+    "det.energy.oracle_utility_boxhead.001",
 )
 
 BACKFILL_IDS = EXECUTABLE_IDS + HISTORICAL_IDS
@@ -145,7 +147,7 @@ def _load_tmp(tmp_path: Path, records: list[dict]) -> ExperimentRegistry:
 def test_registry_loads_and_has_unique_ids(registry: ExperimentRegistry):
     ids = [record.id for record in registry]
     assert len(ids) == len(set(ids)), "duplicate experiment ids"
-    assert len(registry) == 21
+    assert len(registry) == 23
 
 
 def test_every_backfill_id_resolves(registry: ExperimentRegistry):
@@ -396,7 +398,7 @@ def test_raw_json_record_count_and_shape():
     payload = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
     assert payload["schema_version"] == "experiments.v1"
     records = payload["records"]
-    assert len(records) == 21
+    assert len(records) == 23
     for raw in records:
         assert raw["record_kind"] in {"executable_definition", "historical_artifact"}
         if raw["record_kind"] == "historical_artifact":

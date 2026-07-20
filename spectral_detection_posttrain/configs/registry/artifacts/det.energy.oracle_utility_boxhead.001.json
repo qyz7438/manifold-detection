@@ -1,0 +1,103 @@
+{
+  "completion": "completed",
+  "environment": {
+    "cuda_visible_devices": "2",
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": 250,
+    "kind": "cache_only",
+    "limit_train": null,
+    "limit_val": null
+  },
+  "experiment_id": "det.energy.oracle_utility_boxhead.001",
+  "gates": {
+    "all_passed": false,
+    "positive_candidate_support": false,
+    "positive_image_support": true,
+    "support": false,
+    "training_not_started": true,
+    "weight_health": true
+  },
+  "git_commit": "e58806b7ca4c1a21f66d2505512cbf4d9cf601c3",
+  "git_dirty": false,
+  "inputs": [
+    {
+      "logical_path": "remote:manifold/data/NWPU_VHR10_coco.json",
+      "semantic_kind": "dataset_annotation",
+      "sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+      "size_bytes": 1265416
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+      "semantic_kind": "initial_checkpoint",
+      "sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+      "size_bytes": 76205690
+    },
+    {
+      "logical_path": "remote:manifold/spectral_detection_posttrain/configs/splits/nwpu_re_roi_counterfactual_s42_nested.json",
+      "semantic_kind": "split_manifest",
+      "sha256": "5c4222e033f7ed333835eab7f7786498b84bba11856c2d362ec8895845942244",
+      "size_bytes": 9286
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_re_roi_cache_fit_s42_strongbest_e58806b_v4/re_roi_cache_fit.pt",
+      "semantic_kind": "action_cache",
+      "sha256": "7fcb3774467aeae7b6592e20485ce93565946c1b96fc4cd7469ce63ddae288f7",
+      "size_bytes": 20724910
+    },
+    {
+      "logical_path": "docs/awr_weighted_boxhead_protocol.md",
+      "semantic_kind": "protocol_document",
+      "sha256": "970590126411bb9bb2e26ea173dc911497ba95ae7aeff1ff4baa42ea41fb7038",
+      "size_bytes": 10299
+    }
+  ],
+  "invocation": [],
+  "manifest_id": "det.energy.oracle_utility_boxhead.001:nwpu_oracle_utility_boxhead_strongbest_e58806b_s42_Z",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "detector_validation_read": false,
+    "downstream_arms_started": false,
+    "effective_sample_size": 197.0039,
+    "fit_images": 250,
+    "minimum_positive_candidates": 500,
+    "normalized_mean_weight": 1.0,
+    "outer_heldout_read": false,
+    "positive_candidates": 93,
+    "positive_image_rate": 0.248,
+    "positive_images": 62,
+    "scientific_status": "support_gate_blocked_before_training",
+    "training_started": false,
+    "weight_saturation": 0.0
+  },
+  "missing_evidence": [
+    "no runtime manifest.json exists for this support preflight; runtime_manifest_sha256 binds the launcher log instead",
+    "the original CLI invocation and exact cache argument were not serialized in the launcher log",
+    "numeric preflight diagnostics survive in the reviewed handoff and closure report, not in the launcher log",
+    "no training, detector evaluation, or AP artifact exists because the support gate failed before training"
+  ],
+  "observed_at_utc": "2026-07-20T16:36:35Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "ce49b5747800e0a7b76e1f5be8e2b46f6500dbea",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/nwpu_oracle_utility_boxhead_strongbest_e58806b_s42_Z_launcher.log",
+      "semantic_kind": "launcher_log",
+      "sha256": "ab95634556eba177c1c6ec39c478171dba6b14daf8c7fbddb88a2236739159c5",
+      "size_bytes": 591
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "spectral_detection_posttrain/configs/versions/det.energy.oracle_utility_boxhead.001.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "7764bfedc3d941aa27477c7cedde98118a9df864a1aa752e89c9c0a6b269259c",
+    "size_bytes": 1525
+  },
+  "run_id": "nwpu_oracle_utility_boxhead_strongbest_e58806b_s42_Z",
+  "runtime_manifest_sha256": "ab95634556eba177c1c6ec39c478171dba6b14daf8c7fbddb88a2236739159c5",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}

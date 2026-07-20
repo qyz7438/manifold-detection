@@ -14,6 +14,8 @@ Obsolete round artifacts are archived in [`docs/reports/archive/`](archive/READM
 
 ## NWPU VHR-10
 
+- `nwpu_re_roi_and_awr_closure_2026-07-21.md` - reviewed train-only closure of the formal re-ROI negative result and the oracle-utility box-head support-gate stop, with sealed-outcome boundaries and immutable hashes.
+
 - `nwpu_set_action_m0_m1_report_2026-07-10.md` - locked M0 reachability, GT-free M1 policy, move-gate bypass diagnosis, retired factorization, and next joint-utility boundary.
 
 - `manifold_research_line_retirement_report_2026-07-10.md` - full research-line audit: hard stops, invalidated evidence, demoted baselines, retained primitives, and the set-level/NMS-aware next boundary.

@@ -436,6 +436,50 @@
       "evidence_kind": "post_hoc_analysis",
       "source_evidence_pointer": "docs/autonomous_exploration_ledger.md",
       "decision_document": "docs/autonomous_exploration_report.md"
+    },
+    {
+      "record_kind": "historical_artifact",
+      "id": "det.energy.re_roi_counterfactual_evidence.001",
+      "research_line": "energy_transport.re_roi_counterfactual_evidence",
+      "capability": null,
+      "config_path": null,
+      "legacy_entrypoint": null,
+      "handler": null,
+      "runnable": "disabled",
+      "evaluation_scope": {
+        "kind": "train_only",
+        "image_count": 386,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": null,
+      "expected_outputs": null,
+      "gpu_policy": null,
+      "evidence_kind": "train_only_run",
+      "source_evidence_pointer": "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md",
+      "decision_document": "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md"
+    },
+    {
+      "record_kind": "historical_artifact",
+      "id": "det.energy.oracle_utility_boxhead.001",
+      "research_line": "energy_transport.oracle_utility_boxhead",
+      "capability": null,
+      "config_path": null,
+      "legacy_entrypoint": null,
+      "handler": null,
+      "runnable": "disabled",
+      "evaluation_scope": {
+        "kind": "cache_only",
+        "image_count": 250,
+        "limit_train": null,
+        "limit_val": null
+      },
+      "required_inputs": null,
+      "expected_outputs": null,
+      "gpu_policy": null,
+      "evidence_kind": "cache_only_analysis",
+      "source_evidence_pointer": "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md",
+      "decision_document": "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md"
     }
   ]
 }

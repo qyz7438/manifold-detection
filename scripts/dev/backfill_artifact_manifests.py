@@ -1,6 +1,6 @@
 """Deterministic generator for the backfilled reviewed artifact manifests (refactor Task 10).
 
-Emits the 15 required reviewed manifests under
+Emits the 17 required reviewed manifests under
 ``spectral_detection_posttrain/configs/registry/artifacts/`` — one per
 critical experiment artifact, grouped in six families:
 
@@ -18,6 +18,8 @@ critical experiment artifact, grouped in six families:
                      det.energy.dense_local_delta_learner.001,
                      det.energy.dense_local_delta_family_audit.001,
                      det.energy.dense_local_delta_family_prior.001
+* 2026-07-21 closure: det.energy.re_roi_counterfactual_evidence.001,
+                      det.energy.oracle_utility_boxhead.001
 
 Evidence rules (plan Task 10 Steps 3-4):
 
@@ -64,7 +66,7 @@ Determinism rules (enforced by ``tests/experiments/test_backfilled_artifacts.py`
 
 CLI:
 
-* ``python scripts/dev/backfill_artifact_manifests.py --write``  emit the 15 manifests;
+* ``python scripts/dev/backfill_artifact_manifests.py --write``  emit the 17 manifests;
 * ``python scripts/dev/backfill_artifact_manifests.py --check``  exit 1 on drift;
 * ``--out-dir <dir>`` writes/compares against another directory (used by tests).
 
@@ -103,6 +105,12 @@ from spectral_detection_posttrain.experiments.artifacts import (  # noqa: E402
 OBSERVED_AT_UTC = "2026-07-13T06:21:43Z"
 OBSERVED_HOST_ALIAS = "remote:manifold"
 OBSERVED_WORKSPACE_REVISION = "7e1f2404699df997883678274491e88d3ec253c0"
+
+# The two terminal 2026-07-21 records were reviewed in a later bounded
+# read-only remote observation. Per-spec overrides keep the original 15
+# backfilled manifests byte-identical.
+CLOSURE_OBSERVED_AT_UTC = "2026-07-20T16:36:35Z"
+CLOSURE_OBSERVED_WORKSPACE_REVISION = "ce49b5747800e0a7b76e1f5be8e2b46f6500dbea"
 
 REMOTE_RUNS = "remote:manifold/runs"
 STRONG_RUN = f"{REMOTE_RUNS}/nwpu_mob_strong_cosine_s42_bs8_36ep"
@@ -944,6 +952,202 @@ def _specs() -> dict[str, dict[str, Any]]:
             ],
         }
 
+    # -- family 7: terminal re-ROI / AWR closure --------------------------
+    closure_report = "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md"
+    remote_split = (
+        "split_manifest",
+        "remote:manifold/spectral_detection_posttrain/configs/splits/nwpu_re_roi_counterfactual_s42_nested.json",
+        "5c4222e033f7ed333835eab7f7786498b84bba11856c2d362ec8895845942244",
+        9286,
+    )
+    fit_cache = (
+        "action_cache",
+        f"{REMOTE_RUNS}/nwpu_re_roi_cache_fit_s42_strongbest_e58806b_v4/re_roi_cache_fit.pt",
+        "7fcb3774467aeae7b6592e20485ce93565946c1b96fc4cd7469ce63ddae288f7",
+        20724910,
+    )
+    tune_cache = (
+        "action_cache",
+        f"{REMOTE_RUNS}/nwpu_re_roi_cache_tune_s42_strongbest_e58806b_v1/re_roi_cache_tune.pt",
+        "6110a25c6f666c3d86e1ce4635ce8d66046c3483452d5541a273171234a07db7",
+        5599416,
+    )
+    calibration_cache = (
+        "action_cache",
+        f"{REMOTE_RUNS}/nwpu_re_roi_cache_calibration_s42_strongbest_e58806b_v1/re_roi_cache_calibration.pt",
+        "6421f83c2b6dd68e2862bfc8702586c7e042ebf01a7300d773c68f34bee13c8c",
+        5491662,
+    )
+    re_roi_run_id = "nwpu_re_roi_evidence_s42_strongbest_ce49b57_v1"
+    re_roi_run = f"{REMOTE_RUNS}/{re_roi_run_id}"
+    re_roi_runtime_manifest = (
+        "runtime_manifest",
+        f"{re_roi_run}/manifest.json",
+        "d011653bc9997b2d0f5a0d206229417cf1c76c6a8bc5baa0b3db46f85d154591",
+        4939,
+    )
+    specs["det.energy.re_roi_counterfactual_evidence.001"] = {
+        "run_id": re_roi_run_id,
+        "completion": "completed",
+        "scope": ("train_only", 386, None, None),
+        "git_commit": "ce49b5747800e0a7b76e1f5be8e2b46f6500dbea",
+        "git_dirty": False,
+        "environment": {
+            "host_alias": "remote:manifold",
+            "cuda_visible_devices": "2",
+        },
+        "resolved_config": (
+            "resolved_config",
+            re_roi_runtime_manifest[1],
+            re_roi_runtime_manifest[2],
+            re_roi_runtime_manifest[3],
+        ),
+        "inputs": [
+            ANNOTATION_REF,
+            STRONG_CHECKPOINT_REF,
+            remote_split,
+            fit_cache,
+            tune_cache,
+            calibration_cache,
+            _repo_ref(
+                "protocol_document",
+                "docs/re_roi_counterfactual_evidence_protocol.md",
+                "1d7ee89219a595c73fc9dbc93cfb6f9e2ce447060dd85cac75749dd3ff1282e7",
+            ),
+        ],
+        "outputs": [
+            re_roi_runtime_manifest,
+            (
+                "eval_metrics",
+                f"{re_roi_run}/eval_metrics.json",
+                "4ac0da6a065bc58486006326abbcf32fbe25ca4df0152d76ce075a9511affd85",
+                13436,
+            ),
+            (
+                "model_checkpoint",
+                f"{re_roi_run}/arm_B_final.pt",
+                "9d6985798bcbfcbb54fc7ad092679097c8a6abb881e0bdaa2a23f437b7d1df47",
+                640185,
+            ),
+            (
+                "model_checkpoint",
+                f"{re_roi_run}/arm_C_final.pt",
+                "68fc54c68e2a56982da49c8fd8789c2e58c7aa385ceaafa73c4e8c8ceed3ac2f",
+                902329,
+            ),
+            (
+                "model_checkpoint",
+                f"{re_roi_run}/arm_D_final.pt",
+                "f2880626ec7595a8c0aba7a71056a3f2d590d50f5f50ce22577e1d327722373e",
+                902329,
+            ),
+        ],
+        "runtime_manifest_sha256": re_roi_runtime_manifest[2],
+        "metrics_summary": {
+            "scientific_status": "train_only_re_roi_mechanism_frozen",
+            "all_gates_passed": False,
+            "outer_heldout_read": False,
+            "detector_validation_read": False,
+            "fit_images": 250,
+            "tune_images": 68,
+            "calibration_images": 68,
+            "tune_b_residual_pairwise_accuracy": 0.5782024132091781,
+            "tune_c_residual_pairwise_accuracy": 0.5382165670268348,
+            "tune_d_residual_pairwise_accuracy": 0.5258315711770595,
+            "c_vs_b_point_delta": -0.04144620522856712,
+            "c_vs_b_lcb": -0.08438427746295929,
+            "c_vs_d_point_delta": 0.009758192114531994,
+            "c_vs_d_lcb": -0.029235413298010826,
+            "tune_c_reconstructed_relative_mae_gain": 0.28023859693289943,
+            "calibration_positive_rate": 0.029411764705882353,
+            "calibration_coverage": 1.0,
+            "calibration_correction": 268.4031982421875,
+            "generalization_residual_mae_gain_gap": 0.2728413826718951,
+        },
+        "gates": {
+            "support": True,
+            "identity": True,
+            "re_roi_gain": False,
+            "bundle_integrity": False,
+            "static_baseline": True,
+            "calibration": False,
+            "generalization": False,
+            "all_passed": False,
+        },
+        "source_evidence_pointer": closure_report,
+        "missing_evidence": [],
+        "observed_at_utc": CLOSURE_OBSERVED_AT_UTC,
+        "observed_workspace_revision": CLOSURE_OBSERVED_WORKSPACE_REVISION,
+    }
+
+    awr_run_id = "nwpu_oracle_utility_boxhead_strongbest_e58806b_s42_Z"
+    awr_log = (
+        "launcher_log",
+        f"{REMOTE_RUNS}/{awr_run_id}_launcher.log",
+        "ab95634556eba177c1c6ec39c478171dba6b14daf8c7fbddb88a2236739159c5",
+        591,
+    )
+    specs["det.energy.oracle_utility_boxhead.001"] = {
+        "run_id": awr_run_id,
+        "completion": "completed",
+        "scope": ("cache_only", 250, None, None),
+        "git_commit": "e58806b7ca4c1a21f66d2505512cbf4d9cf601c3",
+        "git_dirty": False,
+        "environment": {
+            "host_alias": "remote:manifold",
+            "cuda_visible_devices": "2",
+        },
+        "resolved_config": _version_config_ref(
+            "det.energy.oracle_utility_boxhead.001",
+            "7764bfedc3d941aa27477c7cedde98118a9df864a1aa752e89c9c0a6b269259c",
+        ),
+        "inputs": [
+            ANNOTATION_REF,
+            STRONG_CHECKPOINT_REF,
+            remote_split,
+            fit_cache,
+            _repo_ref(
+                "protocol_document",
+                "docs/awr_weighted_boxhead_protocol.md",
+                "970590126411bb9bb2e26ea173dc911497ba95ae7aeff1ff4baa42ea41fb7038",
+            ),
+        ],
+        "outputs": [awr_log],
+        "runtime_manifest_sha256": awr_log[2],
+        "metrics_summary": {
+            "scientific_status": "support_gate_blocked_before_training",
+            "fit_images": 250,
+            "positive_images": 62,
+            "positive_image_rate": 0.248,
+            "positive_candidates": 93,
+            "minimum_positive_candidates": 500,
+            "effective_sample_size": 197.0039,
+            "weight_saturation": 0.0,
+            "normalized_mean_weight": 1.0,
+            "training_started": False,
+            "downstream_arms_started": False,
+            "outer_heldout_read": False,
+            "detector_validation_read": False,
+        },
+        "gates": {
+            "positive_image_support": True,
+            "positive_candidate_support": False,
+            "support": False,
+            "weight_health": True,
+            "training_not_started": True,
+            "all_passed": False,
+        },
+        "source_evidence_pointer": closure_report,
+        "missing_evidence": [
+            "no runtime manifest.json exists for this support preflight; runtime_manifest_sha256 binds the launcher log instead",
+            "the original CLI invocation and exact cache argument were not serialized in the launcher log",
+            "numeric preflight diagnostics survive in the reviewed handoff and closure report, not in the launcher log",
+            "no training, detector evaluation, or AP artifact exists because the support gate failed before training",
+        ],
+        "observed_at_utc": CLOSURE_OBSERVED_AT_UTC,
+        "observed_workspace_revision": CLOSURE_OBSERVED_WORKSPACE_REVISION,
+    }
+
     return specs
 
 
@@ -961,7 +1165,7 @@ def build_manifest(experiment_id: str, spec: dict[str, Any]) -> ArtifactManifest
         experiment_id=experiment_id,
         run_id=spec["run_id"],
         completion=spec["completion"],
-        invocation=(),
+        invocation=tuple(spec.get("invocation", ())),
         resolved_config=(
             spec["resolved_config"]
             if isinstance(spec["resolved_config"], ArtifactRef)
@@ -983,9 +1187,11 @@ def build_manifest(experiment_id: str, spec: dict[str, Any]) -> ArtifactManifest
         metrics_summary=dict(spec["metrics_summary"]),
         gates=dict(spec["gates"]),
         runtime_manifest_sha256=spec["runtime_manifest_sha256"],
-        observed_at_utc=OBSERVED_AT_UTC,
+        observed_at_utc=spec.get("observed_at_utc", OBSERVED_AT_UTC),
         observed_host_alias=OBSERVED_HOST_ALIAS,
-        observed_workspace_revision=OBSERVED_WORKSPACE_REVISION,
+        observed_workspace_revision=spec.get(
+            "observed_workspace_revision", OBSERVED_WORKSPACE_REVISION
+        ),
         source_evidence_pointer=spec["source_evidence_pointer"],
         missing_evidence=tuple(spec["missing_evidence"]),
         unavailable_reason=None,
@@ -994,7 +1200,7 @@ def build_manifest(experiment_id: str, spec: dict[str, Any]) -> ArtifactManifest
 
 
 def generate_manifests() -> dict[str, str]:
-    """Return ``{file_name: content}`` for the 15 reviewed manifests."""
+    """Return ``{file_name: content}`` for the 17 reviewed manifests."""
     specs = _specs()
     documents = {}
     for experiment_id in sorted(specs):
@@ -1039,7 +1245,7 @@ def check_drift(artifacts_dir: Path = DEFAULT_ARTIFACTS_DIR) -> tuple[bool, str]
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--write", action="store_true", help="emit the 15 reviewed manifests")
+    group.add_argument("--write", action="store_true", help="emit the 17 reviewed manifests")
     group.add_argument("--check", action="store_true", help="exit 1 when shipped manifests drift")
     parser.add_argument(
         "--out-dir",

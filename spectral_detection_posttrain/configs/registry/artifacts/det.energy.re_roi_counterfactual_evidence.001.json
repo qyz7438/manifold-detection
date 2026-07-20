@@ -1,0 +1,142 @@
+{
+  "completion": "completed",
+  "environment": {
+    "cuda_visible_devices": "2",
+    "host_alias": "remote:manifold"
+  },
+  "evaluation_scope": {
+    "image_count": 386,
+    "kind": "train_only",
+    "limit_train": null,
+    "limit_val": null
+  },
+  "experiment_id": "det.energy.re_roi_counterfactual_evidence.001",
+  "gates": {
+    "all_passed": false,
+    "bundle_integrity": false,
+    "calibration": false,
+    "generalization": false,
+    "identity": true,
+    "re_roi_gain": false,
+    "static_baseline": true,
+    "support": true
+  },
+  "git_commit": "ce49b5747800e0a7b76e1f5be8e2b46f6500dbea",
+  "git_dirty": false,
+  "inputs": [
+    {
+      "logical_path": "remote:manifold/data/NWPU_VHR10_coco.json",
+      "semantic_kind": "dataset_annotation",
+      "sha256": "dde27d9362d9c6aa358a1cab160c9e075e57405d3fe876de049973c6e6150f0e",
+      "size_bytes": 1265416
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_mob_strong_cosine_s42_bs8_36ep/checkpoint_best.pth",
+      "semantic_kind": "initial_checkpoint",
+      "sha256": "de126708d063a82dd5c721799cd124fc4e52d28866139e103b1cd65427742027",
+      "size_bytes": 76205690
+    },
+    {
+      "logical_path": "remote:manifold/spectral_detection_posttrain/configs/splits/nwpu_re_roi_counterfactual_s42_nested.json",
+      "semantic_kind": "split_manifest",
+      "sha256": "5c4222e033f7ed333835eab7f7786498b84bba11856c2d362ec8895845942244",
+      "size_bytes": 9286
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_re_roi_cache_fit_s42_strongbest_e58806b_v4/re_roi_cache_fit.pt",
+      "semantic_kind": "action_cache",
+      "sha256": "7fcb3774467aeae7b6592e20485ce93565946c1b96fc4cd7469ce63ddae288f7",
+      "size_bytes": 20724910
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_re_roi_cache_tune_s42_strongbest_e58806b_v1/re_roi_cache_tune.pt",
+      "semantic_kind": "action_cache",
+      "sha256": "6110a25c6f666c3d86e1ce4635ce8d66046c3483452d5541a273171234a07db7",
+      "size_bytes": 5599416
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_re_roi_cache_calibration_s42_strongbest_e58806b_v1/re_roi_cache_calibration.pt",
+      "semantic_kind": "action_cache",
+      "sha256": "6421f83c2b6dd68e2862bfc8702586c7e042ebf01a7300d773c68f34bee13c8c",
+      "size_bytes": 5491662
+    },
+    {
+      "logical_path": "docs/re_roi_counterfactual_evidence_protocol.md",
+      "semantic_kind": "protocol_document",
+      "sha256": "1d7ee89219a595c73fc9dbc93cfb6f9e2ce447060dd85cac75749dd3ff1282e7",
+      "size_bytes": 11105
+    }
+  ],
+  "invocation": [],
+  "manifest_id": "det.energy.re_roi_counterfactual_evidence.001:nwpu_re_roi_evidence_s42_strongbest_ce49b57_v1",
+  "manifest_kind": "reviewed",
+  "metrics_summary": {
+    "all_gates_passed": false,
+    "c_vs_b_lcb": -0.08438427746295929,
+    "c_vs_b_point_delta": -0.04144620522856712,
+    "c_vs_d_lcb": -0.029235413298010826,
+    "c_vs_d_point_delta": 0.009758192114531994,
+    "calibration_correction": 268.4031982421875,
+    "calibration_coverage": 1.0,
+    "calibration_images": 68,
+    "calibration_positive_rate": 0.029411764705882353,
+    "detector_validation_read": false,
+    "fit_images": 250,
+    "generalization_residual_mae_gain_gap": 0.2728413826718951,
+    "outer_heldout_read": false,
+    "scientific_status": "train_only_re_roi_mechanism_frozen",
+    "tune_b_residual_pairwise_accuracy": 0.5782024132091781,
+    "tune_c_reconstructed_relative_mae_gain": 0.28023859693289943,
+    "tune_c_residual_pairwise_accuracy": 0.5382165670268348,
+    "tune_d_residual_pairwise_accuracy": 0.5258315711770595,
+    "tune_images": 68
+  },
+  "missing_evidence": [],
+  "observed_at_utc": "2026-07-20T16:36:35Z",
+  "observed_host_alias": "remote:manifold",
+  "observed_workspace_revision": "ce49b5747800e0a7b76e1f5be8e2b46f6500dbea",
+  "outputs": [
+    {
+      "logical_path": "remote:manifold/runs/nwpu_re_roi_evidence_s42_strongbest_ce49b57_v1/manifest.json",
+      "semantic_kind": "runtime_manifest",
+      "sha256": "d011653bc9997b2d0f5a0d206229417cf1c76c6a8bc5baa0b3db46f85d154591",
+      "size_bytes": 4939
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_re_roi_evidence_s42_strongbest_ce49b57_v1/eval_metrics.json",
+      "semantic_kind": "eval_metrics",
+      "sha256": "4ac0da6a065bc58486006326abbcf32fbe25ca4df0152d76ce075a9511affd85",
+      "size_bytes": 13436
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_re_roi_evidence_s42_strongbest_ce49b57_v1/arm_B_final.pt",
+      "semantic_kind": "model_checkpoint",
+      "sha256": "9d6985798bcbfcbb54fc7ad092679097c8a6abb881e0bdaa2a23f437b7d1df47",
+      "size_bytes": 640185
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_re_roi_evidence_s42_strongbest_ce49b57_v1/arm_C_final.pt",
+      "semantic_kind": "model_checkpoint",
+      "sha256": "68fc54c68e2a56982da49c8fd8789c2e58c7aa385ceaafa73c4e8c8ceed3ac2f",
+      "size_bytes": 902329
+    },
+    {
+      "logical_path": "remote:manifold/runs/nwpu_re_roi_evidence_s42_strongbest_ce49b57_v1/arm_D_final.pt",
+      "semantic_kind": "model_checkpoint",
+      "sha256": "f2880626ec7595a8c0aba7a71056a3f2d590d50f5f50ce22577e1d327722373e",
+      "size_bytes": 902329
+    }
+  ],
+  "resolved_config": {
+    "logical_path": "remote:manifold/runs/nwpu_re_roi_evidence_s42_strongbest_ce49b57_v1/manifest.json",
+    "semantic_kind": "resolved_config",
+    "sha256": "d011653bc9997b2d0f5a0d206229417cf1c76c6a8bc5baa0b3db46f85d154591",
+    "size_bytes": 4939
+  },
+  "run_id": "nwpu_re_roi_evidence_s42_strongbest_ce49b57_v1",
+  "runtime_manifest_sha256": "d011653bc9997b2d0f5a0d206229417cf1c76c6a8bc5baa0b3db46f85d154591",
+  "schema_version": "artifact-manifest.v1",
+  "source_evidence_pointer": "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md",
+  "supersedes": null,
+  "unavailable_reason": null
+}

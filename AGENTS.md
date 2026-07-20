@@ -264,3 +264,21 @@ python -m pytest -q
 ## Note On Test Suite
 
 The full `pytest tests/` suite passes in the maintained local environment. `scikit-learn` is an optional legacy dependency required only by historical raw-iFFT verifier and dimensionality modules; see `docs/research/environment.md` and the environment snapshots under `spectral_detection_posttrain/configs/registry/environments/`. Do not install new packages on the remote server without explicit user approval.
+
+## Persistent Project Profiles
+
+Use the smallest maintained profile group recorded in
+`docs/agent_profiles/manifold-profile-registry.md`:
+
+- `manifold-research-main` owns scientific decisions, leakage boundaries,
+  integration, and final claims.
+- `manifold-experiment-ops` owns bounded tests, Git/remote synchronization,
+  GPU2 admission, process checks, and raw artifact verification.
+- `manifold-protocol-review` owns milestone-only read-only implementation and
+  protocol traceability review, including the one-shot Kimi/Terra fallback
+  rule.
+
+Reuse the owning project task or persistent support task. Do not create a new
+Sol task for routine continuation or status checks. The cache target is at
+least 98% over the latest auditable rolling window; if no rollout audit is
+available, record the baseline as unknown and pass only the material delta.

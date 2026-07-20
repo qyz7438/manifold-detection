@@ -289,7 +289,7 @@ def test_current_status_covers_every_line(generated: dict[str, str]) -> None:
 
 def test_experiment_index_covers_all_records(generated: dict[str, str]) -> None:
     records = load_experiment_records()
-    assert len(records) == 21, f"expected 21 experiment records, got {len(records)}"
+    assert len(records) == 23, f"expected 23 experiment records, got {len(records)}"
     doc = generated["experiment_index.md"]
     for record in records:
         assert record["id"] in doc, (
@@ -301,7 +301,7 @@ def test_experiment_index_grouped_by_record_kind(generated: dict[str, str]) -> N
     records = load_experiment_records()
     executable = [r for r in records if r["record_kind"] == "executable_definition"]
     historical = [r for r in records if r["record_kind"] == "historical_artifact"]
-    assert len(executable) == 13 and len(historical) == 8
+    assert len(executable) == 13 and len(historical) == 10
     doc = generated["experiment_index.md"]
     executable_header = re.search(
         rf"^## .*[Ee]xecutable.*\({len(executable)}\)", doc, re.MULTILINE

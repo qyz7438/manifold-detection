@@ -52,6 +52,30 @@
       "status": "blocked"
     },
     {
+      "claim_ceiling": "NWPU train-only fit/tune/calibration negative evidence only: post-action re-ROI features passed identity, support, and static-baseline gates but failed matched static-ROI gain, bundle integrity, calibration, and generalization, so this mechanism supports no action, detector-unseen, validation, or AP claim.",
+      "decision_document": "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md",
+      "evidence": [
+        "docs/re_roi_counterfactual_evidence_protocol.md",
+        "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md"
+      ],
+      "hypothesis": "Post-action re-ROI evidence supplies transferable residual information about local detector action utility beyond matched static ROI features and a within-image bundle-shuffle control.",
+      "id": "energy_transport.re_roi_counterfactual_evidence",
+      "notes": "Frozen at det.energy.re_roi_counterfactual_evidence.001. Outer heldout and detector validation were not read; no tuning, seed/action/capacity expansion, gate change, or outcome unsealing is authorized for this version.",
+      "status": "frozen"
+    },
+    {
+      "claim_ceiling": "Train-only support-preflight evidence only: 62/250 positive images passed the image floor, but 93 positive candidates missed the locked minimum of 500, so U/W/F/S never ran and no weighting-transfer or AP claim exists.",
+      "decision_document": "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md",
+      "evidence": [
+        "docs/awr_weighted_boxhead_protocol.md",
+        "docs/reports/nwpu_re_roi_and_awr_closure_2026-07-21.md"
+      ],
+      "hypothesis": "A train-only no-op-relative oracle utility has enough positive candidate support to test image-level weighted supervised box-head fine-tuning against uniform and assignment-shuffle controls.",
+      "id": "energy_transport.oracle_utility_boxhead",
+      "notes": "Blocked by the preregistered support gate before training. The version config remains preregistered_not_run; the 500-candidate floor, utility source, lambda, weight cap, trainable surface, or arm set may not be relaxed post hoc.",
+      "status": "blocked"
+    },
+    {
       "claim_ceiling": "Retained only as diagnostic components: prototype-local signals add no per-candidate information beyond the detector score and PAH hurt AP/ECE, so no endpoint or detector-gain claim is supported.",
       "decision_document": "docs/reports/manifold_research_line_retirement_report_2026-07-10.md",
       "evidence": [
