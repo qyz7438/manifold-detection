@@ -70,15 +70,17 @@ Branch:
 codex/repository-research-state-refactor
 ```
 
-Verified HEAD:
+Verified implementation baseline:
 
 ```text
 ce49b5747800e0a7b76e1f5be8e2b46f6500dbea
 ```
 
-GitHub branch `origin/codex/repository-research-state-refactor` was also
-verified at `ce49b57` on 2026-07-19. The local worktree was clean on
-2026-07-21.
+GitHub branch `origin/codex/repository-research-state-refactor` was verified at
+that implementation commit on 2026-07-19. The published branch tip is later
+because it also contains this docs-only handoff commit. In a new window, use
+the latest branch tip and verify that `ce49b57` is its ancestor. The local
+worktree was clean before publishing this handoff.
 
 ### Remote experiment workspace
 
@@ -619,7 +621,7 @@ The migrated session is initialized correctly only when it can state all of
 the following without guessing:
 
 - project identity and unknown-endpoint energy-transport thesis;
-- current local and remote workspaces and `ce49b57` starting commit;
+- current local and remote workspaces and the `ce49b57` implementation baseline;
 - strong baseline and native parity status;
 - why AWR stopped before training;
 - why formal re-ROI evidence failed despite static-baseline success;
