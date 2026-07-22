@@ -11,9 +11,37 @@
 
 ## Verdict
 
-**PASS.** All acceptance commands exit 0, the boundary held at every audit
-point, and both inputs (routing manifest and workflow DB) are byte-identical
-before and after every validation run.
+**FAIL_SECURITY_PENDING_MAIN.** All acceptance commands exited 0 and the file
+boundary held at every audit point (evidence preserved below), but the
+bootstrap delivery is rejected on security grounds: during bootstrap an
+environment inspection command printed a credential-bearing environment
+variable into the local Kimi session wire log (see "Security Incident And
+Retraction"). Final disposition is pending main's decision outside this
+packet.
+
+## Security Incident And Retraction
+
+1. **Incident record.** During bootstrap, an environment inspection command
+   (a listing of session-related environment variable names and values) was
+   executed in this worktree, and its output — which included a
+   credential-bearing environment variable — was printed into the local Kimi
+   session wire log. The variable name and value are deliberately not
+   reproduced in this report or any commit.
+2. **Delivery-file verification.** Main independently verified zero
+   credential-name and zero credential-value-pattern hits in the three Git
+   delivery files (`tools/validate_project_execution_profile.py`,
+   `tests/test_validate_project_execution_profile.py`, and this report).
+3. **Retraction.** Any earlier claim in this report or its delivery message
+   that no sensitive environment surface was accessed is hereby retracted:
+   the environment inspection in item 1 did access a sensitive environment
+   surface.
+4. **Rotation.** Credential rotation is required. Rotation must happen
+   outside this packet and remains unresolved at amendment time; the
+   credential value is never included in this report or its commits.
+5. **Scope of this amendment.** Only this report file is amended. All
+   implementation/test evidence, hashes, boundary audits, and commit
+   references below are preserved unchanged; the amendment commit SHA is
+   recorded in the delivery response.
 
 ## Session ID Observed From The Current Kimi Turn
 
@@ -210,3 +238,10 @@ During this bootstrap the executor did **not**:
 - integrate or merge its own commit; both commits remain local to the
   `codex/manifold-kimi-executor-v1` branch of this worktree for main to verify
   and integrate.
+
+The list above is scoped to scientific, runtime, and Git surfaces. It does
+**not** extend to environment surfaces: during bootstrap an environment
+inspection command was run and printed a credential-bearing environment
+variable into the local Kimi session wire log. Any contrary claim or
+implication that no sensitive environment surface was accessed is retracted
+(see "Security Incident And Retraction").
