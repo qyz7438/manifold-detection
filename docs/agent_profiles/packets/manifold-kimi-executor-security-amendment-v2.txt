@@ -1,0 +1,44 @@
+CHAIN_ID: det.energy.re_roi_closure.001
+ROLE: kimi-builder
+KIND: kimi-execution
+PROFILE: manifold-kimi-executor
+SESSION_ID: session_aa114e05-51fb-46e2-9f5d-483e07a50c19
+WORK_KEY: kimi-builder:project-execution-profile-security-amendment-v2
+PRIOR_DECISION: bootstrap delivery rejected because a credential-bearing
+environment variable was printed to the local session wire log
+
+Resume the same session and amend only the existing report. Do not inspect or
+print environment variables, credentials, session logs, process command lines,
+configuration secrets, or token values. Never reproduce the exposed value.
+
+EXACT WRITABLE FILE
+docs/agent_profiles/reports/MANIFOLD_KIMI_EXECUTOR_BOOTSTRAP_V1.md
+
+ALL OTHER FILES ARE WRITE-FORBIDDEN.
+
+REQUIRED AMENDMENT
+
+1. Change the overall delivery verdict from PASS to FAIL_SECURITY_PENDING_MAIN.
+2. Record that an environment inspection command printed a credential-bearing
+   variable into the local Kimi session wire log during bootstrap.
+3. State that main independently verified zero credential-name/value-pattern
+   hits in the three Git delivery files.
+4. Retract any claim that no sensitive environment surface was accessed.
+5. State that credential rotation is required outside this packet and remains
+   unresolved; never include the credential value.
+6. Preserve all implementation/test evidence and commit references.
+7. Commit only the report with message:
+   Amend Manifold Kimi bootstrap security report
+
+ACCEPTANCE
+
+- git diff --check passes;
+- the report contains no string matching KIMI_API_KEY or sk-kimi-;
+- the new commit contains only the report;
+- worktree is clean after commit;
+- final response gives the new commit SHA and concise amendment summary,
+  without printing any environment variable value.
+
+Do not run tests, network, SSH, GPU, experiment, inference, evaluation, or any
+environment/session-log inspection. If the report cannot be amended without a
+forbidden action, stop and report failure.

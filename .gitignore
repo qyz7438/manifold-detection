@@ -68,6 +68,9 @@ Thumbs.db
 
 .worktrees/
 
+# Per-project orchestration runtime (identity is tracked in profile-routing-v1.json)
+docs/agent_profiles/orchestrator/
+
 # Backups and temporary push directories
 *.bak
 temp_push/

@@ -30,8 +30,8 @@
       "thinking": "max",
       "context_window": 1048576,
       "timeout_seconds": 1800,
-      "session_id": null,
-      "session_state": "uninitialized",
+      "session_id": "session_aa114e05-51fb-46e2-9f5d-483e07a50c19",
+      "session_state": "persistent",
       "worktree": "E:/CLIproject/.worktrees/manifold-kimi-executor",
       "write": true
     },
