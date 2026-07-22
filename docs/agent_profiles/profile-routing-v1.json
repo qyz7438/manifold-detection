@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "selector": {
+    "absolute_git_root": "E:/CLIproject/.worktrees/manifold-research-state-refactor",
+    "chain_id": "det.energy.re_roi_closure.001",
+    "selection_key": [
+      "absolute_git_root",
+      "chain_id"
+    ],
+    "window_name_is_selector": false
+  },
+  "workflow_db": "E:/CLIproject/.worktrees/manifold-research-state-refactor/docs/agent_profiles/orchestrator/workflow.sqlite3",
+  "token_ledger_root": "E:/CLIproject/.worktrees/manifold-research-state-refactor/docs/agent_profiles/orchestrator/token-ledger",
+  "main": {
+    "profile": "manifold-research-main",
+    "thread_id": "019f8058-ed45-71d3-9a0c-ecbbade2374a"
+  },
+  "lanes": {
+    "protocol_review": {
+      "profile": "manifold-protocol-review",
+      "write": false
+    },
+    "kimi_execution": {
+      "profile": "manifold-kimi-executor",
+      "role": "kimi-builder",
+      "kind": "kimi-execution",
+      "provider": "kimi",
+      "route_provider": "managed:kimi-code",
+      "model": "kimi-code/k3",
+      "thinking": "max",
+      "context_window": 1048576,
+      "timeout_seconds": 1800,
+      "session_id": null,
+      "session_state": "uninitialized",
+      "worktree": "E:/CLIproject/.worktrees/manifold-kimi-executor",
+      "write": true
+    },
+    "qwen_execution": {
+      "profile": "manifold-qwen-executor",
+      "role": "qwen-builder",
+      "kind": "qwen-execution",
+      "provider": "aliyun-maas-via-local-proxy",
+      "model": "qwen3.8-max-preview",
+      "session_id": "a8a962e4-0a35-426a-9eef-0bff9e9b00d2",
+      "session_state": "queued",
+      "worktree": "E:/CLIproject/.worktrees/manifold-qwen-executor",
+      "dispatch_window": "Asia/Shanghai 22:00-06:00",
+      "write": true
+    }
+  },
+  "lifecycle": {
+    "idle_consumes_tokens": false,
+    "dispatch_requires_workflow_start_or_resume": true,
+    "status_log_and_short_followup_resume_existing_profile": true,
+    "new_agent_for_status_forbidden": true,
+    "cross_project_session_reuse_forbidden": true,
+    "owned_files_fail_closed": true
+  }
+}

@@ -1,0 +1,86 @@
+CHAIN_ID: det.energy.re_roi_closure.001
+ROLE: qwen-builder
+KIND: qwen-execution
+PROFILE: manifold-qwen-executor
+SESSION_ID: a8a962e4-0a35-426a-9eef-0bff9e9b00d2
+WORK_KEY: qwen-builder:executor-delta-packet-validator-v1
+PRIOR_DECISION: MANIFOLD_EXECUTOR_DESIGN_V1
+TASK_KIND: material agent-tooling implementation bootstrap
+
+You are the complete bounded-task owner for this unit. Implement it, execute
+the full acceptance suite, self-review, audit the exact file boundary, commit,
+and write and commit the complete report. Suggestion-only or patch-only output
+is failure.
+
+PROJECT IDENTITY
+Canonical Git root:
+E:/CLIproject/.worktrees/manifold-research-state-refactor
+Chain ID:
+det.energy.re_roi_closure.001
+Workflow DB:
+E:/CLIproject/.worktrees/manifold-research-state-refactor/docs/agent_profiles/orchestrator/workflow.sqlite3
+Token ledger root:
+E:/CLIproject/.worktrees/manifold-research-state-refactor/docs/agent_profiles/orchestrator/token-ledger
+Owned worktree and write root:
+E:/CLIproject/.worktrees/manifold-qwen-executor
+
+EXACT WRITABLE FILES
+1. tools/validate_executor_delta_packet.py
+2. tests/test_validate_executor_delta_packet.py
+3. docs/agent_profiles/reports/MANIFOLD_QWEN_EXECUTOR_BOOTSTRAP_V1.md
+
+ALL OTHER PATHS ARE WRITE-FORBIDDEN. Do not modify Kimi files, AGENTS,
+Profile TOMLs, registries, DB/ledger, automation, research code/docs/status,
+datasets, checkpoints, artifacts, or another worktree. Do not use network,
+remote, GPU, training, inference, evaluation, heldout, detector validation, or
+sealed outcomes.
+
+REQUIREMENT
+Build a Python 3.10+ standard-library-only CLI that validates a frozen external
+executor delta packet without mutating it. Accept --packet and --repo-root.
+Require exactly one non-blank value for CHAIN_ID, ROLE, KIND, PROFILE,
+WORK_KEY, PRIOR_DECISION, MATERIAL_DELTA, QUESTION, and ACCEPTANCE. Require
+non-empty PROJECT_IDENTITY, EXACT_PATHS, OWNED_FILES, FORBIDDEN_FILES,
+ACCEPTANCE_COMMANDS, FAILURE_RULES, COMMIT_CONTRACT, and REPORT_SCHEMA
+sections. Paths must be canonical repository-relative paths, must not escape
+repo-root, and owned/forbidden sets must be disjoint. Project identity must
+contain canonical absolute Git root, chain ID, workflow DB, token ledger,
+persistent session, and isolated write root. Acceptance commands must contain
+a test command. Report schema must require verdict, commands with exit codes,
+changed files, SHA256 hashes, boundary audit, commit SHA, and unresolved risks.
+Emit deterministic JSON with ok, normalized fields, counts, input SHA, and
+ordered errors. Exit 0 only for valid input, 1 for contract failure, and 2 for
+usage/input failure. Open the packet read-only and prove its bytes unchanged.
+
+TEST OBLIGATIONS
+Use pytest and temporary packet/repository fixtures. Cover valid input; missing
+or duplicate scalar fields; missing section; wrong absolute project identity;
+absolute, parent-escaping, and non-canonical repository paths; owned/forbidden
+overlap; absent test command; incomplete commit/report schemas; malformed or
+unreadable input; deterministic JSON/exit codes; exact packet SHA preservation.
+
+FULL ACCEPTANCE COMMANDS
+E:/anaconda/01/envs/RLimage/python.exe -m pytest tests/test_validate_executor_delta_packet.py -q
+E:/anaconda/01/envs/RLimage/python.exe -m compileall tools/validate_executor_delta_packet.py tests/test_validate_executor_delta_packet.py
+git diff --check
+git status --short
+
+BOUNDARY ACCEPTANCE
+Commit implementation and tests first with message:
+Add executor delta packet validator
+
+Commit the full report second with message:
+Report Manifold Qwen executor bootstrap
+
+The worktree must be clean afterward, and both commits may contain only the
+three writable files.
+
+REPORT CONTRACT
+Write docs/agent_profiles/reports/MANIFOLD_QWEN_EXECUTOR_BOOTSTRAP_V1.md with
+verdict, requirement-to-code and requirement-to-test matrices, exact commands
+and exit codes, concise outputs, changed-file SHA256 values, packet read-only
+proof, pre/post-commit boundary audits, both commit SHAs, unresolved risks, and
+explicit non-access statements for every forbidden scientific/runtime surface.
+
+If acceptance fails, do not claim PASS. Repair only in-boundary, rerun the
+entire suite, and stop with FAIL if a forbidden path is required.

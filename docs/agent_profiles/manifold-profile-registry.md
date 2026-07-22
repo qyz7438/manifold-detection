@@ -1,6 +1,6 @@
 # Manifold Persistent Profile Registry
 
-Version: 2026-07-21
+Version: 2026-07-22
 
 ## Project Boundary
 
@@ -16,9 +16,11 @@ and architecture baselines.
 
 | Profile | Model / effort | Stable responsibility | Owned handoff artifacts | Session reference |
 |---|---|---|---|---|
-| `manifold-research-main` | GPT-5.6 Sol / XHigh | Scientific decisions, causal protocols, leakage, integration, and final evidence-bound conclusions | Research status/decision documents, final reports, Vault state/evidence deltas | Current Codex desktop task; host task ID is not exposed |
+| `manifold-research-main` | GPT-5.6 Sol / XHigh | Scientific decisions, causal protocols, leakage, integration, and final evidence-bound conclusions | Research status/decision documents, final reports, Vault state/evidence deltas | `019f8058-ed45-71d3-9a0c-ecbbade2374a` |
 | `manifold-experiment-ops` | GPT-5.6 Terra / High | Bounded implementation support, tests, Git/remote sync, GPU2 admission, process checks, and raw artifact verification | Verified command/test/sync deltas and immutable artifact hashes | Create or resume one persistent ops task on the first independent operational handoff |
 | `manifold-protocol-review` | GPT-5.6 Terra / High plus Kimi Code | Milestone-scoped implementation/protocol traceability review and the prescribed one-shot Terra fallback | Read-only findings with exact files and one acceptance question | Prior Kimi implementation review timed out and received its permitted Terra fallback; open no replacement without a new material milestone |
+| `manifold-kimi-executor` | Kimi Code `kimi-code/k3`, Thinking Max, context 1,048,576, 1800s | Complete bounded implementation, self-acceptance, commit, and full report in an isolated worktree | Exact packet-owned source/test/report files | First execution session is created by the bootstrap call and then reused; review-session reuse is forbidden |
+| `manifold-qwen-executor` | `aliyun-maas-via-local-proxy` / `qwen3.8-max-preview` | Complete bounded night-window implementation with the same self-acceptance and reporting contract | Exact packet-owned source/test/report files | `a8a962e4-0a35-426a-9eef-0bff9e9b00d2`; new turns only 22:00-06:00 |
 
 Exactly one profile owns scientific conclusions. Support profiles do not edit
 overlapping source surfaces or select claims.
@@ -32,11 +34,32 @@ overlapping source surfaces or select claims.
 - Material implementation/protocol milestones only:
   `manifold-protocol-review`, with one Kimi attempt and one same-scope Terra
   fallback after an explicit availability/quota failure.
+- Packet-scoped writable implementation with a stable reusable context:
+  `manifold-kimi-executor` during the day and, for explicitly queued work,
+  `manifold-qwen-executor` in the guarded night window. Both deliver commits,
+  tests, boundary audits, and complete reports; main verifies and integrates.
 - DeepSeek v4 Pro is a bounded advisory scientific-evidence reviewer only when
   explicitly required by a frozen protocol or when a distinct unresolved
   evidence question remains. Codex decides which points to accept.
 - Ordinary continuation and status checks reuse the current owner; they do not
   create temporary Sol tasks.
+
+## Machine Identity
+
+- Selector: canonical absolute Git root plus chain ID.
+- Git root: `E:/CLIproject/.worktrees/manifold-research-state-refactor`.
+- Chain ID: `det.energy.re_roi_closure.001`.
+- Workflow DB:
+  `E:/CLIproject/.worktrees/manifold-research-state-refactor/docs/agent_profiles/orchestrator/workflow.sqlite3`.
+- Token ledger root:
+  `E:/CLIproject/.worktrees/manifold-research-state-refactor/docs/agent_profiles/orchestrator/token-ledger`.
+- Kimi worktree: `E:/CLIproject/.worktrees/manifold-kimi-executor`.
+- Qwen worktree: `E:/CLIproject/.worktrees/manifold-qwen-executor`.
+
+The manifest `docs/agent_profiles/profile-routing-v1.json` is the compact
+machine-readable binding. A foreign root, chain, DB, ledger, session, or
+worktree rejects dispatch. An idle lane has no model process and no token use.
+Status/log/short follow-up requests resume the recorded Profile/session.
 
 ## Cache Baseline
 
@@ -53,6 +76,8 @@ exact paths, one question, and an acceptance check.
 | Main | Handoff, reviewed artifacts, registry/test results | Integrated status, claim boundary, and user decision | Sealed cohorts and frozen mechanisms | Reviewed report, generated-doc agreement, full tests |
 | Ops | Exact commit/command/path and GPU policy | Raw hashes, test/sync status, remote fingerprint | Scientific interpretation and unrelated processes | GPU2 free memory greater than 8192 MiB before any authorized GPU invocation |
 | Review | Exact report/manifest/metrics delta | Concise findings and missing-evidence risks | Source files and final claims | One completed review or one recorded failure plus allowed fallback |
+| Kimi execution | Frozen implementation packet | Implementation commit, tests, boundary audit, full report | Review context, research code, DB/ledger, integration | Main independently reruns every acceptance command |
+| Qwen execution | Frozen night-window packet | Same complete delivery as Kimi | Out-of-window start, research code, DB/ledger, integration | Workflow and wrapper schedule gates plus main acceptance |
 
 ## Current Chain
 

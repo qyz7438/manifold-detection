@@ -1,0 +1,98 @@
+CHAIN_ID: det.energy.re_roi_closure.001
+ROLE: kimi-builder
+KIND: kimi-execution
+PROFILE: manifold-kimi-executor
+WORK_KEY: kimi-builder:project-execution-profile-validator-v1
+PRIOR_DECISION: MANIFOLD_EXECUTOR_DESIGN_V1
+TASK_KIND: material agent-tooling implementation bootstrap
+
+You are the complete bounded-task owner for this unit. Implement it, execute
+the complete acceptance suite, self-review the result, audit the exact file
+boundary, commit the implementation, and write and commit the full report. Do
+not return only a proposal, patch, or test plan.
+
+PROJECT IDENTITY
+Canonical Git root:
+E:/CLIproject/.worktrees/manifold-research-state-refactor
+Chain ID:
+det.energy.re_roi_closure.001
+Workflow DB:
+E:/CLIproject/.worktrees/manifold-research-state-refactor/docs/agent_profiles/orchestrator/workflow.sqlite3
+Token ledger root:
+E:/CLIproject/.worktrees/manifold-research-state-refactor/docs/agent_profiles/orchestrator/token-ledger
+Owned worktree and write root:
+E:/CLIproject/.worktrees/manifold-kimi-executor
+
+READ-ONLY INPUT FILES
+1. AGENTS.md
+2. docs/agent_profiles/MANIFOLD_EXECUTOR_DESIGN_V1.md
+3. docs/agent_profiles/EXECUTOR_DELIVERY_CONTRACT_V1.md
+4. docs/agent_profiles/profile-routing-v1.json
+
+EXACT WRITABLE FILES
+1. tools/validate_project_execution_profile.py
+2. tests/test_validate_project_execution_profile.py
+3. docs/agent_profiles/reports/MANIFOLD_KIMI_EXECUTOR_BOOTSTRAP_V1.md
+
+ALL OTHER PATHS ARE WRITE-FORBIDDEN. In particular, do not change AGENTS,
+Profile TOMLs, registries, workflow DB, token ledger, automation, research
+docs/status, experiment scripts, method code, datasets, caches, checkpoints,
+run artifacts, another worktree, or a remote host. Do not run an experiment,
+training, inference, evaluation, GPU command, SSH command, or network request.
+Do not read outer heldout, detector validation, sealed outcomes, real datasets,
+checkpoints, or run outputs.
+
+REQUIREMENT
+Build a Python 3.10+ standard-library-only CLI that validates a project
+execution Profile binding without mutating its inputs. Accept --manifest,
+--workflow-db, --expected-root, --chain-id, and --role. Parse the JSON manifest
+and open SQLite in read-only mode. Require the selector to be exactly the
+canonical absolute Git root plus chain_id and reject window-name routing.
+Require manifest and DB agreement for workflow DB, role, kind, Profile,
+session, and isolated worktree. Require kind to be kimi-execution or
+qwen-execution for writable lanes. Require a non-empty persistent session,
+write=true, owned-files fail-closed, dispatch-through-workflow, idle zero-token
+lifecycle, and resume-only status/log/short-followup behavior. Require Kimi and
+Qwen execution sessions and worktrees to be distinct. Reject a root, DB,
+ledger, worktree, chain, role, kind, Profile, or session mismatch. Prove the
+manifest and DB SHA256 values are unchanged. Emit deterministic JSON containing
+ok, normalized identity, lane summary, input hashes, and ordered errors. Exit
+0 for a valid binding, 1 for a contract failure, and 2 for usage/input failure.
+
+TEST OBLIGATIONS
+Use pytest and temporary JSON/SQLite fixtures. Cover at least: valid Kimi and
+Qwen lanes; wrong root; wrong chain; window-name selector; workflow path or
+ledger outside the project binding; absent lane; kind/Profile/session mismatch;
+empty session; shared Kimi/Qwen session; shared worktree; missing lifecycle
+flags; writable review lane; malformed/unreadable JSON or DB; deterministic
+output and exit codes; exact manifest and DB SHA preservation. Do not import
+project research modules.
+
+FULL ACCEPTANCE COMMANDS
+E:/anaconda/01/envs/RLimage/python.exe -m pytest tests/test_validate_project_execution_profile.py -q
+E:/anaconda/01/envs/RLimage/python.exe -m compileall tools/validate_project_execution_profile.py tests/test_validate_project_execution_profile.py
+git diff --check
+git status --short
+
+BOUNDARY ACCEPTANCE
+Before the implementation commit, git status --short may list only the three
+exact writable files. Commit implementation and tests first with message:
+Add project execution profile validator
+
+Then write the report and commit it with message:
+Report Manifold Kimi executor bootstrap
+
+After the report commit, the worktree must be clean. Neither commit may contain
+any other path.
+
+REPORT CONTRACT
+The report must include verdict, session ID observed from the current Kimi
+turn when available, requirement-to-code and requirement-to-test matrices,
+every command and exit code with concise output, changed-file SHA256 values,
+manifest/DB read-only proof, pre/post-commit boundary audits, both commit SHAs,
+unresolved risks using unknown rather than inference, and explicit statements
+that every forbidden scientific/runtime surface was not accessed.
+
+If an acceptance item fails, do not claim PASS. Repair only within the exact
+writable files and rerun the full suite. If repair requires a forbidden file,
+stop and report FAIL.

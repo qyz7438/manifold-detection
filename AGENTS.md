@@ -277,8 +277,27 @@ Use the smallest maintained profile group recorded in
 - `manifold-protocol-review` owns milestone-only read-only implementation and
   protocol traceability review, including the one-shot Kimi/Terra fallback
   rule.
+- `manifold-kimi-executor` owns one complete packet-scoped implementation at a
+  time in its isolated worktree. It must implement, self-test, self-review,
+  commit, and write the full report; it never reuses the review session.
+- `manifold-qwen-executor` has the same complete delivery contract through
+  `qwen3.8-max-preview`, with new turns allowed only during Asia/Shanghai
+  `22:00-06:00` and only in its isolated worktree.
 
 Reuse the owning project task or persistent support task. Do not create a new
 Sol task for routine continuation or status checks. The cache target is at
 least 98% over the latest auditable rolling window; if no rollout audit is
 available, record the baseline as unknown and pass only the material delta.
+
+Select every Manifold Profile by the pair
+`E:/CLIproject/.worktrees/manifold-research-state-refactor` and
+`det.energy.re_roi_closure.001`; the window title or current directory name is
+not a selector. The project owns its own workflow DB, token ledger, session
+IDs, worktrees, and file ownership. Any mismatch fails closed. Idle Profiles
+do not start a model or consume tokens. Status, log, and short follow-up work
+resumes the recorded Profile/session and never creates a replacement Agent.
+
+The executor delivery contract is
+`docs/agent_profiles/EXECUTOR_DELIVERY_CONTRACT_V1.md`. No executor may launch
+an experiment, read outer heldout or detector validation, revive a frozen
+route, modify another Profile's files, or integrate its own commit.
